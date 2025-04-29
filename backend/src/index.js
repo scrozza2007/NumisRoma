@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const coinRoutes = require('./routes/coins');
+const collectionRoutes = require('./routes/collections');
 
 
 const app = express();
@@ -20,6 +21,9 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 // Rotte per le monete
 app.use('/api/coins', coinRoutes);
+// Rotte per le collezioni
+app.use('/api/collections', collectionRoutes);
+
 
 // Connessione a MongoDB
 mongoose.connect(process.env.MONGODB_URI)
