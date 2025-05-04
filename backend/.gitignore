@@ -23,3 +23,26 @@ yarn-error.log*
 # Add this to your .gitignore
 backend/temp/*
 !backend/temp/.gitkeep
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.env*
+frontend/.local
+frontend/*.log
+
+# Next.js PWA
+frontend/public/sw.js
+frontend/public/workbox-*.js
+frontend/public/worker-*.js
+frontend/public/sw.js.map
+frontend/public/workbox-*.js.map
+frontend/public/worker-*.js.map
+
+# Cypress
+frontend/cypress/videos/
+frontend/cypress/screenshots/
+
+# Test results
+frontend/.nyc_output/
