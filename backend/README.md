@@ -48,12 +48,18 @@ cd numisroma
 
 2. Configura il backend:
 ```bash
+# Entra nella directory backend
+cd backend
+
 # Installa le dipendenze
 npm install
 
 # Crea e configura il file .env
 cp .env.example .env
 # Modifica il file .env con le tue configurazioni
+
+# Torna alla directory principale
+cd ..
 ```
 
 3. Configura il frontend:
@@ -65,10 +71,10 @@ cd ..
 
 4. Avvio in modalità sviluppo:
 ```bash
-# Terminal 1: Backend (nella directory principale)
-npm run dev
+# Terminal 1: Backend
+cd backend && npm run dev
 
-# Terminal 2: Frontend (nella directory frontend)
+# Terminal 2: Frontend
 cd frontend && npm run dev
 ```
 
@@ -113,7 +119,7 @@ Per una documentazione completa, consultare la pagina Swagger disponibile su `/a
 ### Backend
 ```bash
 # Esegue i test con Jest
-npm test
+cd backend && npm test
 ```
 
 ### Frontend
@@ -129,7 +135,7 @@ cd frontend && npm run test:e2e:dev
 
 Il progetto include configurazioni Docker per il deployment:
 
-- `Dockerfile` - Configurazione per il backend
+- `backend/Dockerfile` - Configurazione per il backend
 - `frontend/Dockerfile` - Configurazione per il frontend
 - `docker-compose.yml` - Orchestrazione dei servizi (MongoDB, backend, frontend)
 
@@ -139,19 +145,21 @@ Inoltre, è inclusa una configurazione CI/CD con GitHub Actions che esegue test 
 
 ```
 numisroma/
-├── src/                # Backend Node.js
-│   ├── controllers/    # Controller delle API
-│   ├── middlewares/    # Middleware (auth, rate limiting, ecc.)
-│   ├── models/         # Modelli Mongoose
-│   └── routes/         # Definizione route API
+├── backend/            # Backend Node.js/Express
+│   ├── src/            # Codice sorgente del backend
+│   │   ├── controllers/ # Controller delle API
+│   │   ├── middlewares/ # Middleware (auth, rate limiting, ecc.)
+│   │   ├── models/     # Modelli Mongoose
+│   │   └── routes/     # Definizione route API
+│   └── tests/          # Test del backend
 │
 ├── frontend/           # Frontend Next.js
 │   ├── app/            # Struttura App Router
 │   ├── components/     # Componenti React riutilizzabili
 │   ├── lib/            # Utilities, store, API client
-│   └── public/         # Asset statici
+│   ├── public/         # Asset statici
+│   └── cypress/        # Test e2e
 │
-├── tests/              # Test backend
 ├── .github/            # Configurazione CI/CD
 └── docker-compose.yml  # Configurazione Docker
 ```

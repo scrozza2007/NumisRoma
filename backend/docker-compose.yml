@@ -19,7 +19,7 @@ services:
   # Backend API service
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: numisroma-api
     restart: always
