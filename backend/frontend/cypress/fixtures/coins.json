@@ -1,0 +1,83 @@
+{
+  "total": 10,
+  "page": 1,
+  "pages": 1,
+  "results": [
+    {
+      "_id": "60d21b4667d0d8992e610c85",
+      "name": "Aureus of Augustus",
+      "authority": {
+        "emperor": "Augustus",
+        "dynasty": "Julio-Claudian"
+      },
+      "description": {
+        "date_range": "27 BC - 14 AD",
+        "mint": "Rome",
+        "denomination": "Aureus",
+        "material": "Gold"
+      },
+      "obverse": {
+        "legend": "CAESAR AUGUSTUS",
+        "type": "Portrait",
+        "portrait": "Augustus",
+        "image": "/placeholder-coin.svg"
+      },
+      "reverse": {
+        "legend": "OB CIVES SERVATOS",
+        "type": "Wreath",
+        "image": "/placeholder-coin.svg"
+      }
+    },
+    {
+      "_id": "60d21b4667d0d8992e610c86",
+      "name": "Denarius of Trajan",
+      "authority": {
+        "emperor": "Trajan",
+        "dynasty": "Nerva-Antonine"
+      },
+      "description": {
+        "date_range": "98 - 117 AD",
+        "mint": "Rome",
+        "denomination": "Denarius",
+        "material": "Silver"
+      },
+      "obverse": {
+        "legend": "IMP TRAIANO AVG GER DAC PM TR P",
+        "type": "Portrait",
+        "portrait": "Trajan",
+        "image": "/placeholder-coin.svg"
+      },
+      "reverse": {
+        "legend": "COS V PP SPQR OPTIMO PRINC",
+        "type": "Victory",
+        "image": "/placeholder-coin.svg"
+      }
+    },
+    {
+      "_id": "60d21b4667d0d8992e610c87",
+      "name": "Sesterce of Hadrian",
+      "authority": {
+        "emperor": "Hadrian",
+        "dynasty": "Nerva-Antonine"
+      },
+      "description": {
+        "date_range": "117 - 138 AD",
+        "mint": "Rome",
+        "denomination": "Sesterce",
+        "material": "Bronze"
+      },
+      "obverse": {
+        "legend": "HADRIANVS AVGVSTVS",
+        "type": "Portrait",
+        "portrait": "Hadrian",
+        "image": "/placeholder-coin.svg"
+      },
+      "reverse": {
+        "legend": "FELICITATI AVG",
+        "type": "Personification",
+        "deity": "Felicitas",
+        "image": "/placeholder-coin.svg"
+      }
+    }
+  ]
+} 

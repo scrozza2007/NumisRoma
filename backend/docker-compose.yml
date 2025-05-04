@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # MongoDB service
+  mongo:
+    image: mongo:latest
+    container_name: numisroma-mongo
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    ports:
+      - "27017:27017"
+    networks:
+      - numisroma-network
+
+  # Backend API service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: numisroma-api
+    restart: always
+    depends_on:
+      - mongo
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - MONGODB_URI=mongodb://root:rootpassword@mongo:27017/numisroma?authSource=admin
+      - JWT_SECRET=your_jwt_secret_key_should_be_in_env_file
+    ports:
+      - "4000:4000"
+    networks:
+      - numisroma-network
+
+  # Frontend service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: numisroma-frontend
+    restart: always
+    depends_on:
+      - api
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    networks:
+      - numisroma-network
+
+networks:
+  numisroma-network:
+    driver: bridge
+
+volumes:
+  mongo_data:

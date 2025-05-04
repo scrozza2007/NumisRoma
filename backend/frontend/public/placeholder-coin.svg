@@ -1,0 +1,8 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="95" fill="#F3E5F5" stroke="#7B1FA2" stroke-width="2"/>
+  <circle cx="100" cy="100" r="80" fill="#E1BEE7" stroke="#7B1FA2" stroke-width="2"/>
+  <path d="M100 50C77.9086 50 60 67.9086 60 90C60 112.091 77.9086 130 100 130C122.091 130 140 112.091 140 90C140 67.9086 122.091 50 100 50Z" fill="#FFC107" stroke="#7B1FA2" stroke-width="2"/>
+  <path d="M97 75H103V105H97V75Z" fill="#7B1FA2"/>
+  <path d="M85 93H115V99H85V93Z" fill="#7B1FA2"/>
+  <text x="100" y="150" font-family="Arial" font-size="14" text-anchor="middle" fill="#7B1FA2">Immagine non disponibile</text>
+</svg> 
