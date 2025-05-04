@@ -1,0 +1,32 @@
+{
+    "general": [
+        "Scrivi in italiano tranne dove il codice richiede l’inglese.",
+        "Usa JavaScript ES2022 sia su frontend che backend (no TypeScript).",
+        "Rispettare Prettier (print-width 100, tab-width 2, singleQuote).",
+        "Non includere files package-lock.json o node_modules."
+    ],
+    "structure": [
+        "frontend/  →  codice Next.js (App Router, JS)",
+        "backend/   →  codice Node/Express (già presente)",
+        "docs/      →  Swagger YAML, diagrammi, guide"
+    ],
+    "testing": [
+        "Scrivi test unitari e di integrazione per ogni route e componente UI.",
+        "Copertura minima 90 %; il workflow deve fallire se inferiore."
+    ],
+    "security": [
+        "Sanitizza input con express-validator.",
+        "Non esportare variabili d’ambiente sensibili lato client.",
+        "Abilita helmet(), rate-limit (15 req/min IP) e morgan."
+    ],
+    "frontend": [
+        "Uso di Zustand per stato globale; React-Query per fetch/cache.",
+        "Routing con App Router, segmenti a file system.",
+        "Lazy load section pesanti con dynamic() di Next.",
+        "Toggle dark-mode, piena compatibilità mobile, PWA offline."
+    ],
+    "git": [
+        "Conventional Commits (feat:, fix:, chore:, test:, docs:).",
+        "Una feature → una branch → una PR con descrizione e screenshot."
+    ]
+}
