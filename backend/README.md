@@ -1,44 +1,44 @@
 # NumisRoma
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/yourusername/numisroma/NumisRoma%20CI/CD)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-NumisRoma è un'applicazione web per esplorare e collezionare monete antiche romane. L'applicazione è composta da un frontend Next.js e un backend Node.js con Express e MongoDB.
-
-![Screenshot](docs/screenshot.png)
+NumisRoma è un'applicazione web completa per esplorare e collezionare monete antiche romane. Il progetto è composto da un frontend moderno sviluppato con Next.js e un backend robusto basato su Node.js con Express e MongoDB.
 
 ## Funzionalità
 
-- 🔍 Catalogo completo di monete con ricerca e filtri avanzati
-- 👤 Autenticazione utenti (registrazione e login)
-- 📚 Gestione delle collezioni personali
-- 📱 Progressive Web App (PWA) con funzionalità offline
-- 🌙 Modalità chiara/scura automatica
+- 🔍 **Catalogo completo** di monete romane con ricerca avanzata e filtri
+- 👤 **Sistema di autenticazione** per registrazione e login utenti
+- 📚 **Gestione collezioni personali** per organizzare le proprie monete
+- 📱 **Progressive Web App (PWA)** con funzionalità offline
+- 🌙 **Tema adattivo** chiaro/scuro basato sulle preferenze del sistema
+- 📊 **API REST** completamente documentata con Swagger/OpenAPI
 
-## Tecnologie
+## Architettura
 
-### Backend
-- Node.js con Express
-- MongoDB con Mongoose
-- JWT per l'autenticazione
-- Swagger/OpenAPI per la documentazione API
-- Helmet, rate limiting e altre misure di sicurezza
+### Backend (Node.js/Express)
+- Framework: Express.js con architettura MVC
+- Database: MongoDB con Mongoose ORM
+- Autenticazione: JWT (JSON Web Tokens)
+- Sicurezza: middleware Helmet, rate limiting, validazione input
+- Documentazione: Swagger/OpenAPI integrato
+- Testing: Jest con Supertest
 
-### Frontend
-- Next.js 14 (App Router)
-- TailwindCSS per lo styling
-- Zustand per la gestione dello stato globale
-- React Query per il caching dei dati
-- Supporto PWA tramite next-pwa
+### Frontend (Next.js)
+- Framework: Next.js 14 con App Router
+- Stato: Zustand per gestione globale dello stato
+- Styling: TailwindCSS con tema personalizzato
+- Data fetching: React Query per caching e gestione chiamate API
+- PWA: next-pwa per funzionalità offline
+- Testing: Vitest per unit test, Cypress per E2E
 
-## Installazione e setup
+## Installazione e Setup
 
 ### Prerequisiti
 - Node.js (v16+)
 - MongoDB
-- Docker & Docker Compose (opzionale)
+- Git
 
-### Avvio locale
+### Installazione Locale
 
 1. Clona il repository:
 ```bash
@@ -48,103 +48,114 @@ cd numisroma
 
 2. Configura il backend:
 ```bash
-# Installa le dipendenze backend
+# Installa le dipendenze
 npm install
 
-# Crea il file .env (modifica con i tuoi dati)
+# Crea e configura il file .env
 cp .env.example .env
+# Modifica il file .env con le tue configurazioni
 ```
 
 3. Configura il frontend:
 ```bash
-# Entra nella directory frontend
 cd frontend
-
-# Installa le dipendenze frontend
 npm install
-
-# Torna alla directory principale
 cd ..
 ```
 
-4. Avvia l'applicazione in modalità sviluppo:
+4. Avvio in modalità sviluppo:
 ```bash
-# Terminal 1: Backend
+# Terminal 1: Backend (nella directory principale)
 npm run dev
 
-# Terminal 2: Frontend
+# Terminal 2: Frontend (nella directory frontend)
 cd frontend && npm run dev
 ```
 
-### Avvio con Docker
+Il backend sarà disponibile su http://localhost:4000 con la documentazione API su http://localhost:4000/api-docs.
+Il frontend sarà disponibile su http://localhost:3000.
 
-Per avviare l'intera applicazione con Docker Compose:
+### Utilizzo di Docker
+
+Per avviare l'intero stack applicativo con Docker:
 
 ```bash
+# Costruisci e avvia i container
 docker-compose up -d
+
+# Per fermare i container
+docker-compose down
 ```
 
-L'applicazione sarà disponibile su:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:4000
-- Documentazione API: http://localhost:4000/api-docs
+## API Endpoints
 
-## Struttura del progetto
+L'API espone i seguenti endpoint principali:
 
-```
-numisroma/
-├── frontend/            # Frontend Next.js
-│   ├── app/             # App Router di Next.js
-│   ├── components/      # Componenti React
-│   ├── lib/             # Utilities, store, API client
-│   └── public/          # Asset statici
-│
-├── src/                 # Backend Node.js/Express
-│   ├── controllers/     # Logica di business
-│   ├── middlewares/     # Middleware Express
-│   ├── models/          # Modelli Mongoose
-│   └── routes/          # Route API
-│
-├── .github/             # Configurazione GitHub Actions
-├── docker-compose.yml   # Configurazione Docker Compose
-└── Dockerfile           # Dockerfile per il backend
-```
+### Autenticazione
+- `POST /api/auth/register` - Registrazione nuovo utente
+- `POST /api/auth/login` - Login utente
+- `GET /api/auth/me` - Informazioni utente autenticato
+
+### Monete
+- `GET /api/coins` - Lista monete con filtri e paginazione
+- `POST /api/coins` - Creazione nuova moneta (richiede autenticazione)
+- `GET /api/coins/:id` - Dettagli moneta specifica
+
+### Collezioni
+- `GET /api/collections` - Lista collezioni utente (richiede autenticazione)
+- `POST /api/collections` - Creazione nuova collezione (richiede autenticazione)
+- `POST /api/collections/:id/coins` - Aggiunta moneta alla collezione (richiede autenticazione)
+
+Per una documentazione completa, consultare la pagina Swagger disponibile su `/api-docs`.
 
 ## Testing
 
 ### Backend
 ```bash
+# Esegue i test con Jest
 npm test
 ```
 
 ### Frontend
 ```bash
+# Esegue i test unitari con Vitest
 cd frontend && npm test
+
+# Esegue i test end-to-end con Cypress
+cd frontend && npm run test:e2e:dev
 ```
 
-### E2E Testing (Cypress)
-```bash
-cd frontend && npm run test:e2e
+## Deployment
+
+Il progetto include configurazioni Docker per il deployment:
+
+- `Dockerfile` - Configurazione per il backend
+- `frontend/Dockerfile` - Configurazione per il frontend
+- `docker-compose.yml` - Orchestrazione dei servizi (MongoDB, backend, frontend)
+
+Inoltre, è inclusa una configurazione CI/CD con GitHub Actions che esegue test automatici e costruisce le immagini Docker ad ogni push sul ramo principale.
+
+## Struttura del Progetto
+
 ```
-
-## Ambiente di produzione
-
-Per il deployment in produzione, configura le seguenti variabili d'ambiente:
-
-### Backend
-- `NODE_ENV=production`
-- `PORT=4000` (o altra porta desiderata)
-- `MONGODB_URI=mongodb://your-mongodb-connection-string`
-- `JWT_SECRET=your-secure-jwt-secret`
-
-### Frontend
-- `NODE_ENV=production`
-- `NEXT_PUBLIC_API_URL=https://your-api-domain.com` (se diverso dai rewrites predefiniti)
+numisroma/
+├── src/                # Backend Node.js
+│   ├── controllers/    # Controller delle API
+│   ├── middlewares/    # Middleware (auth, rate limiting, ecc.)
+│   ├── models/         # Modelli Mongoose
+│   └── routes/         # Definizione route API
+│
+├── frontend/           # Frontend Next.js
+│   ├── app/            # Struttura App Router
+│   ├── components/     # Componenti React riutilizzabili
+│   ├── lib/            # Utilities, store, API client
+│   └── public/         # Asset statici
+│
+├── tests/              # Test backend
+├── .github/            # Configurazione CI/CD
+└── docker-compose.yml  # Configurazione Docker
+```
 
 ## Licenza
 
-[MIT License](LICENSE)
-
-## Contatti
-
-Nome - [email@example.com](mailto:email@example.com) 
+Questo progetto è distribuito con licenza MIT. 
