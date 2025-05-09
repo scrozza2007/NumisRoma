@@ -1,16 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import styles from '../styles/Login.module.css';
+import { AuthContext } from '../context/AuthContext';
 
 const Login = () => {
+  const { login } = useContext(AuthContext);
+  const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add your authentication logic here
-    console.log('Login attempt with:', { email, password });
+
+    try {
+      const res = await fetch('http://localhost:4000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        login(data.token); // Salva token nel context e localStorage
+        router.push('/');  // Vai alla home o a /dashboard
+      } else {
+        setError(data.msg || 'Credenziali errate');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Errore di rete');
+    }
   };
 
   return (
@@ -44,12 +68,12 @@ const Login = () => {
 
       <main className={styles.main}>
         <div className={styles.loginForm}>
-          <h2>Email / Phone Number</h2>
+          <h2>Email</h2>
           <form onSubmit={handleSubmit}>
             <div className={styles.formGroup}>
               <input
-                type="text"
-                placeholder="Value"
+                type="email"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -60,7 +84,7 @@ const Login = () => {
               <h2>Password</h2>
               <input
                 type="password"
-                placeholder="Value"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -71,6 +95,10 @@ const Login = () => {
               Sign In
             </button>
           </form>
+
+          {error && (
+            <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>
+          )}
           
           <div className={styles.forgotPassword}>
             <Link href="/forgot-password">
