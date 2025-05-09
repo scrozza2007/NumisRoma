@@ -54,3 +54,99 @@ exports.addCoinToCollection = async (req, res) => {
       res.status(500).send('Errore del server');
     }
 };
+
+// Ritorna tutte le collezioni personali dell'utente autenticato
+exports.getMyCollections = async (req, res) => {
+  try {
+    const collections = await Collection.find({ user: req.user.userId })
+      .populate('coins.coin')
+      .sort({ createdAt: -1 });
+
+    res.json(collections);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Errore del server');
+  }
+};
+
+// Ritorna tutte le collezioni pubbliche di tutti gli utenti
+exports.getPublicCollections = async (req, res) => {
+  try {
+    const collections = await Collection.find({ isPublic: true })
+      .populate('coins.coin')
+      .populate('user', 'username') // così mostriamo chi è il proprietario
+      .sort({ createdAt: -1 });
+
+    res.json(collections);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Errore del server');
+  }
+};
+
+// Rimuove una moneta da una collezione
+exports.removeCoinFromCollection = async (req, res) => {
+  const { collectionId, coinId } = req.params;
+
+  try {
+    const collection = await Collection.findById(collectionId);
+
+    if (!collection) {
+      return res.status(404).json({ msg: 'Collezione non trovata' });
+    }
+
+    if (collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ msg: 'Non autorizzato' });
+    }
+
+    // Rimuove la moneta con quell'ID
+    collection.coins = collection.coins.filter(
+      (c) => c.coin.toString() !== coinId
+    );
+
+    await collection.save();
+    res.status(200).json(collection);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Errore del server');
+  }
+};
+
+// Aggiorna dati di una moneta nella collezione
+exports.updateCoinInCollection = async (req, res) => {
+  const { collectionId, coinId } = req.params;
+  const { weight, diameter, grade, notes } = req.body;
+
+  try {
+    const collection = await Collection.findById(collectionId);
+
+    if (!collection) {
+      return res.status(404).json({ msg: 'Collezione non trovata' });
+    }
+
+    if (collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ msg: 'Non autorizzato' });
+    }
+
+    // Cerca la moneta nella collezione
+    const coinEntry = collection.coins.find(
+      (c) => c.coin.toString() === coinId
+    );
+
+    if (!coinEntry) {
+      return res.status(404).json({ msg: 'Moneta non trovata nella collezione' });
+    }
+
+    // Aggiorna i dati
+    if (weight !== undefined) coinEntry.weight = weight;
+    if (diameter !== undefined) coinEntry.diameter = diameter;
+    if (grade !== undefined) coinEntry.grade = grade;
+    if (notes !== undefined) coinEntry.notes = notes;
+
+    await collection.save();
+    res.status(200).json(collection);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).send('Errore del server');
+  }
+};
