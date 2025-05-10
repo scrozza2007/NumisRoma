@@ -14,6 +14,7 @@
 - **Frontend**: React
 - **Backend**: Node.js
 - **Autenticazione**: JWT (JSON Web Tokens)
+- **Testing E2E**: Cypress
 
 ## 🛠️ Installazione
 
@@ -49,12 +50,27 @@ cd NumisRoma
 
 L'app sarà disponibile su [http://localhost:3000](http://localhost:3000).
 
+## 🧪 Test End-to-End (Cypress)
+
+**Come eseguire i test con Cypress**
+
+   1. Assicurati di aver installato tutte le dipendenze (`npm install`)
+   2. Avvia **sia il backend che il frontend**
+   3. Da una nuova finestra terminale, esegui:
+
+   ```
+   cd frontend
+   npm run cypress:open
+
+   4. Scegli un browser e clicca su un test per avviarlo
+
 ## 📂 Struttura del Progetto
 
 ```
 numisroma/
 ├── backend/       # Server
-├── frontend/      # Applicazione React (UI e gestione stato)
+├── frontend/      # Applicazione React + Next.js
+│   └── cypress/   # Test end-to-end
 ├── README.md      # Questo file!
 ```
 
