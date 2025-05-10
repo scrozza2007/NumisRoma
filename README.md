@@ -61,6 +61,7 @@ L'app sarà disponibile su [http://localhost:3000](http://localhost:3000).
    ```
    cd frontend
    npm run cypress:open
+   ```
 
    4. Scegli un browser e clicca su un test per avviarlo
 
