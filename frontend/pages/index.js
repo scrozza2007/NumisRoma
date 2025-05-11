@@ -1,115 +1,120 @@
 import React from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
-import styles from '../styles/Home.module.css';
 
 const Home = () => {
   return (
-    <div className={styles.container}>
+    <div className="min-h-screen flex flex-col bg-gray-100">
       <Head>
         <title>NumisRoma - Online Roman Imperial Coinage Catalog</title>
         <meta name="description" content="Explore the comprehensive catalog of Roman Imperial coins" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <header className={styles.header}>
-        <div className={styles.logo}>
-          <img src="/images/logo.png" alt="NumisRoma Logo" />
-        </div>
-        <nav className={styles.nav}>
-          <ul>
-            <li><Link href="/browse">Browse</Link></li>
-            <li><Link href="/search">Search</Link></li>
-            <li><Link href="/community">Community</Link></li>
-            <li><Link href="/resources">Resources</Link></li>
-            <li><Link href="/symbols">Symbols</Link></li>
-            <li><Link href="/contact">Contact</Link></li>
-          </ul>
-        </nav>
-        <div className={styles.authButtons}>
-          <Link href="/login" className={styles.signInButton}>Sign In</Link>
-          <Link href="/register" className={styles.registerButton}>Register</Link>
+      <header className="bg-yellow-500 shadow-md">
+        <div className="container mx-auto flex justify-between items-center py-4 px-6">
+          <Link href="/">
+            <img src="/images/logo.png" alt="NumisRoma Logo" className="h-10" />
+          </Link>
+          <nav className="flex space-x-4">
+            <Link href="/browse" className="text-white hover:underline">Browse</Link>
+            <Link href="/search" className="text-white hover:underline">Search</Link>
+            <Link href="/community" className="text-white hover:underline">Community</Link>
+            <Link href="/resources" className="text-white hover:underline">Resources</Link>
+            <Link href="/symbols" className="text-white hover:underline">Symbols</Link>
+            <Link href="/contact" className="text-white hover:underline">Contact</Link>
+          </nav>
+          <div className="flex space-x-4">
+            <Link href="/login" className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800">Sign In</Link>
+            <Link href="/register" className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200">Register</Link>
+          </div>
         </div>
       </header>
 
-      <main className={styles.main}>
-        <div className={styles.heroContent}>
-          <h1>NumisRoma</h1>
-          <p>Online Roman Imperial Coinage Catalog</p>
-          <Link href="/catalog" className={styles.browseButton}>
-            Browse Catalog
-          </Link>
+      <main className="flex-grow">
+        <div className="relative bg-white">
+          <div className="container mx-auto text-center py-16">
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">NumisRoma</h1>
+            <p className="text-lg text-gray-600 mb-6">Online Roman Imperial Coinage Catalog</p>
+            <Link href="/catalog" className="px-6 py-3 bg-black text-white rounded hover:bg-gray-800">
+              Browse Catalog
+            </Link>
+          </div>
+          <div className="w-full">
+            <img src="/images/colosseum-bg.jpg" alt="Roman Colosseum" className="w-full h-96 object-cover" />
+          </div>
         </div>
-        
-        <div className={styles.heroImage}>
-          <img src="/images/colosseum-bg.jpg" alt="Roman Colosseum" />
-        </div>
+
+        <section className="bg-gray-100 py-16">
+          <div className="container mx-auto text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Heading</h2>
+            <p className="text-gray-600 mb-8">Subheading</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-8">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <div key={item} className="bg-white shadow-lg rounded-lg p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">"Quote"</h3>
+                  <div className="flex items-center mt-4">
+                    <img
+                      src="/images/profile-placeholder.png"
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full mr-4"
+                    />
+                    <div>
+                      <p className="text-gray-800 font-medium">Title</p>
+                      <p className="text-gray-600 text-sm">Description</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
 
-      <section className={styles.quotesSection}>
-        <h2 className={styles.sectionHeading}>Heading</h2>
-        <p className={styles.subheading}>Subheading</p>
-        
-        <div className={styles.quotesGrid}>
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div key={item} className={styles.quoteCard}>
-              <h3>"Quote"</h3>
-              <div className={styles.quoteAuthor}>
-                <img src="/images/profile-placeholder.png" alt="Profile" />
-                <div>
-                  <p>Title</p>
-                  <p>Description</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <footer className={styles.footer}>
-        <div className={styles.footerContent}>
-          <div className={styles.footerColumn}>
-            <h3>Use cases</h3>
-            <ul>
-              <li>UI design</li>
-              <li>UX design</li>
-              <li>Wireframing</li>
-              <li>Diagramming</li>
-              <li>Brainstorming</li>
-              <li>Online whiteboard</li>
-              <li>Team collaboration</li>
+      <footer className="bg-gray-800 text-white py-8">
+        <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h3 className="text-lg font-bold mb-4">Use cases</h3>
+            <ul className="space-y-2">
+              <li><Link href="#" className="hover:underline">UI design</Link></li>
+              <li><Link href="#" className="hover:underline">UX design</Link></li>
+              <li><Link href="#" className="hover:underline">Wireframing</Link></li>
+              <li><Link href="#" className="hover:underline">Diagramming</Link></li>
+              <li><Link href="#" className="hover:underline">Brainstorming</Link></li>
+              <li><Link href="#" className="hover:underline">Online whiteboard</Link></li>
+              <li><Link href="#" className="hover:underline">Team collaboration</Link></li>
             </ul>
           </div>
-          <div className={styles.footerColumn}>
-            <h3>Explore</h3>
-            <ul>
-              <li>Design</li>
-              <li>Prototyping</li>
-              <li>Development features</li>
-              <li>Design systems</li>
-              <li>Enterprise</li>
-              <li>Design process</li>
-              <li>Figma</li>
+          <div>
+            <h3 className="text-lg font-bold mb-4">Explore</h3>
+            <ul className="space-y-2">
+              <li><Link href="#" className="hover:underline">Design</Link></li>
+              <li><Link href="#" className="hover:underline">Prototyping</Link></li>
+              <li><Link href="#" className="hover:underline">Development features</Link></li>
+              <li><Link href="#" className="hover:underline">Design systems</Link></li>
+              <li><Link href="#" className="hover:underline">Enterprise</Link></li>
+              <li><Link href="#" className="hover:underline">Design process</Link></li>
+              <li><Link href="#" className="hover:underline">Figma</Link></li>
             </ul>
           </div>
-          <div className={styles.footerColumn}>
-            <h3>Resources</h3>
-            <ul>
-              <li>Blog</li>
-              <li>Best practices</li>
-              <li>Guides</li>
-              <li>Color wheel</li>
-              <li>Community</li>
-              <li>Developers</li>
-              <li>Resource library</li>
+          <div>
+            <h3 className="text-lg font-bold mb-4">Resources</h3>
+            <ul className="space-y-2">
+              <li><Link href="#" className="hover:underline">Blog</Link></li>
+              <li><Link href="#" className="hover:underline">Best practices</Link></li>
+              <li><Link href="#" className="hover:underline">Guides</Link></li>
+              <li><Link href="#" className="hover:underline">Color wheel</Link></li>
+              <li><Link href="#" className="hover:underline">Community</Link></li>
+              <li><Link href="#" className="hover:underline">Developers</Link></li>
+              <li><Link href="#" className="hover:underline">Resource library</Link></li>
             </ul>
           </div>
         </div>
-        <div className={styles.socialLinks}>
-          <a href="#" aria-label="Twitter"><img src="/images/twitter-icon.svg" alt="Twitter" /></a>
-          <a href="#" aria-label="Instagram"><img src="/images/instagram-icon.svg" alt="Instagram" /></a>
-          <a href="#" aria-label="YouTube"><img src="/images/youtube-icon.svg" alt="YouTube" /></a>
-          <a href="#" aria-label="LinkedIn"><img src="/images/linkedin-icon.svg" alt="LinkedIn" /></a>
+        <div className="mt-8 flex justify-center space-x-4">
+          <Link href="#" aria-label="Twitter"><img src="/images/twitter-icon.svg" alt="Twitter" className="h-6" /></Link>
+          <Link href="#" aria-label="Instagram"><img src="/images/instagram-icon.svg" alt="Instagram" className="h-6" /></Link>
+          <Link href="#" aria-label="YouTube"><img src="/images/youtube-icon.svg" alt="YouTube" className="h-6" /></Link>
+          <Link href="#" aria-label="LinkedIn"><img src="/images/linkedin-icon.svg" alt="LinkedIn" className="h-6" /></Link>
         </div>
       </footer>
     </div>
