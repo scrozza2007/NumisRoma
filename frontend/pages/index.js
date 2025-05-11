@@ -75,10 +75,25 @@ const Home = () => {
               Browse Catalog
             </Link>
           </div>
-          <div className="relative w-full">
-            <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-            <img src="/images/colosseum-bg.JPG" alt="Roman Colosseum"/>
-          </div>
+          <div className="relative w-full h-[500px] overflow-hidden">
+              <img 
+                src="/images/colosseum-bg.JPG" 
+                alt="Roman Colosseum"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <h2 className="text-4xl font-bold mb-4 [text-shadow:_2px_2px_4px_rgb(0_0_0_/_80%)]">Explore Ancient Rome</h2>
+                  <p className="text-xl mb-6 [text-shadow:_2px_2px_4px_rgb(0_0_0_/_80%)]">Discover the rich history of Roman Imperial coinage</p>
+                  <Link 
+                    href="/catalog" 
+                    className="inline-block px-8 py-3 bg-yellow-500 text-black font-semibold rounded-lg hover:bg-yellow-400 transition-colors duration-200"
+                  >
+                    Start Exploring
+                  </Link>
+                </div>
+              </div>
+            </div>
         </div>
 
         <section className="bg-gray-100 py-16">
