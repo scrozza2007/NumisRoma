@@ -71,7 +71,7 @@ const Home = () => {
           <div className="container mx-auto text-center py-16">
             <h1 className="text-5xl font-bold text-gray-800 mb-4 animate-fade-in">NumisRoma</h1>
             <p className="text-xl text-gray-600 mb-8 animate-fade-in-delay">Online Roman Imperial Coinage Catalog</p>
-            <Link href="/catalog" className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 transform hover:scale-105">
+            <Link href="/browse" className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 transform hover:scale-105">
               Browse Catalog
             </Link>
           </div>
@@ -86,7 +86,7 @@ const Home = () => {
                   <h2 className="text-4xl font-bold mb-4 [text-shadow:_2px_2px_4px_rgb(0_0_0_/_80%)]">Explore Ancient Rome</h2>
                   <p className="text-xl mb-6 [text-shadow:_2px_2px_4px_rgb(0_0_0_/_80%)]">Discover the rich history of Roman Imperial coinage</p>
                   <Link 
-                    href="/catalog" 
+                    href="/browse" 
                     className="inline-block px-8 py-3 bg-yellow-500 text-black font-semibold rounded-lg hover:bg-yellow-400 transition-colors duration-200"
                   >
                     Start Exploring
