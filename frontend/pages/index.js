@@ -1,8 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 
 const Home = () => {
+  const [featuredCoins, setFeaturedCoins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const fetchRandomCoins = async () => {
+    try {
+      // Generiamo un numero casuale per saltare un numero casuale di risultati
+      const randomSkip = Math.floor(Math.random() * 41771); // Numero totale di monete nel catalogo
+      const response = await fetch(`http://localhost:4000/api/coins?limit=3&skip=${randomSkip}`);
+      const data = await response.json();
+      
+      // Attiviamo la transizione
+      setIsTransitioning(true);
+      
+      // Dopo un breve delay, aggiorniamo le monete
+      setTimeout(() => {
+        setFeaturedCoins(data.results);
+        setIsTransitioning(false);
+      }, 300);
+    } catch (error) {
+      console.error('Error fetching random coins:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRandomCoins();
+
+    // Aggiorna le monete ogni 2 minuti
+    const interval = setInterval(fetchRandomCoins, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <Head>
@@ -25,8 +60,8 @@ const Home = () => {
             <Link href="/contact" className="text-white hover:underline">Contact</Link>
           </nav>
           <div className="flex space-x-4">
-            <Link href="/login" className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800">Sign In</Link>
-            <Link href="/register" className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200">Register</Link>
+            <Link href="/login" className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors duration-200">Sign In</Link>
+            <Link href="/register" className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200 transition-colors duration-200">Register</Link>
           </div>
         </div>
       </header>
@@ -34,87 +69,102 @@ const Home = () => {
       <main className="flex-grow">
         <div className="relative bg-white">
           <div className="container mx-auto text-center py-16">
-            <h1 className="text-4xl font-bold text-gray-800 mb-4">NumisRoma</h1>
-            <p className="text-lg text-gray-600 mb-6">Online Roman Imperial Coinage Catalog</p>
-            <Link href="/catalog" className="px-6 py-3 bg-black text-white rounded hover:bg-gray-800">
+            <h1 className="text-5xl font-bold text-gray-800 mb-4 animate-fade-in">NumisRoma</h1>
+            <p className="text-xl text-gray-600 mb-8 animate-fade-in-delay">Online Roman Imperial Coinage Catalog</p>
+            <Link href="/catalog" className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-all duration-200 transform hover:scale-105">
               Browse Catalog
             </Link>
           </div>
-          <div className="w-full">
-            <img src="/images/colosseum-bg.jpg" alt="Roman Colosseum" className="w-full h-96 object-cover" />
+          <div className="relative w-full">
+            <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+            <img src="/images/colosseum-bg.JPG" alt="Roman Colosseum"/>
           </div>
         </div>
 
         <section className="bg-gray-100 py-16">
           <div className="container mx-auto text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Heading</h2>
-            <p className="text-gray-600 mb-8">Subheading</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-8">
-              {[1, 2, 3, 4, 5, 6].map((item) => (
-                <div key={item} className="bg-white shadow-lg rounded-lg p-6">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">"Quote"</h3>
-                  <div className="flex items-center mt-4">
-                    <img
-                      src="/images/profile-placeholder.png"
-                      alt="Profile"
-                      className="w-10 h-10 rounded-full mr-4"
-                    />
-                    <div>
-                      <p className="text-gray-800 font-medium">Title</p>
-                      <p className="text-gray-600 text-sm">Description</p>
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">Featured Coins</h2>
+            <p className="text-gray-600 mb-8">Discover a random selection from our catalog</p>
+            {loading ? (
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-8">
+                {featuredCoins.map((coin) => (
+                  <div 
+                    key={coin._id} 
+                    className={`bg-white shadow-lg rounded-lg p-6 transform transition-all duration-300 ${
+                      isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+                    }`}
+                  >
+                    <div className="aspect-square mb-4">
+                      <img
+                        src={coin.obverse.image || '/images/coin-placeholder.jpg'}
+                        alt={coin.name}
+                        className="w-full h-full object-contain rounded-lg"
+                      />
                     </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">{coin.name}</h3>
+                    <p className="text-gray-600 mb-2">{coin.authority.emperor}</p>
+                    <p className="text-gray-500 text-sm">{coin.description.date_range}</p>
+                    <Link 
+                      href={`/coins/${coin._id}`}
+                      className="mt-4 inline-block text-yellow-500 hover:text-yellow-600 transition-colors duration-200"
+                    >
+                      View Details →
+                    </Link>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>
 
-      <footer className="bg-gray-800 text-white py-8">
+      <footer className="bg-white border-t border-gray-200 py-8">
         <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-lg font-bold mb-4">Use cases</h3>
+            <h3 className="text-lg font-bold mb-4 text-gray-800">About NumisRoma</h3>
             <ul className="space-y-2">
-              <li><Link href="#" className="hover:underline">UI design</Link></li>
-              <li><Link href="#" className="hover:underline">UX design</Link></li>
-              <li><Link href="#" className="hover:underline">Wireframing</Link></li>
-              <li><Link href="#" className="hover:underline">Diagramming</Link></li>
-              <li><Link href="#" className="hover:underline">Brainstorming</Link></li>
-              <li><Link href="#" className="hover:underline">Online whiteboard</Link></li>
-              <li><Link href="#" className="hover:underline">Team collaboration</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Our Mission</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Research</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Publications</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Contributors</Link></li>
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-4">Explore</h3>
+            <h3 className="text-lg font-bold mb-4 text-gray-800">Resources</h3>
             <ul className="space-y-2">
-              <li><Link href="#" className="hover:underline">Design</Link></li>
-              <li><Link href="#" className="hover:underline">Prototyping</Link></li>
-              <li><Link href="#" className="hover:underline">Development features</Link></li>
-              <li><Link href="#" className="hover:underline">Design systems</Link></li>
-              <li><Link href="#" className="hover:underline">Enterprise</Link></li>
-              <li><Link href="#" className="hover:underline">Design process</Link></li>
-              <li><Link href="#" className="hover:underline">Figma</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Coin Database</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Historical Maps</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Timeline</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Bibliography</Link></li>
             </ul>
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-4">Resources</h3>
+            <h3 className="text-lg font-bold mb-4 text-gray-800">Community</h3>
             <ul className="space-y-2">
-              <li><Link href="#" className="hover:underline">Blog</Link></li>
-              <li><Link href="#" className="hover:underline">Best practices</Link></li>
-              <li><Link href="#" className="hover:underline">Guides</Link></li>
-              <li><Link href="#" className="hover:underline">Color wheel</Link></li>
-              <li><Link href="#" className="hover:underline">Community</Link></li>
-              <li><Link href="#" className="hover:underline">Developers</Link></li>
-              <li><Link href="#" className="hover:underline">Resource library</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Forum</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Events</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Newsletter</Link></li>
+              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Contact</Link></li>
             </ul>
           </div>
         </div>
         <div className="mt-8 flex justify-center space-x-4">
-          <Link href="#" aria-label="Twitter"><img src="/images/twitter-icon.svg" alt="Twitter" className="h-6" /></Link>
-          <Link href="#" aria-label="Instagram"><img src="/images/instagram-icon.svg" alt="Instagram" className="h-6" /></Link>
-          <Link href="#" aria-label="YouTube"><img src="/images/youtube-icon.svg" alt="YouTube" className="h-6" /></Link>
-          <Link href="#" aria-label="LinkedIn"><img src="/images/linkedin-icon.svg" alt="LinkedIn" className="h-6" /></Link>
+          <Link href="#" aria-label="Twitter" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
+            <img src="/images/twitter-icon.svg" alt="Twitter" className="h-6" />
+          </Link>
+          <Link href="#" aria-label="Instagram" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
+            <img src="/images/instagram-icon.svg" alt="Instagram" className="h-6" />
+          </Link>
+          <Link href="#" aria-label="YouTube" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
+            <img src="/images/youtube-icon.svg" alt="YouTube" className="h-6" />
+          </Link>
+          <Link href="#" aria-label="LinkedIn" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
+            <img src="/images/linkedin-icon.svg" alt="LinkedIn" className="h-6" />
+          </Link>
         </div>
       </footer>
     </div>
