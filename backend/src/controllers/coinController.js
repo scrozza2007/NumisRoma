@@ -97,3 +97,22 @@ exports.getCoins = async (req, res) => {
     res.status(500).send('Errore del server');
   }
 };
+
+// Ottiene una singola moneta per ID
+exports.getCoinById = async (req, res) => {
+  try {
+    const coin = await Coin.findById(req.params.id);
+    
+    if (!coin) {
+      return res.status(404).json({ msg: 'Moneta non trovata' });
+    }
+
+    res.json(coin);
+  } catch (error) {
+    console.error(error.message);
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Moneta non trovata' });
+    }
+    res.status(500).send('Errore del server');
+  }
+};
