@@ -7,11 +7,11 @@ const CoinDetail = ({ coinId }) => {
   const [coin, setCoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeImage, setActiveImage] = useState('obverse');
 
   const fetchCoinDetails = async () => {
     setLoading(true);
     try {
-      // Verifica che il server sia in esecuzione sulla porta corretta
       const response = await fetch(`http://localhost:4000/api/coins/${coinId}`, {
         headers: {
           'Accept': 'application/json',
@@ -79,84 +79,174 @@ const CoinDetail = ({ coinId }) => {
           </div>
         ) : error ? (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md">
-            {error}
+            <div className="flex items-center">
+              <svg className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p>{error}</p>
+            </div>
           </div>
         ) : coin ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
-              {/* Immagini */}
-              <div className="space-y-8">
-                <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
-                  <img
-                    src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
-                    alt={`Dritto - ${coin.name}`}
-                    className="w-full h-full object-contain"
-                  />
+            <div className="p-6 border-b border-gray-100">
+              <h1 className="text-2xl font-medium text-gray-900">{coin.name}</h1>
+              <div className="flex items-center mt-1">
+                <span className="text-sm text-gray-600">
+                  {coin.description?.date_range || 'Data sconosciuta'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Immagini e Dettagli Base */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                {/* Colonna Sinistra - Immagini */}
+                <div>
+                  <div className="bg-gray-50 rounded-lg overflow-hidden p-5 border border-gray-100 shadow-sm">
+                    <div className="grid grid-cols-2 gap-5">
+                      <div className="aspect-square flex items-center justify-center">
+                        <img
+                          src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
+                          alt={`Dritto - ${coin.name}`}
+                          className="w-10/12 h-10/12 object-contain transition-all duration-300 hover:scale-105"
+                        />
+                      </div>
+                      <div className="aspect-square flex items-center justify-center">
+                        <img
+                          src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
+                          alt={`Rovescio - ${coin.name}`}
+                          className="w-10/12 h-10/12 object-contain transition-all duration-300 hover:scale-105"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
-                  <img
-                    src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
-                    alt={`Rovescio - ${coin.name}`}
-                    className="w-full h-full object-contain"
-                  />
+
+                {/* Colonna Destra - Informazioni Base */}
+                <div className="space-y-6">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
+                    <h2 className="text-base font-medium text-gray-900 mb-4">Informazioni Imperiali</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Imperatore</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.authority?.emperor || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Dinastia</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.authority?.dynasty || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Periodo</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.description?.date_range || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Zecca</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.description?.mint || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
+                    <h2 className="text-base font-medium text-gray-900 mb-4">Caratteristiche Fisiche</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Denominazione</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.description?.denomination || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-medium text-gray-500">Materiale</h3>
+                        <p className="mt-1 text-sm text-gray-900">{coin.description?.material || 'N/A'}</p>
+                      </div>
+                      {coin.description?.weight && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Peso</h3>
+                          <p className="mt-1 text-sm text-gray-900">{coin.description.weight}</p>
+                        </div>
+                      )}
+                      {coin.description?.diameter && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Diametro</h3>
+                          <p className="mt-1 text-sm text-gray-900">{coin.description.diameter}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Dettagli */}
-              <div className="space-y-6">
-                <h1 className="text-3xl font-bold text-gray-800">{coin.name}</h1>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Imperatore</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.authority?.emperor}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Dinastia</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.authority?.dynasty}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Periodo</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.description?.date_range}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Zecca</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.description?.mint}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Denominazione</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.description?.denomination}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-gray-500">Materiale</h2>
-                    <p className="mt-1 text-lg text-gray-900">{coin.description?.material}</p>
+              {/* Dettagli Dritto e Rovescio */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
+                  <h2 className="text-base font-medium text-gray-900 mb-4">Dettagli Dritto</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-500">Legenda</h3>
+                      <p className="mt-1 text-sm text-gray-900">{coin.obverse?.legend || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-500">Tipo</h3>
+                      <p className="mt-1 text-sm text-gray-900">{coin.obverse?.type || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4 border-t pt-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-800">Dritto</h2>
-                    <p className="text-gray-600">{coin.obverse?.legend}</p>
-                    <p className="text-gray-600">{coin.obverse?.type}</p>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-800">Rovescio</h2>
-                    <p className="text-gray-600">{coin.reverse?.legend}</p>
-                    <p className="text-gray-600">{coin.reverse?.type}</p>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
+                  <h2 className="text-base font-medium text-gray-900 mb-4">Dettagli Rovescio</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-500">Legenda</h3>
+                      <p className="mt-1 text-sm text-gray-900">{coin.reverse?.legend || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-medium text-gray-500">Tipo</h3>
+                      <p className="mt-1 text-sm text-gray-900">{coin.reverse?.type || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="border-t pt-4">
-                  <h2 className="text-lg font-semibold text-gray-800 mb-2">Crediti</h2>
-                  <p className="text-sm text-gray-600">Immagine dritto: {coin.obverse?.credits}</p>
-                  <p className="text-sm text-gray-600">Immagine rovescio: {coin.reverse?.credits}</p>
+              {/* Spazio per la Storia delle Monete */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
+                <h2 className="text-base font-medium text-gray-900 mb-4">Storia e Contesto</h2>
+                <div className="prose max-w-none">
+                  {coin.description?.notes ? (
+                    <p className="text-sm text-gray-700 leading-relaxed">{coin.description.notes}</p>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">Nessuna informazione storica disponibile.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-6 border-t border-gray-200">
+              <div className="container mx-auto">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Monete Correlate</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Placeholder per monete correlate */}
+                  {[1, 2, 3, 4].map((item) => (
+                    <div key={item} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+                      <div className="aspect-square bg-gray-100">
+                        <img src="/images/coin-placeholder.jpg" alt="Moneta correlata" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="p-3">
+                        <p className="text-sm font-medium text-gray-800 truncate">Moneta Simile {item}</p>
+                        <p className="text-xs text-gray-500">Periodo Romano</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-xl text-gray-600">Moneta non trovata</p>
+          <div className="text-center py-12 bg-white rounded-lg shadow-md">
+            <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-xl text-gray-600 mt-4">Moneta non trovata</p>
+            <Link href="/browse" className="mt-4 inline-block px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors duration-200">
+              Torna al catalogo
+            </Link>
           </div>
         )}
       </main>
