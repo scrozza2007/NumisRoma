@@ -109,11 +109,11 @@ const Home = () => {
                 {featuredCoins.map((coin) => (
                   <div 
                     key={coin._id} 
-                    className={`bg-white shadow-lg rounded-lg p-6 transform transition-all duration-300 ${
+                    className={`bg-white shadow-lg rounded-lg p-4 transform transition-all duration-300 ${
                       isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                     }`}
                   >
-                    <div className="aspect-square mb-4">
+                    <div className="aspect-[4/3] mb-3">
                       <img
                         src={coin.obverse.image || '/images/coin-placeholder.jpg'}
                         alt={coin.name}

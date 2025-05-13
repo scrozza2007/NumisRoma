@@ -25,14 +25,14 @@ const CoinDetail = ({ coinId }) => {
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('La risposta non è in formato JSON!');
+        throw new Error('Response is not in JSON format!');
       }
 
       const data = await response.json();
       setCoin(data);
     } catch (error) {
-      console.error('Errore durante il recupero della moneta:', error);
-      setError('Si è verificato un errore durante il caricamento della moneta. Verifica che il server sia in esecuzione.');
+      console.error('Error while retrieving the coin:', error);
+      setError('An error occurred while loading the coin. Please verify that the server is running.');
     } finally {
       setLoading(false);
     }
@@ -47,8 +47,8 @@ const CoinDetail = ({ coinId }) => {
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       <Head>
-        <title>{coin ? `${coin.name} - NumisRoma` : 'Dettagli Moneta - NumisRoma'}</title>
-        <meta name="description" content="Dettagli della moneta romana imperiale" />
+        <title>{coin ? `${coin.name} - NumisRoma` : 'Coin Details - NumisRoma'}</title>
+        <meta name="description" content="Details of the Roman Imperial coin" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -88,85 +88,111 @@ const CoinDetail = ({ coinId }) => {
           </div>
         ) : coin ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h1 className="text-2xl font-medium text-gray-900">{coin.name}</h1>
-              <div className="flex items-center mt-1">
-                <span className="text-sm text-gray-600">
-                  {coin.description?.date_range || 'Data sconosciuta'}
-                </span>
-              </div>
+            <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
             </div>
 
-            <div className="p-6">
-              {/* Immagini e Dettagli Base */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                {/* Colonna Sinistra - Immagini */}
-                <div>
-                  <div className="bg-gray-50 rounded-lg overflow-hidden p-5 border border-gray-100 shadow-sm">
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="aspect-square flex items-center justify-center">
-                        <img
-                          src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
-                          alt={`Dritto - ${coin.name}`}
-                          className="w-10/12 h-10/12 object-contain transition-all duration-300 hover:scale-105"
-                        />
+            <div className="p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+                {/* Left Column - Images with Zoom */}
+                <div className="flex flex-col">
+                  <div className="text-center mb-6">
+                    <h1 className="text-4xl font-bold text-gray-900 mb-4">{coin.name}</h1>
+                  </div>
+                  <div className="bg-white rounded-xl overflow-hidden p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300 flex-grow">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Coin Images
+                    </h2>
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="group relative">
+                        <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
+                          <img
+                            src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
+                            alt={`Obverse - ${coin.name}`}
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity duration-300 flex items-center justify-center">
+                          <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50 px-4 py-2 rounded-full">
+                            Click to zoom
+                          </span>
+                        </div>
                       </div>
-                      <div className="aspect-square flex items-center justify-center">
-                        <img
-                          src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
-                          alt={`Rovescio - ${coin.name}`}
-                          className="w-10/12 h-10/12 object-contain transition-all duration-300 hover:scale-105"
-                        />
+                      <div className="group relative">
+                        <div className="aspect-square bg-gray-50 rounded-lg overflow-hidden">
+                          <img
+                            src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
+                            alt={`Reverse - ${coin.name}`}
+                            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-opacity duration-300 flex items-center justify-center">
+                          <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-50 px-4 py-2 rounded-full">
+                            Click to zoom
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Colonna Destra - Informazioni Base */}
-                <div className="space-y-6">
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
-                    <h2 className="text-base font-medium text-gray-900 mb-4">Informazioni Imperiali</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Imperatore</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.authority?.emperor || 'N/A'}</p>
+                {/* Right Column - Basic Information */}
+                <div className="flex flex-col space-y-8">
+                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Imperial Information
+                    </h2>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Emperor</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.authority?.emperor || 'N/A'}</p>
                       </div>
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Dinastia</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.authority?.dynasty || 'N/A'}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Dynasty</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.authority?.dynasty || 'N/A'}</p>
                       </div>
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Periodo</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.description?.date_range || 'N/A'}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Period</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.description?.date_range || 'N/A'}</p>
                       </div>
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Zecca</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.description?.mint || 'N/A'}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Mint</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.description?.mint || 'N/A'}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
-                    <h2 className="text-base font-medium text-gray-900 mb-4">Caratteristiche Fisiche</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Denominazione</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.description?.denomination || 'N/A'}</p>
+                  <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                      <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Physical Characteristics
+                    </h2>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Denomination</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.description?.denomination || 'N/A'}</p>
                       </div>
-                      <div>
-                        <h3 className="text-xs font-medium text-gray-500">Materiale</h3>
-                        <p className="mt-1 text-sm text-gray-900">{coin.description?.material || 'N/A'}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-sm font-medium text-gray-500">Material</h3>
+                        <p className="mt-2 text-lg text-gray-900">{coin.description?.material || 'N/A'}</p>
                       </div>
                       {coin.description?.weight && (
-                        <div>
-                          <h3 className="text-xs font-medium text-gray-500">Peso</h3>
-                          <p className="mt-1 text-sm text-gray-900">{coin.description.weight}</p>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h3 className="text-sm font-medium text-gray-500">Weight</h3>
+                          <p className="mt-2 text-lg text-gray-900">{coin.description.weight}</p>
                         </div>
                       )}
                       {coin.description?.diameter && (
-                        <div>
-                          <h3 className="text-xs font-medium text-gray-500">Diametro</h3>
-                          <p className="mt-1 text-sm text-gray-900">{coin.description.diameter}</p>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h3 className="text-sm font-medium text-gray-500">Diameter</h3>
+                          <p className="mt-2 text-lg text-gray-900">{coin.description.diameter}</p>
                         </div>
                       )}
                     </div>
@@ -174,63 +200,89 @@ const CoinDetail = ({ coinId }) => {
                 </div>
               </div>
 
-              {/* Dettagli Dritto e Rovescio */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
-                  <h2 className="text-base font-medium text-gray-900 mb-4">Dettagli Dritto</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500">Legenda</h3>
-                      <p className="mt-1 text-sm text-gray-900">{coin.obverse?.legend || 'N/A'}</p>
+              {/* Detailed Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+                <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                    Obverse Details
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Legend</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.obverse?.legend || 'N/A'}</p>
                     </div>
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500">Tipo</h3>
-                      <p className="mt-1 text-sm text-gray-900">{coin.obverse?.type || 'N/A'}</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Type</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.obverse?.type || 'N/A'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Portrait</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.obverse?.portrait || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
-                  <h2 className="text-base font-medium text-gray-900 mb-4">Dettagli Rovescio</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500">Legenda</h3>
-                      <p className="mt-1 text-sm text-gray-900">{coin.reverse?.legend || 'N/A'}</p>
+                <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                    <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                    Reverse Details
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Legend</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.reverse?.legend || 'N/A'}</p>
                     </div>
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500">Tipo</h3>
-                      <p className="mt-1 text-sm text-gray-900">{coin.reverse?.type || 'N/A'}</p>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Type</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.reverse?.type || 'N/A'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-500">Deity</h3>
+                      <p className="mt-2 text-lg text-gray-900">{coin.reverse?.deity || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Spazio per la Storia delle Monete */}
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 shadow-sm">
-                <h2 className="text-base font-medium text-gray-900 mb-4">Storia e Contesto</h2>
+              {/* Historical Context */}
+              <div className="bg-white rounded-xl p-8 border border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300 mb-12">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                  <svg className="w-6 h-6 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  Historical Context
+                </h2>
                 <div className="prose max-w-none">
                   {coin.description?.notes ? (
-                    <p className="text-sm text-gray-700 leading-relaxed">{coin.description.notes}</p>
+                    <p className="text-lg text-gray-700 leading-relaxed">{coin.description.notes}</p>
                   ) : (
-                    <p className="text-sm text-gray-500 italic">Nessuna informazione storica disponibile.</p>
+                    <p className="text-lg text-gray-500 italic">No historical information available.</p>
                   )}
                 </div>
               </div>
-            </div>
 
-            <div className="bg-gray-50 p-6 border-t border-gray-200">
-              <div className="container mx-auto">
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Monete Correlate</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* Placeholder per monete correlate */}
+              {/* Related Coins */}
+              <div className="bg-gray-50 rounded-xl p-8 border border-gray-100">
+                <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                  <svg className="w-8 h-8 mr-3 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  Related Coins
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-200">
+                    <div key={item} className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
                       <div className="aspect-square bg-gray-100">
-                        <img src="/images/coin-placeholder.jpg" alt="Moneta correlata" className="w-full h-full object-cover" />
+                        <img src="/images/coin-placeholder.jpg" alt="Related coin" className="w-full h-full object-cover" />
                       </div>
-                      <div className="p-3">
-                        <p className="text-sm font-medium text-gray-800 truncate">Moneta Simile {item}</p>
-                        <p className="text-xs text-gray-500">Periodo Romano</p>
+                      <div className="p-4">
+                        <p className="text-lg font-medium text-gray-800 truncate">Similar Coin {item}</p>
+                        <p className="text-base text-gray-500">Roman Period</p>
                       </div>
                     </div>
                   ))}
@@ -243,9 +295,9 @@ const CoinDetail = ({ coinId }) => {
             <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-xl text-gray-600 mt-4">Moneta non trovata</p>
+            <p className="text-xl text-gray-600 mt-4">Coin not found</p>
             <Link href="/browse" className="mt-4 inline-block px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors duration-200">
-              Torna al catalogo
+              Return to catalog
             </Link>
           </div>
         )}
