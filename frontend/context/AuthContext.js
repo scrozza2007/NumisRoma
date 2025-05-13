@@ -5,48 +5,86 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Debug function to log state changes
+  const logState = (action) => {
+    console.log(`[AuthContext] ${action}:`, {
+      hasToken: !!token,
+      hasUser: !!user,
+      userData: user,
+      isLoading
+    });
+  };
 
   useEffect(() => {
-    // Leggi token salvato nel localStorage al caricamento
-    const storedToken = localStorage.getItem('token');
-    console.log('Stored token:', storedToken); // Log del token salvato
-    
-    if (storedToken) {
-      setToken(storedToken);
-      fetchUserData(storedToken);
-    }
+    const initializeAuth = async () => {
+      try {
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        
+        console.log('[AuthContext] Initializing with stored data:', { 
+          hasToken: !!storedToken, 
+          hasUser: !!storedUser,
+          storedUser: storedUser ? JSON.parse(storedUser) : null
+        });
+
+        if (storedToken) {
+          setToken(storedToken);
+          
+          if (storedUser) {
+            try {
+              const parsedUser = JSON.parse(storedUser);
+              console.log('[AuthContext] Setting initial user from storage:', parsedUser);
+              setUser(parsedUser);
+            } catch (e) {
+              console.error('[AuthContext] Error parsing stored user data:', e);
+            }
+          }
+          
+          await fetchUserData(storedToken);
+        } else {
+          console.log('[AuthContext] No stored token found');
+        }
+      } catch (error) {
+        console.error('[AuthContext] Error during initialization:', error);
+      } finally {
+        setIsLoading(false);
+        logState('After initialization');
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const fetchUserData = async (authToken) => {
     try {
-      console.log('Fetching user data with token:', authToken); // Log della chiamata
-      
       const response = await fetch('http://localhost:4000/api/auth/me', {
         headers: {
           'Authorization': `Bearer ${authToken}`
         }
       });
-      
+
       const userData = await response.json();
-      console.log('User data response:', userData); // Log della risposta
-      
       if (response.ok) {
         setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        logState('After setting user data');
       } else {
-        console.error('Error fetching user data:', userData);
+        localStorage.removeItem('user');
         logout();
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      localStorage.removeItem('user');
       logout();
     }
   };
 
   const login = async (newToken, userData) => {
-    console.log('Login called with:', { newToken, userData }); // Log dei dati di login
+    console.log('[AuthContext] Login called with:', { hasToken: !!newToken, hasUserData: !!userData });
     
     if (!newToken) {
-      console.error('No token provided to login');
+      console.error('[AuthContext] No token provided to login');
       return;
     }
 
@@ -54,25 +92,31 @@ export const AuthProvider = ({ children }) => {
     setToken(newToken);
     
     if (userData) {
+      console.log('[AuthContext] Setting user data from login:', userData);
       setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      logState('After login with user data');
     } else {
-      // Se non abbiamo i dati utente, li recuperiamo
       await fetchUserData(newToken);
     }
   };
 
   const logout = () => {
-    console.log('Logout called'); // Log del logout
+    console.log('[AuthContext] Logout called');
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    logState('After logout');
   };
 
-  // Log dello stato corrente
-  console.log('Current auth state:', { token, user });
+  // Log state changes
+  useEffect(() => {
+    logState('State changed');
+  }, [token, user, isLoading]);
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

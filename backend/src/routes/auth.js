@@ -2,6 +2,8 @@ const express = require('express');
 const { body } = require('express-validator');
 
 const { registerUser, loginUser } = require('../controllers/authController');
+const User = require('../models/User');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -26,11 +28,17 @@ router.post(
   loginUser
 );
 
-module.exports = router;
-
-const authMiddleware = require('../middlewares/authMiddleware');
-
-// Rotta protetta (di prova)
-router.get('/me', authMiddleware, (req, res) => {
-  res.json({ msg: 'Sei autenticato!', user: req.user });
+// Rotta protetta: restituisce tutti i dati utente (senza password)
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 });
+
+module.exports = router;

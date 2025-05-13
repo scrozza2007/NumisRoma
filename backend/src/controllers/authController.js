@@ -66,7 +66,14 @@ exports.loginUser = async (req, res) => {
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ token });
+    res.json({
+      token,
+      user: {
+        userId: user._id,
+        username: user.username,
+        email: user.email
+      }
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Errore del server');
