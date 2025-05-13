@@ -117,34 +117,14 @@ const Browse = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <>
       <Head>
         <title>Browse Coins - NumisRoma</title>
         <meta name="description" content="Browse the comprehensive catalog of Roman Imperial coins" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <header className="bg-yellow-500 shadow-md">
-        <div className="container mx-auto flex justify-between items-center py-4 px-6">
-          <Link href="/">
-            <img src="/images/logo.png" alt="NumisRoma Logo" className="h-10" />
-          </Link>
-          <nav className="flex space-x-4">
-            <Link href="/browse" className="text-white hover:underline">Browse</Link>
-            <Link href="/search" className="text-white hover:underline">Search</Link>
-            <Link href="/community" className="text-white hover:underline">Community</Link>
-            <Link href="/resources" className="text-white hover:underline">Resources</Link>
-            <Link href="/symbols" className="text-white hover:underline">Symbols</Link>
-            <Link href="/contact" className="text-white hover:underline">Contact</Link>
-          </nav>
-          <div className="flex space-x-4">
-            <Link href="/login" className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors duration-200">Sign In</Link>
-            <Link href="/register" className="px-4 py-2 bg-white text-black rounded hover:bg-gray-200 transition-colors duration-200">Register</Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-grow container mx-auto py-8 px-4">
+      <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Roman Imperial Coins Catalog</h1>
           <p className="text-gray-600">Explore our vast collection of Roman Imperial coins</p>
@@ -370,54 +350,8 @@ const Browse = () => {
             )}
           </div>
         </div>
-      </main>
-
-      <footer className="bg-white border-t border-gray-200 py-8">
-        <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <h3 className="text-lg font-bold mb-4 text-gray-800">About NumisRoma</h3>
-            <ul className="space-y-2">
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Our Mission</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Research</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Publications</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Contributors</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Resources</h3>
-            <ul className="space-y-2">
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Coin Database</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Historical Maps</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Timeline</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Bibliography</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-bold mb-4 text-gray-800">Community</h3>
-            <ul className="space-y-2">
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Forum</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Events</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Newsletter</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">Contact</Link></li>
-            </ul>
-          </div>
-        </div>
-        <div className="mt-8 flex justify-center space-x-4">
-          <Link href="#" aria-label="Twitter" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
-            <img src="/images/twitter-icon.svg" alt="Twitter" className="h-6" />
-          </Link>
-          <Link href="#" aria-label="Instagram" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
-            <img src="/images/instagram-icon.svg" alt="Instagram" className="h-6" />
-          </Link>
-          <Link href="#" aria-label="YouTube" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
-            <img src="/images/youtube-icon.svg" alt="YouTube" className="h-6" />
-          </Link>
-          <Link href="#" aria-label="LinkedIn" className="text-gray-600 hover:text-yellow-500 transition-colors duration-200">
-            <img src="/images/linkedin-icon.svg" alt="LinkedIn" className="h-6" />
-          </Link>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 };
 
