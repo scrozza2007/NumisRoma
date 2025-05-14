@@ -22,7 +22,7 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Email non valida'),
+    body('identifier').notEmpty().withMessage('Identificatore obbligatorio'),
     body('password').notEmpty().withMessage('Password obbligatoria')
   ],
   loginUser

@@ -17,6 +17,11 @@ const Navbar = () => {
     });
   }, [user, isLoading]);
 
+  // Reset dropdown state when user changes
+  useEffect(() => {
+    setIsDropdownOpen(false);
+  }, [user]);
+
   // Get user's initial for avatar fallback
   const getUserInitial = () => {
     if (!user?.username) return '';
@@ -132,14 +137,14 @@ const Navbar = () => {
                     className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 group"
                     onClick={() => setIsDropdownOpen(false)}
                   >
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">Profilo</span>
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">Profile</span>
                   </Link>
                   <Link
                     href="/settings"
                     className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 group"
                     onClick={() => setIsDropdownOpen(false)}
                   >
-                    <span className="group-hover:translate-x-1 transition-transform duration-200">Impostazioni</span>
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">Settings</span>
                   </Link>
                   <div className="border-t border-gray-100 my-1"></div>
                   <button

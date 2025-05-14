@@ -47,11 +47,17 @@ exports.loginUser = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { email, password } = req.body;
+  const { identifier, password } = req.body;
 
   try {
-    // Cerca utente
-    const user = await User.findOne({ email });
+    // Cerca utente per email o username
+    const user = await User.findOne({
+      $or: [
+        { email: identifier },
+        { username: identifier }
+      ]
+    });
+
     if (!user) {
       return res.status(400).json({ msg: 'Credenziali non valide' });
     }
