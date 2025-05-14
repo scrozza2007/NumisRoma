@@ -26,7 +26,7 @@ const Browse = () => {
     setLoading(true);
     setError(null);
     try {
-      let url = `http://localhost:4000/api/coins?page=${page}&limit=12`;
+      let url = `${process.env.NEXT_PUBLIC_API_URL}/api/coins?page=${page}&limit=12`;
       
       Object.keys(filters).forEach(key => {
         if (filters[key] && key !== 'sortBy' && key !== 'order') {

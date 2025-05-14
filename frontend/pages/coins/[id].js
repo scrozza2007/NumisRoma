@@ -13,7 +13,7 @@ const CoinDetail = ({ coinId }) => {
   const fetchCoinDetails = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/coins/${coinId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${coinId}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'

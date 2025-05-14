@@ -10,7 +10,7 @@ const Home = () => {
   const fetchRandomCoins = async () => {
     try {
       const randomSkip = Math.floor(Math.random() * 41771);
-      const response = await fetch(`http://localhost:4000/api/coins?limit=3&skip=${randomSkip}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins?limit=3&skip=${randomSkip}`);
       const data = await response.json();
       
       setIsTransitioning(true);
