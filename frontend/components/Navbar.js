@@ -94,10 +94,10 @@ const Navbar = () => {
                   <img
                     src={user.profileImage}
                     alt="Profile"
-                    className="w-16 h-16 rounded-full object-cover border-2 border-white transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-lg"
+                    className="w-14 h-14 rounded-full object-cover border-2 border-white transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-lg"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center font-semibold text-2xl transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:bg-gray-100 group-hover:shadow-lg">
+                  <div className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center font-semibold text-2xl transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:bg-gray-100 group-hover:shadow-lg">
                     {getUserInitial()}
                   </div>
                 )}
