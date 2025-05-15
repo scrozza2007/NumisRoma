@@ -119,10 +119,21 @@ router.get('/recommended', authMiddleware, async (req, res) => {
 router.post('/:id/follow', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const currentUserId = req.user._id;
+    const currentUserId = req.user.userId;
 
-    if (id === currentUserId.toString()) {
+    // Verifica che l'ID sia un ObjectId valido
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID utente non valido' });
+    }
+
+    if (id === currentUserId) {
       return res.status(400).json({ message: 'Non puoi seguire te stesso' });
+    }
+
+    // Verifica che l'utente da seguire esista
+    const userToFollow = await User.findById(id);
+    if (!userToFollow) {
+      return res.status(404).json({ message: 'Utente non trovato' });
     }
 
     const existingFollow = await Follow.findOne({
@@ -141,6 +152,7 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Utente seguito con successo' });
   } catch (error) {
+    console.error('Error in follow:', error);
     res.status(500).json({ message: 'Errore nel seguire l\'utente' });
   }
 });
@@ -149,7 +161,18 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
 router.delete('/:id/unfollow', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const currentUserId = req.user._id;
+    const currentUserId = req.user.userId;
+
+    // Verifica che l'ID sia un ObjectId valido
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'ID utente non valido' });
+    }
+
+    // Verifica che l'utente da non seguire più esista
+    const userToUnfollow = await User.findById(id);
+    if (!userToUnfollow) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
 
     const result = await Follow.deleteOne({
       follower: currentUserId,
@@ -162,6 +185,7 @@ router.delete('/:id/unfollow', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Hai smesso di seguire l\'utente con successo' });
   } catch (error) {
+    console.error('Error in unfollow:', error);
     res.status(500).json({ message: 'Errore nel smettere di seguire l\'utente' });
   }
 });

@@ -10,6 +10,7 @@ const Community = () => {
   const [users, setUsers] = useState([]);
   const [recommendedUsers, setRecommendedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const router = useRouter();
 
@@ -143,11 +144,35 @@ const Community = () => {
 
       setUsers(updateUsers(users));
       setRecommendedUsers(updateUsers(recommendedUsers));
+
+      // Show success notification
+      setNotification({
+        show: true,
+        message: isFollowing ? 'Utente non seguito con successo' : 'Utente seguito con successo',
+        type: 'success'
+      });
+
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setNotification({ show: false, message: '', type: '' });
+      }, 3000);
+
     } catch (error) {
       console.error('Error following/unfollowing user:', error);
       if (error.message === 'You are not authenticated') {
         router.push('/login');
       }
+      // Show error notification
+      setNotification({
+        show: true,
+        message: 'Si è verificato un errore. Riprova più tardi.',
+        type: 'error'
+      });
+      
+      // Hide error notification after 3 seconds
+      setTimeout(() => {
+        setNotification({ show: false, message: '', type: '' });
+      }, 3000);
     }
   };
 
@@ -223,6 +248,14 @@ const Community = () => {
         <title>Community - NumisRoma</title>
         <meta name="description" content="Connect with other numismatic enthusiasts on NumisRoma" />
       </Head>
+
+      {notification.show && (
+        <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg ${
+          notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+        } text-white transition-all duration-300 transform`}>
+          {notification.message}
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
