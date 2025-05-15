@@ -18,6 +18,12 @@ const UserSchema = new Schema({
     type: String,
     required: true
   },
+  avatar: {
+    type: String
+  },
+  bio: {
+    type: String
+  },
   follows: [
     {
       type: Schema.Types.ObjectId,
