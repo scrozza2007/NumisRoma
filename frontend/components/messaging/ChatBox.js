@@ -83,7 +83,27 @@ const ChatBox = () => {
 
   // Verifica se un messaggio è dell'utente corrente
   const isOwnMessage = (message) => {
-    return message.sender?._id === user?.userId;
+    // Controllo stringente con log di debug
+    if (!message || !message.sender || !user) {
+      console.log('Messaggio non valido o utente non autenticato', { message, user });
+      return false;
+    }
+    
+    // Estrai gli ID e convertili in stringhe per un confronto affidabile
+    const senderId = typeof message.sender === 'object' ? message.sender._id : message.sender;
+    const currentUserId = user.userId;
+    
+    const isOwn = String(senderId) === String(currentUserId);
+    
+    // Log per debug
+    console.log('Controllo messaggio:', { 
+      messaggio: message.content?.substring(0, 15),
+      senderId, 
+      currentUserId,
+      isOwn 
+    });
+    
+    return isOwn;
   };
 
   // Verifica se l'altro utente sta digitando
@@ -140,7 +160,7 @@ const ChatBox = () => {
               return (
                 <div
                   key={message._id}
-                  className={`flex ${own ? 'justify-end' : 'justify-start'}`}
+                  className={`w-full flex ${own ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-lg ${
