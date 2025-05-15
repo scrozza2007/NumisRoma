@@ -13,8 +13,46 @@ const Register = () => {
     password: '',
     confirmPassword: ''
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Field validation
+  const validateField = (name, value) => {
+    let error = '';
+    switch (name) {
+      case 'username':
+        if (value.length < 3) {
+          error = 'Username must be at least 3 characters long';
+        } else if (!/^[a-zA-Z0-9_]+$/.test(value)) {
+          error = 'Username can only contain letters, numbers, and underscores';
+        }
+        break;
+      case 'email':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Please enter a valid email address';
+        }
+        break;
+      case 'password':
+        if (value.length < 8) {
+          error = 'Password must be at least 8 characters long';
+        } else if (!/[A-Z]/.test(value)) {
+          error = 'Password must contain at least one uppercase letter';
+        } else if (!/[0-9]/.test(value)) {
+          error = 'Password must contain at least one number';
+        } else if (!/[!@#$%^&*]/.test(value)) {
+          error = 'Password must contain at least one special character (!@#$%^&*)';
+        }
+        break;
+      case 'confirmPassword':
+        if (value !== formData.password) {
+          error = 'Passwords do not match';
+        }
+        break;
+      default:
+        break;
+    }
+    return error;
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,19 +60,43 @@ const Register = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Real-time validation
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+
+    // If changing password, validate confirm password
+    if (name === 'password' && formData.confirmPassword) {
+      const confirmError = validateField('confirmPassword', formData.confirmPassword);
+      setErrors(prev => ({
+        ...prev,
+        confirmPassword: confirmError
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    Object.keys(formData).forEach(key => {
+      const error = validateField(key, formData[key]);
+      if (error) newErrors[key] = error;
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
+    
+    if (!validateForm()) {
       return;
     }
+
+    setIsLoading(true);
+    setErrors({});
 
     try {
       // Registration
@@ -53,7 +115,28 @@ const Register = () => {
       const registerData = await registerResponse.json();
 
       if (!registerResponse.ok) {
-        throw new Error(registerData.message || 'Registration failed');
+        // Handle specific error cases
+        if (registerResponse.status === 409) {
+          // Handle duplicate email/username
+          const field = registerData.field;
+          setErrors(prev => ({
+            ...prev,
+            [field]: registerData.error
+          }));
+          setIsLoading(false);
+          return;
+        } else if (registerResponse.status === 400) {
+          // Handle validation errors
+          const validationErrors = {};
+          registerData.details.forEach(err => {
+            validationErrors[err.field] = err.message;
+          });
+          setErrors(validationErrors);
+          setIsLoading(false);
+          return;
+        } else {
+          throw new Error(registerData.message || 'Registration failed');
+        }
       }
 
       // Automatic login after registration
@@ -63,7 +146,7 @@ const Register = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: formData.email,
+          identifier: formData.email,
           password: formData.password
         }),
       });
@@ -80,7 +163,20 @@ const Register = () => {
       // Redirect to homepage
       router.push('/');
     } catch (err) {
-      setError(err.message || 'An error occurred during registration');
+      console.error('Registration error:', err);
+      
+      // Handle structured error objects
+      if (err.message && typeof err.message === 'object') {
+        setErrors(prev => ({
+          ...prev,
+          [err.message.field]: err.message.message
+        }));
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          form: err.message || 'An unexpected error occurred'
+        }));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -103,12 +199,12 @@ const Register = () => {
             <p className="text-gray-600">Join our community of numismatic enthusiasts</p>
           </div>
 
-          {error && (
+          {errors.form && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl animate-fade-in flex items-center space-x-2">
               <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{error}</span>
+              <span>{errors.form}</span>
             </div>
           )}
 
@@ -124,12 +220,15 @@ const Register = () => {
                   value={formData.username}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                  className={`w-full px-4 py-3 pl-12 border ${errors.username ? 'border-red-300' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200`}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+              )}
             </div>
 
             <div>
@@ -143,12 +242,15 @@ const Register = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                  className={`w-full px-4 py-3 pl-12 border ${errors.email ? 'border-red-300' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200`}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                 </svg>
               </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -162,13 +264,15 @@ const Register = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  minLength="6"
-                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                  className={`w-full px-4 py-3 pl-12 border ${errors.password ? 'border-red-300' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200`}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+              )}
             </div>
 
             <div>
@@ -182,12 +286,15 @@ const Register = () => {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+                  className={`w-full px-4 py-3 pl-12 border ${errors.confirmPassword ? 'border-red-300' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200`}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+              )}
             </div>
 
             <button

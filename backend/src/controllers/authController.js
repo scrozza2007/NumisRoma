@@ -8,23 +8,41 @@ exports.registerUser = async (req, res) => {
   // Validazione input
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ 
+      error: 'Validation failed',
+      details: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
   }
 
   const { username, email, password } = req.body;
 
   try {
-    // Controllo se esiste già l'utente
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ msg: 'Utente già registrato' });
+    // Controllo se esiste già l'utente con la stessa email
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(409).json({ 
+        error: 'Email already registered',
+        field: 'email'
+      });
+    }
+
+    // Controllo se esiste già l'utente con lo stesso username
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ 
+        error: 'Username already taken',
+        field: 'username'
+      });
     }
 
     // Crea nuovo utente
-    user = new User({
+    const user = new User({
       username,
       email,
-      password: await bcrypt.hash(password, 10) // Cripta la password
+      password: await bcrypt.hash(password, 10)
     });
 
     await user.save();
@@ -33,10 +51,20 @@ exports.registerUser = async (req, res) => {
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res.status(201).json({ token });
+    res.status(201).json({ 
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
+    });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Errore del server');
+    console.error('Registration error:', err);
+    res.status(500).json({ 
+      error: 'Server error',
+      message: 'An unexpected error occurred during registration'
+    });
   }
 };
 
@@ -59,13 +87,13 @@ exports.loginUser = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ msg: 'Credenziali non valide' });
+      return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
     // Confronta password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Credenziali non valide' });
+      return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
     // Crea token

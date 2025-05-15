@@ -7,13 +7,30 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
+// Funzione di validazione password personalizzata
+const validatePassword = (value) => {
+  if (value.length < 8) {
+    throw new Error('La password deve essere di almeno 8 caratteri');
+  }
+  if (!/[A-Z]/.test(value)) {
+    throw new Error('La password deve contenere almeno una lettera maiuscola');
+  }
+  if (!/[0-9]/.test(value)) {
+    throw new Error('La password deve contenere almeno un numero');
+  }
+  if (!/[!@#$%^&*]/.test(value)) {
+    throw new Error('La password deve contenere almeno un carattere speciale (!@#$%^&*)');
+  }
+  return true;
+};
+
 // Rotta di registrazione
 router.post(
   '/register',
   [
     body('username').notEmpty().withMessage('Username obbligatorio'),
     body('email').isEmail().withMessage('Email non valida'),
-    body('password').isLength({ min: 6 }).withMessage('Password di almeno 6 caratteri')
+    body('password').custom(validatePassword)
   ],
   registerUser
 );
