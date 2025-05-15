@@ -2,9 +2,11 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
+import { MessageContext } from '../context/MessageContext';
 
 const Navbar = () => {
   const { user, logout, isLoading } = useContext(AuthContext);
+  const { unreadCount } = useContext(MessageContext);
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const timeoutRef = useRef(null);
@@ -93,16 +95,36 @@ const Navbar = () => {
 
         {/* Navigation Links */}
         <nav className="flex justify-center space-x-12">
-          {['Browse', 'Search', 'Community', 'Resources', 'Symbols', 'Contact'].map((item) => (
-            <Link 
-              key={item}
-              href={`/${item.toLowerCase()}`}
-              className="text-white hover:text-yellow-100 font-medium transition-all duration-300 text-lg relative group"
-            >
-              {item}
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-white group-hover:w-full transition-all duration-300"></span>
-            </Link>
-          ))}
+          {[
+            'Browse', 
+            'Search', 
+            'Community', 
+            { name: 'Messages', href: '/messages', notification: unreadCount }, 
+            'Resources', 
+            'Contact'
+          ].map((item) => {
+            const itemName = typeof item === 'string' ? item : item.name;
+            const itemHref = typeof item === 'string' ? `/${item.toLowerCase()}` : item.href;
+            const notification = typeof item === 'object' ? item.notification : 0;
+            
+            return (
+              <Link 
+                key={itemName}
+                href={itemHref}
+                className="text-white hover:text-yellow-100 font-medium transition-all duration-300 text-lg relative group"
+              >
+                <div className="flex items-center">
+                  <span>{itemName}</span>
+                  {notification > 0 && (
+                    <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                      {notification}
+                    </span>
+                  )}
+                </div>
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-white group-hover:w-full transition-all duration-300"></span>
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Auth Section */}
@@ -138,6 +160,18 @@ const Navbar = () => {
                     onClick={() => setIsDropdownOpen(false)}
                   >
                     <span className="group-hover:translate-x-1 transition-transform duration-200">Profile</span>
+                  </Link>
+                  <Link
+                    href="/messages"
+                    className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 group"
+                    onClick={() => setIsDropdownOpen(false)}
+                  >
+                    <span className="group-hover:translate-x-1 transition-transform duration-200">Messages</span>
+                    {unreadCount > 0 && (
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                        {unreadCount}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     href="/settings"
