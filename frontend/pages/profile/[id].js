@@ -2,6 +2,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { AuthContext } from '../../context/AuthContext';
+import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -145,18 +146,29 @@ const ProfilePage = () => {
               </div>
             </div>
             {/* Pulsanti azione */}
-            {user && user.userId !== profile._id && (
+            {user && (
               <div className="flex space-x-3 mt-4 md:mt-0 md:ml-auto">
-                <button 
-                  onClick={handleFollow} 
-                  disabled={followLoading} 
-                  className="px-6 py-2 rounded-full font-medium text-sm bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-colors cursor-pointer"
-                >
-                  {profile.isFollowing ? 'Following' : 'Follow'}
-                </button>
-                <button className="px-6 py-2 rounded-full font-medium text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-sm border border-gray-300 transition-colors cursor-pointer">
-                  Message
-                </button>
+                {user._id === profile._id ? (
+                  <Link
+                    href="/settings"
+                    className="px-6 py-2 rounded-full font-medium text-sm bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-colors cursor-pointer"
+                  >
+                    Modifica Profilo
+                  </Link>
+                ) : (
+                  <>
+                    <button 
+                      onClick={handleFollow} 
+                      disabled={followLoading} 
+                      className="px-6 py-2 rounded-full font-medium text-sm bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-colors cursor-pointer"
+                    >
+                      {profile.isFollowing ? 'Following' : 'Follow'}
+                    </button>
+                    <button className="px-6 py-2 rounded-full font-medium text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-sm border border-gray-300 transition-colors cursor-pointer">
+                      Message
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
