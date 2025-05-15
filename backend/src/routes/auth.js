@@ -1,51 +1,68 @@
 const express = require('express');
 const { body } = require('express-validator');
 
-const { registerUser, loginUser } = require('../controllers/authController');
+const { registerUser, loginUser, changePassword } = require('../controllers/authController');
 const User = require('../models/User');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Funzione di validazione password personalizzata
+// Custom password validation function
 const validatePassword = (value) => {
   if (value.length < 8) {
-    throw new Error('La password deve essere di almeno 8 caratteri');
+    throw new Error('Password must be at least 8 characters');
   }
   if (!/[A-Z]/.test(value)) {
-    throw new Error('La password deve contenere almeno una lettera maiuscola');
+    throw new Error('Password must contain at least one uppercase letter');
   }
   if (!/[0-9]/.test(value)) {
-    throw new Error('La password deve contenere almeno un numero');
+    throw new Error('Password must contain at least one number');
   }
   if (!/[!@#$%^&*]/.test(value)) {
-    throw new Error('La password deve contenere almeno un carattere speciale (!@#$%^&*)');
+    throw new Error('Password must contain at least one special character (!@#$%^&*)');
   }
   return true;
 };
 
-// Rotta di registrazione
+// Registration route
 router.post(
   '/register',
   [
-    body('username').notEmpty().withMessage('Username obbligatorio'),
-    body('email').isEmail().withMessage('Email non valida'),
+    body('username').notEmpty().withMessage('Username is required'),
+    body('email').isEmail().withMessage('Invalid email'),
     body('password').custom(validatePassword)
   ],
   registerUser
 );
 
-// Rotta di login
+// Login route
 router.post(
   '/login',
   [
-    body('identifier').notEmpty().withMessage('Identificatore obbligatorio'),
-    body('password').notEmpty().withMessage('Password obbligatoria')
+    body('identifier').notEmpty().withMessage('Identifier is required'),
+    body('password').notEmpty().withMessage('Password is required')
   ],
   loginUser
 );
 
-// Rotta protetta: restituisce tutti i dati utente (senza password)
+// Change password route
+router.post(
+  '/change-password',
+  authMiddleware,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').custom(validatePassword),
+    body('confirmPassword').custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    })
+  ],
+  changePassword
+);
+
+// Protected route: returns all user data (without password)
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');

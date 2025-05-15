@@ -110,13 +110,55 @@ export const AuthProvider = ({ children }) => {
     logState('After logout');
   };
 
+  const changePassword = async (currentPassword, newPassword, confirmPassword) => {
+    try {
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error,
+          details: data.details
+        };
+      }
+
+      return {
+        success: true,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[AuthContext] Password change error:', error);
+      return {
+        success: false,
+        error: 'Errore durante il cambio password'
+      };
+    }
+  };
+
   // Log state changes
   useEffect(() => {
     logState('State changed');
   }, [token, user, isLoading]);
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isLoading, changePassword }}>
       {children}
     </AuthContext.Provider>
   );
