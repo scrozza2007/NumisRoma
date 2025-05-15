@@ -5,12 +5,47 @@ import { AuthContext } from '../context/AuthContext';
 const Settings = () => {
   const { user, isLoading } = useContext(AuthContext);
   const router = useRouter();
+  
+  // Form states
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [location, setLocation] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
   const [notifications, setNotifications] = useState({
     email: true,
     app: true,
     marketing: false
   });
   const [activeTab, setActiveTab] = useState('account');
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Initialize form values from user data or localStorage
+  useEffect(() => {
+    if (user) {
+      // Try to get saved form data from localStorage first
+      const savedFormData = localStorage.getItem('settingsFormData');
+      
+      if (savedFormData) {
+        const parsedData = JSON.parse(savedFormData);
+        setName(parsedData.name || user.fullName || 'John Doe');
+        setEmail(parsedData.email || user.email || 'john.doe@example.com');
+        setLocation(parsedData.location || user.location || 'Rome, Italy');
+        
+        if (parsedData.notifications) {
+          setNotifications(parsedData.notifications);
+        }
+      } else {
+        // Initialize from user data
+        setName(user.fullName || 'John Doe');
+        setEmail(user.email || 'john.doe@example.com');
+        setLocation(user.location || 'Rome, Italy');
+      }
+    }
+  }, [user]);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -20,10 +55,87 @@ const Settings = () => {
   }, [user, isLoading, router]);
 
   const handleNotificationChange = (type) => {
-    setNotifications(prev => ({
-      ...prev,
-      [type]: !prev[type]
+    const updatedNotifications = {
+      ...notifications,
+      [type]: !notifications[type]
+    };
+    
+    setNotifications(updatedNotifications);
+    
+    // Save to localStorage
+    const formData = JSON.parse(localStorage.getItem('settingsFormData') || '{}');
+    localStorage.setItem('settingsFormData', JSON.stringify({
+      ...formData,
+      notifications: updatedNotifications
     }));
+  };
+
+  const showSuccessMessage = (message) => {
+    setSuccessMessage(message);
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3000);
+  };
+
+  const handleSaveChanges = () => {
+    setIsSubmitting(true);
+    
+    // Validate passwords if trying to change them
+    if (newPassword || confirmPassword) {
+      if (!currentPassword) {
+        alert('Please enter your current password');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        alert("New passwords don't match");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+    
+    // Simulate API call with a delay
+    setTimeout(() => {
+      // Save form data to localStorage to persist between page reloads
+      const formData = {
+        name,
+        email,
+        location,
+        // Don't save passwords to localStorage for security
+        lastUpdated: new Date().toISOString()
+      };
+      
+      localStorage.setItem('settingsFormData', JSON.stringify(formData));
+      
+      // In a real application, you would update the AuthContext user here
+      
+      // Clear password fields
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      setIsSubmitting(false);
+      showSuccessMessage('Settings saved successfully!');
+    }, 800);
+  };
+  
+  const handleSaveNotifications = () => {
+    setIsSubmitting(true);
+    
+    // Simulate API call with a delay
+    setTimeout(() => {
+      // Save notification preferences to localStorage
+      const formData = JSON.parse(localStorage.getItem('settingsFormData') || '{}');
+      localStorage.setItem('settingsFormData', JSON.stringify({
+        ...formData,
+        notifications,
+        lastUpdated: new Date().toISOString()
+      }));
+      
+      setIsSubmitting(false);
+      showSuccessMessage('Notification preferences saved!');
+    }, 800);
   };
 
   // If still loading or user not authenticated, show loading state
@@ -38,6 +150,17 @@ const Settings = () => {
   return (
     <div className="container mx-auto px-4 py-8 text-gray-800">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      
+      {successMessage && (
+        <div className="mb-6 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md animate-fade-in-down">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+            </svg>
+            <p>{successMessage}</p>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Sidebar navigation */}
@@ -79,7 +202,7 @@ const Settings = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
-              <span>Privacy &amp; Security</span>
+              <span>Privacy & Security</span>
             </button>
           </nav>
         </div>
@@ -101,7 +224,8 @@ const Settings = () => {
                       type="text" 
                       id="name" 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                      defaultValue={user.fullName || 'John Doe'}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                     />
                   </div>
                   <div>
@@ -111,7 +235,7 @@ const Settings = () => {
                     <input 
                       type="text" 
                       id="username" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500 bg-gray-50"
                       defaultValue={user.username || 'johndoe'}
                       disabled
                     />
@@ -125,7 +249,8 @@ const Settings = () => {
                       type="email" 
                       id="email" 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                      defaultValue={user.email || 'john.doe@example.com'}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                   <div>
@@ -136,11 +261,14 @@ const Settings = () => {
                       type="text" 
                       id="location" 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                      defaultValue="Rome, Italy"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
                     />
                   </div>
                 </div>
               </div>
+              
+              <div className="border-t border-gray-200 my-8"></div>
               
               <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Change Password</h3>
@@ -153,6 +281,8 @@ const Settings = () => {
                       type="password" 
                       id="current-password" 
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
                     />
                   </div>
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,6 +294,8 @@ const Settings = () => {
                         type="password" 
                         id="new-password" 
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
                       />
                     </div>
                     <div>
@@ -174,6 +306,8 @@ const Settings = () => {
                         type="password" 
                         id="confirm-password" 
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
                       />
                     </div>
                   </div>
@@ -182,9 +316,14 @@ const Settings = () => {
               
               <div className="flex justify-end">
                 <button 
-                  className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-200"
+                  onClick={handleSaveChanges}
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2
+                    ${isSubmitting 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
                 >
-                  Save Changes
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>
@@ -195,7 +334,7 @@ const Settings = () => {
               <h2 className="text-2xl font-semibold mb-6">Notification Preferences</h2>
               
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <h3 className="font-medium">Email Notifications</h3>
                     <p className="text-sm text-gray-500">Receive email notifications about account activity</p>
@@ -212,7 +351,7 @@ const Settings = () => {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <h3 className="font-medium">App Notifications</h3>
                     <p className="text-sm text-gray-500">Receive in-app notifications</p>
@@ -229,7 +368,7 @@ const Settings = () => {
                   </button>
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
                     <h3 className="font-medium">Marketing Emails</h3>
                     <p className="text-sm text-gray-500">Receive updates about new features and promotions</p>
@@ -249,9 +388,14 @@ const Settings = () => {
               
               <div className="flex justify-end mt-8">
                 <button 
-                  className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-200"
+                  onClick={handleSaveNotifications}
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2
+                    ${isSubmitting 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
                 >
-                  Save Preferences
+                  {isSubmitting ? 'Saving...' : 'Save Preferences'}
                 </button>
               </div>
             </div>
@@ -259,7 +403,7 @@ const Settings = () => {
           
           {activeTab === 'privacy' && (
             <div>
-              <h2 className="text-2xl font-semibold mb-6">Privacy &amp; Security</h2>
+              <h2 className="text-2xl font-semibold mb-6">Privacy & Security</h2>
               
               <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Two-Factor Authentication</h3>
@@ -267,7 +411,7 @@ const Settings = () => {
                   Add an extra layer of security to your account by requiring a verification code in addition to your password.
                 </p>
                 <button 
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-200 text-sm"
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                 >
                   Enable Two-Factor Authentication
                 </button>
@@ -278,35 +422,46 @@ const Settings = () => {
                 <p className="text-sm text-gray-500 mb-4">
                   Manage your active sessions and sign out from other devices.
                 </p>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-4">
+                <div className="bg-gray-50 rounded-lg p-4 divide-y divide-gray-200">
+                  <div className="flex justify-between items-center pb-4">
                     <div>
                       <p className="font-medium text-gray-900">Current Session</p>
                       <p className="text-sm text-gray-500">Windows • Chrome • Rome, Italy</p>
+                      <p className="text-xs text-gray-400 mt-1">Last access: Today, 14:32</p>
                     </div>
                     <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                       Active Now
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center pt-4">
                     <div>
                       <p className="font-medium text-gray-900">Mobile Session</p>
                       <p className="text-sm text-gray-500">iOS • Safari • Last active: 2 days ago</p>
+                      <p className="text-xs text-gray-400 mt-1">Rome, Italy • 192.168.1.1</p>
                     </div>
-                    <button className="text-red-600 hover:text-red-700 text-sm font-medium">
+                    <button className="text-red-600 hover:text-red-700 text-sm font-medium focus:outline-none">
                       Sign Out
                     </button>
                   </div>
                 </div>
               </div>
               
-              <div className="pt-4 mt-8 border-t border-gray-200 flex flex-col space-y-4">
-                <button className="text-red-600 hover:text-red-700 text-sm font-medium self-start">
-                  Download Your Data
-                </button>
-                <button className="text-red-600 hover:text-red-700 text-sm font-medium self-start">
-                  Delete Account
-                </button>
+              <div className="pt-4 mt-8 border-t border-gray-200">
+                <h3 className="text-lg font-medium mb-4">Account Actions</h3>
+                <div className="space-y-4">
+                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium self-start flex items-center focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Your Data
+                  </button>
+                  <button className="text-red-600 hover:text-red-700 text-sm font-medium self-start flex items-center focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Account
+                  </button>
+                </div>
               </div>
             </div>
           )}
