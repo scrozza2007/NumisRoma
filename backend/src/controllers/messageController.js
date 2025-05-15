@@ -134,7 +134,8 @@ exports.getMessages = async (req, res) => {
 // Invia un nuovo messaggio
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, image } = req.body;
+    const { content, image } = req.body;
+    const { conversationId } = req.params;
     const userId = req.user.userId;
 
     // Verifica che la conversazione esista e che l'utente ne faccia parte
