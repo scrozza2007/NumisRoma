@@ -178,9 +178,13 @@ const Community = () => {
 
   const UserCard = ({ user: profileUser }) => {
     const initials = profileUser.username.charAt(0).toUpperCase();
+    const router = useRouter();
 
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      <div
+        className="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+        onClick={() => router.push(`/profile/${profileUser._id}`)}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             {profileUser.avatar ? (
@@ -200,7 +204,7 @@ const Community = () => {
             </div>
           </div>
           <button
-            onClick={() => toggleFollow(profileUser._id, profileUser.isFollowing)}
+            onClick={e => { e.stopPropagation(); toggleFollow(profileUser._id, profileUser.isFollowing); }}
             className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
               profileUser.isFollowing
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -280,7 +284,7 @@ const Community = () => {
               placeholder="Search users by username or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-300"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 focus:outline-none transition-all duration-300 bg-white"
             />
           </div>
         </div>

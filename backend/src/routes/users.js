@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Follow = require('../models/Follow');
 const authMiddleware = require('../middlewares/authMiddleware');
 const mongoose = require('mongoose');
+const Collection = require('../models/Collection');
 
 // GET /api/users - Cerca utenti
 router.get('/', authMiddleware, async (req, res) => {
@@ -187,6 +188,50 @@ router.delete('/:id/unfollow', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error in unfollow:', error);
     res.status(500).json({ message: 'Errore nel smettere di seguire l\'utente' });
+  }
+});
+
+// GET /api/users/:id/profile - Profilo pubblico utente
+router.get('/:id/profile', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentUserId = req.user.userId;
+
+    // Trova l'utente
+    const user = await User.findById(id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+
+    // Conta follower
+    const followersCount = await Follow.countDocuments({ following: id });
+    // Conta following
+    const followingCount = await Follow.countDocuments({ follower: id });
+    // Conta coins (puoi cambiare la logica se hai un altro modello)
+    const coinsCount = await Collection.aggregate([
+      { $match: { user: user._id } },
+      { $unwind: '$coins' },
+      { $count: 'total' }
+    ]);
+    // Verifica se l'utente autenticato segue questo profilo
+    let isFollowing = false;
+    if (currentUserId && currentUserId !== id) {
+      isFollowing = await Follow.exists({ follower: currentUserId, following: id });
+    }
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      avatar: user.avatar || null,
+      bio: user.bio || '',
+      followersCount,
+      followingCount,
+      coinsCount: coinsCount[0]?.total || 0,
+      isFollowing: !!isFollowing
+    });
+  } catch (error) {
+    console.error('Errore nel recupero del profilo:', error);
+    res.status(500).json({ message: 'Errore nel recupero del profilo utente' });
   }
 });
 
