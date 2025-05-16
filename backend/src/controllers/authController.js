@@ -168,6 +168,115 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+// Change username
+exports.changeUsername = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Validation failed',
+      details: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
+  }
+
+  const { username } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Check if username already exists
+    const existingUsername = await User.findOne({ 
+      username, 
+      _id: { $ne: userId } 
+    });
+    
+    if (existingUsername) {
+      return res.status(409).json({ 
+        error: 'Username already taken',
+        field: 'username'
+      });
+    }
+
+    // Find user and update username
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { username },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ 
+      message: 'Username changed successfully',
+      user
+    });
+  } catch (err) {
+    console.error('Username change error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Update profile
+exports.updateProfile = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Validation failed',
+      details: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
+  }
+
+  const { fullName, email, location } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    // Check if email already exists for another user
+    if (email) {
+      const existingEmail = await User.findOne({ 
+        email, 
+        _id: { $ne: userId } 
+      });
+      
+      if (existingEmail) {
+        return res.status(409).json({ 
+          error: 'Email already registered',
+          field: 'email'
+        });
+      }
+    }
+
+    // Find user and update profile
+    const updateData = {};
+    if (fullName) updateData.fullName = fullName;
+    if (email) updateData.email = email;
+    if (location) updateData.location = location;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ 
+      message: 'Profile updated successfully',
+      user
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // Delete account
 exports.deleteAccount = async (req, res) => {
   const errors = validationResult(req);

@@ -203,13 +203,149 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const checkUsernameAvailability = async (username) => {
+    try {
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/check-username`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          available: false,
+          error: data.error
+        };
+      }
+
+      return {
+        available: true
+      };
+    } catch (error) {
+      console.error('[AuthContext] Username availability check error:', error);
+      return {
+        available: false,
+        error: 'Errore durante il controllo della disponibilità'
+      };
+    }
+  };
+
+  const changeUsername = async (username) => {
+    try {
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/change-username`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ username })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error,
+          field: data.field
+        };
+      }
+
+      // Update user in context and localStorage
+      const updatedUser = { ...user, username: data.user.username };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return {
+        success: true,
+        message: data.message,
+        user: data.user
+      };
+    } catch (error) {
+      console.error('[AuthContext] Username change error:', error);
+      return {
+        success: false,
+        error: 'Errore durante la modifica dello username'
+      };
+    }
+  };
+
+  const updateProfile = async (userData) => {
+    try {
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/update-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userData)
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error,
+          details: data.details
+        };
+      }
+
+      // Update user in context and localStorage
+      const updatedUser = { ...user, ...data.user };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      return {
+        success: true,
+        message: data.message,
+        user: data.user
+      };
+    } catch (error) {
+      console.error('[AuthContext] Profile update error:', error);
+      return {
+        success: false,
+        error: 'Errore durante l\'aggiornamento del profilo'
+      };
+    }
+  };
+
   // Log state changes
   useEffect(() => {
     logState('State changed');
   }, [token, user, isLoading]);
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isLoading, changePassword, deleteAccount }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      isLoading, 
+      isInitialized, 
+      login, 
+      logout, 
+      changePassword, 
+      deleteAccount,
+      checkUsernameAvailability,
+      changeUsername,
+      updateProfile
+    }}>
       {children}
     </AuthContext.Provider>
   );
