@@ -11,6 +11,8 @@ const Contact = () => {
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
 
   const validateField = (name, value) => {
     let error = '';
@@ -68,25 +70,45 @@ const Contact = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
     setIsLoading(true);
-    setErrors({});
+    setError(null);
+    setSuccess(false);
 
     try {
-      // TODO: Implement form submission logic
-      console.log('Form submitted:', formData);
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('http://localhost:4000/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.details) {
+          const validationErrors = {};
+          data.details.forEach(err => {
+            validationErrors[err.field] = err.message;
+          });
+          setErrors(validationErrors);
+        } else {
+          throw new Error(data.message || 'Something went wrong');
+        }
+        return;
+      }
+
+      // Reset form e mostra messaggio di successo
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+      });
+      setErrors({});
+      setSuccess(true);
     } catch (err) {
-      console.error('Form submission error:', err);
-      setErrors(prev => ({
-        ...prev,
-        form: 'An error occurred while sending the message. Please try again later.'
-      }));
+      setError(err.message || 'Failed to send message. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -143,12 +165,21 @@ const Contact = () => {
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Send a Message</h2>
 
-            {errors.form && (
+            {success && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl animate-fade-in flex items-center space-x-2">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Message sent successfully! We will get back to you soon.</span>
+              </div>
+            )}
+
+            {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl animate-fade-in flex items-center space-x-2">
                 <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>{errors.form}</span>
+                <span>{error}</span>
               </div>
             )}
 
