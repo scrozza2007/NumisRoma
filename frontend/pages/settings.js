@@ -65,152 +65,6 @@ const CustomDropdown = ({ value, onChange, options, placeholder }) => {
   );
 };
 
-const DeleteAccountModal = ({ isOpen, onClose, onConfirm, isSubmitting, error }) => {
-  const [password, setPassword] = useState('');
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [reason, setReason] = useState('');
-  
-  const reasonOptions = [
-    { value: 'no-longer-use', label: 'I no longer use this account' },
-    { value: 'not-useful', label: 'I don\'t find the platform useful' },
-    { value: 'too-expensive', label: 'The service is too expensive' },
-    { value: 'found-alternative', label: 'I found a better alternative' },
-    { value: 'other', label: 'Other reason' }
-  ];
-  
-  if (!isOpen) return null;
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (isConfirmed && password) {
-      console.log('Submit triggered with password:', password, 'reason:', reason);
-      onConfirm(password, reason);
-    }
-  };
-  
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop with gradient like login/register pages */}
-      <div className="fixed inset-0 bg-gradient-to-b from-yellow-50 to-white" onClick={onClose}></div>
-      
-      {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 z-10 p-8 transform hover:scale-[1.02] transition-all duration-300">
-        <form onSubmit={handleSubmit}>
-          {/* Logo */}
-          <div className="text-center mb-6">
-            <img src="/images/logo.png" alt="NumisRoma" className="h-12 mx-auto mb-2" />
-          </div>
-          
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Delete Account</h2>
-            <p className="text-gray-600">Please confirm your decision</p>
-          </div>
-          
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-200 text-red-700 rounded-xl animate-fade-in flex items-center space-x-2">
-            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>This action cannot be undone. This will permanently delete your account and all your data.</span>
-          </div>
-          
-          <p className="text-gray-700 mb-6">
-            Please enter your password to confirm that you want to delete your account.
-          </p>
-          
-          {/* Reason for deletion */}
-          <div className="mb-6">
-            <label htmlFor="reason" className="block text-gray-700 font-medium mb-2">
-              Why are you deleting your account? <span className="text-gray-500 text-sm">(Optional)</span>
-            </label>
-            <CustomDropdown 
-              value={reason}
-              onChange={(value) => setReason(value)}
-              options={reasonOptions}
-              placeholder="Select a reason"
-            />
-            <p className="mt-2 text-xs text-gray-500">Your feedback helps us improve our service.</p>
-          </div>
-          
-          <div className="mb-6">
-            <label htmlFor="password" className="block text-gray-700 font-medium mb-2">Password</label>
-            <div className="relative">
-              <input 
-                type="password" 
-                id="password" 
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className={`w-full px-4 py-3 pl-12 border ${error ? 'border-red-300' : 'border-gray-300'} rounded-xl focus:outline-none focus:ring-2 ${error ? 'focus:ring-red-500' : 'focus:ring-yellow-500'} focus:border-transparent transition-all duration-200`}
-              />
-              <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            {error && (
-              <p className="mt-2 text-sm text-red-600 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Password is incorrect
-              </p>
-            )}
-          </div>
-          
-          {/* Checkbox confirmation */}
-          <div className="mb-8">
-            <label className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                className="h-5 w-5 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
-                checked={isConfirmed}
-                onChange={(e) => setIsConfirmed(e.target.checked)}
-                required
-              />
-              <span className="text-gray-800">
-                Yes, I want to delete my NumisRoma account. This action cannot be undone.
-              </span>
-            </label>
-          </div>
-          
-          <div className="flex items-center justify-between space-x-4">
-            <button 
-              type="button"
-              onClick={onClose}
-              className="w-full bg-gray-200 text-gray-800 py-3.5 rounded-xl hover:bg-gray-300 transition-all duration-200 transform hover:scale-[1.02] font-medium"
-            >
-              Cancel
-            </button>
-            
-            <button 
-              type="submit"
-              disabled={!password || !isConfirmed || isSubmitting}
-              className={`w-full py-3.5 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed
-                ${!password || !isConfirmed || isSubmitting ? 'bg-red-300 text-white' : 'bg-red-600 text-white hover:bg-red-700'}`}
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Deleting...</span>
-                </>
-              ) : (
-                <span>Delete My Account</span>
-              )}
-            </button>
-          </div>
-          
-          <div className="mt-6 text-center text-xs text-gray-500">
-            If you need help, please contact <a href="mailto:support@numisroma.com" className="text-yellow-600 hover:text-yellow-700">support@numisroma.com</a>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 const Settings = () => {
   const { user, isLoading, changePassword, deleteAccount, logout } = useContext(AuthContext);
   const router = useRouter();
@@ -236,10 +90,6 @@ const Settings = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Delete account modal state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteAccountError, setDeleteAccountError] = useState('');
-
   // Initialize form values from user data or localStorage
   useEffect(() => {
     if (user) {
@@ -444,41 +294,6 @@ const Settings = () => {
       setIsSubmitting(false);
       showSuccessMessage('Notification preferences saved!');
     }, 800);
-  };
-
-  // Handle delete account confirmation
-  const handleDeleteAccount = async (password, reason) => {
-    // Validate
-    if (!password) {
-      setDeleteAccountError('Password is required to delete your account.');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setDeleteAccountError('');
-    
-    try {
-      console.log('Calling deleteAccount API...');
-      const result = await deleteAccount(password, reason);
-      console.log('API response:', result);
-      
-      if (result.success) {
-        // Prima eliminiamo i dati dell'utente localmente
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        
-        // Poi facciamo il redirect prima che il Navbar possa intercettare
-        window.location.href = '/register';
-        return; // Importante: interrompere l'esecuzione qui
-      } else {
-        setDeleteAccountError(result.error || 'Failed to delete account. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error during account deletion:', error);
-      setDeleteAccountError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   // If still loading or user not authenticated, show loading state
@@ -934,7 +749,7 @@ const Settings = () => {
                       </p>
                       <button 
                         className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center"
-                        onClick={() => setIsDeleteModalOpen(true)}
+                        onClick={() => router.push('/delete-account')}
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1201,18 +1016,6 @@ const Settings = () => {
           )}
         </div>
       </div>
-      
-      {/* Delete Account Modal */}
-      <DeleteAccountModal 
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeleteAccountError('');
-        }}
-        onConfirm={handleDeleteAccount}
-        isSubmitting={isSubmitting}
-        error={deleteAccountError}
-      />
     </div>
   );
 };
