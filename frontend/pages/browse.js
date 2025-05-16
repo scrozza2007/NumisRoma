@@ -297,25 +297,25 @@ const Browse = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {coins.map((coin) => (
                     <Link
                       key={coin._id}
                       href={`/coins/${coin._id}`}
-                      className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                      className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full"
                     >
                       <div className="aspect-[4/3] bg-gray-50 p-6">
                         <img
                           src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
                           alt={coin.name}
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-contain mix-blend-multiply"
                         />
                       </div>
-                      <div className="p-6">
+                      <div className="p-6 flex flex-col h-full bg-gradient-to-b from-white to-yello-50">
                         <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{coin.name}</h3>
                         <p className="text-gray-700 mb-2 font-medium">{coin.authority?.emperor}</p>
                         <p className="text-gray-500 mb-4">{coin.description?.date_range}</p>
-                        <div className="flex items-center text-yellow-600 font-medium">
+                        <div className="flex items-center text-yellow-600 font-medium mt-auto">
                           <span>View Details</span>
                           <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />

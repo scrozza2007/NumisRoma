@@ -58,6 +58,21 @@ const Settings = () => {
     }
   }, [user, isLoading, router]);
 
+  // On mount, restore activeTab from localStorage (client-side only)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('settingsActiveTab');
+      if (savedTab) setActiveTab(savedTab);
+    }
+  }, []);
+
+  // Save activeTab to localStorage when it changes (client-side only)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('settingsActiveTab', activeTab);
+    }
+  }, [activeTab]);
+
   const handleNotificationChange = (type) => {
     const updatedNotifications = {
       ...notifications,

@@ -6,6 +6,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Debug function to log state changes
   const logState = (action) => {
@@ -13,7 +14,8 @@ export const AuthProvider = ({ children }) => {
       hasToken: !!token,
       hasUser: !!user,
       userData: user,
-      isLoading
+      isLoading,
+      isInitialized
     });
   };
 
@@ -42,7 +44,10 @@ export const AuthProvider = ({ children }) => {
             }
           }
           
-          await fetchUserData(storedToken);
+          // Only fetch user data if we don't have it already
+          if (!storedUser) {
+            await fetchUserData(storedToken);
+          }
         } else {
           console.log('[AuthContext] No stored token found');
         }
@@ -50,6 +55,7 @@ export const AuthProvider = ({ children }) => {
         console.error('[AuthContext] Error during initialization:', error);
       } finally {
         setIsLoading(false);
+        setIsInitialized(true);
         logState('After initialization');
       }
     };
@@ -71,12 +77,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('user', JSON.stringify(userData));
         logState('After setting user data');
       } else {
-        localStorage.removeItem('user');
-        logout();
+        // Only clear data if the token is actually invalid
+        if (response.status === 401) {
+          localStorage.removeItem('user');
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+        }
       }
     } catch (error) {
-      localStorage.removeItem('user');
-      logout();
+      console.error('[AuthContext] Error fetching user data:', error);
+      // Don't clear data on network errors
     }
   };
 
