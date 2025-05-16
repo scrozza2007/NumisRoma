@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 
-const { registerUser, loginUser, changePassword } = require('../controllers/authController');
+const { registerUser, loginUser, changePassword, deleteAccount } = require('../controllers/authController');
 const User = require('../models/User');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -52,14 +52,27 @@ router.post(
   [
     body('currentPassword').notEmpty().withMessage('Current password is required'),
     body('newPassword').custom(validatePassword),
-    body('confirmPassword').custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error('Passwords do not match');
-      }
-      return true;
-    })
+    body('confirmPassword')
+      .notEmpty()
+      .withMessage('Confirm password is required')
+      .custom((value, { req }) => {
+        if (value !== req.body.newPassword) {
+          throw new Error('Passwords do not match');
+        }
+        return true;
+      })
   ],
   changePassword
+);
+
+// Delete account route
+router.post(
+  '/delete-account',
+  authMiddleware,
+  [
+    body('password').notEmpty().withMessage('Password is required')
+  ],
+  deleteAccount
 );
 
 // Protected route: returns all user data (without password)

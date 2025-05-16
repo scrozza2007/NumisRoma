@@ -163,13 +163,53 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const deleteAccount = async (password) => {
+    try {
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error,
+          details: data.details
+        };
+      }
+
+      // Return success without auto logout
+      // The calling component will handle redirection before calling logout
+      return {
+        success: true,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('[AuthContext] Account deletion error:', error);
+      return {
+        success: false,
+        error: 'Error deleting account'
+      };
+    }
+  };
+
   // Log state changes
   useEffect(() => {
     logState('State changed');
   }, [token, user, isLoading]);
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isLoading, changePassword }}>
+    <AuthContext.Provider value={{ token, user, login, logout, isLoading, changePassword, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const Collection = require('../models/Collection');
+const Follow = require('../models/Follow');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -162,6 +164,73 @@ exports.changePassword = async (req, res) => {
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
     console.error('Password change error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Delete account
+exports.deleteAccount = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Validation failed',
+      details: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
+  }
+
+  console.log("Delete account request received:", {
+    userId: req.user?.userId,
+    hasPassword: !!req.body.password
+  });
+
+  const { password } = req.body;
+  const userId = req.user.userId;
+
+  if (!userId) {
+    console.error("User ID missing from request");
+    return res.status(400).json({ error: 'User ID is missing' });
+  }
+
+  try {
+    // Find user in database
+    const user = await User.findById(userId);
+    if (!user) {
+      console.error(`User with ID ${userId} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`User found: ${user.username}`);
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log("Password verification result:", isMatch);
+    
+    if (!isMatch) {
+      return res.status(400).json({ 
+        error: 'Password is incorrect',
+        field: 'password'
+      });
+    }
+
+    // Delete all user-related data from other collections
+    const collectionsResult = await Collection.deleteMany({ user: userId });
+    const followsResult = await Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
+    
+    console.log("Deleted associated data:", {
+      collections: collectionsResult.deletedCount,
+      follows: followsResult.deletedCount
+    });
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+    console.log(`User ${user.username} deleted successfully`);
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    console.error('Account deletion error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };

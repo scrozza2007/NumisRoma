@@ -16,10 +16,14 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { _id: decoded.userId }; // Save user data in the request
+    // Make sure we set userId in the request for controllers that need it
+    req.user = { 
+      userId: decoded.userId,
+      _id: decoded.userId 
+    };
     next(); // Proceed to next middleware or controller
   } catch (err) {
-    console.error(err);
+    console.error('JWT verification error:', err);
     res.status(401).json({ msg: 'Invalid token, access denied' });
   }
 };
