@@ -22,38 +22,186 @@ const Browse = () => {
     order: 'asc'
   });
 
+  const formatText = (text, isTitle = false) => {
+    if (isTitle) {
+      // Per il titolo, manteniamo la formattazione originale ma rimuoviamo solo gli spazi extra
+      return text.replace(/\s+/g, ' ').trim();
+    }
+    // Per gli altri campi, aggiungiamo spazi dopo i due punti
+    return text
+      .replace(/\s+/g, ' ')
+      .replace(/([^:]):/g, '$1: ')
+      .trim();
+  };
+
+  const extractCoinData = (htmlContent) => {
+    console.log('Inizio estrazione dati...');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    
+    const resultDivs = doc.querySelectorAll('div[class*="result"]');
+    console.log('Numero di risultati trovati:', resultDivs.length);
+    
+    if (resultDivs.length === 0) {
+      console.log('Nessun risultato trovato');
+      return [];
+    }
+
+    const coins = [];
+    
+    resultDivs.forEach((div, index) => {
+      const images = div.querySelectorAll('img');
+      const obverseImg = images[0];
+      const reverseImg = images[1];
+      
+      if (!obverseImg) {
+        console.log(`Immagine dritto non trovata per il risultato ${index}`);
+        return;
+      }
+      
+      const text = div.textContent;
+      console.log(`Processando risultato ${index}:`, text.substring(0, 200));
+      
+      // Estraiamo le informazioni usando regex migliorate
+      const titleMatch = text.match(/RIC I \(second edition\) ([^\n]+)/);
+      const dateMatch = text.match(/Date\s*:?\s*([^\n]+)/i);
+      const denominationMatch = text.match(/Denomination\s*:?\s*([^\n]+)/i);
+      const mintMatch = text.match(/Mint\s*:?\s*([^\n]+)/i);
+      const obverseMatch = text.match(/Obverse\s*:?\s*([^\n]+)/i);
+      const reverseMatch = text.match(/Reverse\s*:?\s*([^\n]+)/i);
+      
+      // Estraiamo solo il nome della moneta dal titolo, rimuovendo le informazioni aggiuntive
+      let title = titleMatch?.[1] || '';
+      
+      // Rimuoviamo "object" o "objects" e tutto ciò che segue
+      title = title.replace(/\s*objects?.*$/i, '');
+      
+      // Estraiamo il nome dell'imperatore e il numero della moneta
+      const titleParts = title.match(/^([A-Za-z]+)\s+(\d+[A-Za-z]*)/);
+      if (titleParts) {
+        title = `${titleParts[1]} ${titleParts[2]}`;
+      }
+      
+      console.log('Match trovati per risultato', index, {
+        title: title,
+        date: dateMatch?.[1],
+        denomination: denominationMatch?.[1],
+        mint: mintMatch?.[1],
+        obverse: obverseMatch?.[1],
+        reverse: reverseMatch?.[1]
+      });
+      
+      // Formattiamo i dati estratti
+      title = formatText(title, true);
+      const date = formatText(dateMatch?.[1] || '');
+      const denomination = formatText(denominationMatch?.[1] || '');
+      const mint = formatText(mintMatch?.[1] || '');
+      const obverse = formatText(obverseMatch?.[1] || '');
+      const reverse = formatText(reverseMatch?.[1] || '');
+      
+      // Estraiamo l'imperatore dal titolo
+      const emperor = title.split(' ')[0] || '';
+
+      // Estraiamo l'ID dalla URL dell'immagine
+      const imageUrl = obverseImg.src;
+      console.log(`URL immagine per risultato ${index}:`, imageUrl);
+      
+      // Proviamo diversi pattern per estrarre l'ID
+      let coinId = null;
+      const patterns = [
+        /\/(\d+)\//,  // numero tra slash
+        /id=(\d+)/,   // numero dopo id=
+        /record=(\d+)/ // numero dopo record=
+      ];
+      
+      for (const pattern of patterns) {
+        const match = imageUrl.match(pattern);
+        if (match) {
+          coinId = match[1];
+          break;
+        }
+      }
+      
+      if (!coinId) {
+        console.log(`ID non trovato per il risultato ${index}, uso l'indice come fallback`);
+        coinId = index;
+      }
+      
+      console.log(`ID estratto per risultato ${index}:`, coinId);
+      
+      coins.push({
+        _id: coinId,
+        name: title,
+        authority: {
+          emperor: emperor,
+          dynasty: ''
+        },
+        description: {
+          date_range: date,
+          material: '',
+          denomination: denomination,
+          mint: mint
+        },
+        obverse: {
+          image: obverseImg.src || '/images/coin-placeholder.jpg',
+          legend: obverse,
+          type: ''
+        },
+        reverse: {
+          image: reverseImg?.src || '/images/coin-placeholder.jpg',
+          legend: reverse,
+          type: ''
+        }
+      });
+    });
+    
+    console.log('Monete estratte:', coins.length);
+    return coins;
+  };
+
   const fetchCoins = async (page = 1, filters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      let url = `${process.env.NEXT_PUBLIC_API_URL}/api/coins?page=${page}&limit=12`;
-      
-      Object.keys(filters).forEach(key => {
-        if (filters[key] && key !== 'sortBy' && key !== 'order') {
-          const value = key === 'material' ? filters[key].trim() : filters[key];
-          url += `&${key}=${encodeURIComponent(value)}`;
-        }
+      console.log('Inizio fetch monete...');
+      const searchUrl = 'https://numismatics.org/ocre/results?';
+      let searchParams = new URLSearchParams({
+        page: page,
+        limit: 12
       });
 
-      if (filters.sortBy) {
-        url += `&sortBy=${encodeURIComponent(filters.sortBy)}`;
-      }
-      if (filters.order) {
-        url += `&order=${encodeURIComponent(filters.order)}`;
-      }
-      
+      if (filters.keyword) searchParams.append('q', filters.keyword);
+      if (filters.material) searchParams.append('material', filters.material);
+      if (filters.emperor) searchParams.append('authority', filters.emperor);
+      if (filters.denomination) searchParams.append('denomination', filters.denomination);
+      if (filters.mint) searchParams.append('mint', filters.mint);
+      if (filters.date_range) searchParams.append('date', filters.date_range);
+
+      const url = searchUrl + searchParams.toString();
+      console.log('URL richiesta:', url);
+
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
       
-      setCoins(data.results);
-      setTotalPages(data.pages);
-      setCurrentPage(data.page);
+      const htmlContent = await response.text();
+      console.log('Lunghezza risposta HTML:', htmlContent.length);
+      
+      const parsedCoins = extractCoinData(htmlContent);
+      console.log('Monete parsate:', parsedCoins.length);
+      
+      // Estraiamo il numero totale di pagine dal contenuto HTML
+      const totalMatches = htmlContent.match(/Displaying records \d+ to \d+ of (\d+) total results/);
+      const total = totalMatches ? parseInt(totalMatches[1]) : 0;
+      console.log('Totale risultati:', total);
+      
+      setCoins(parsedCoins);
+      setTotalPages(Math.ceil(total / 12));
+      setCurrentPage(page);
     } catch (error) {
-      console.error('Error fetching coins:', error);
-      setError('An error occurred while loading the coins. Please try again later.');
+      console.error('Errore nel recupero delle monete:', error);
+      setError('Si è verificato un errore durante il caricamento delle monete. Riprova più tardi.');
     } finally {
       setLoading(false);
     }
@@ -113,16 +261,16 @@ const Browse = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Browse Coins - NumisRoma</title>
-        <meta name="description" content="Browse the comprehensive catalog of Roman Imperial coins" />
+        <title>Catalogo Monete Imperiali Romane - NumisRoma</title>
+        <meta name="description" content="Esplora il catalogo completo delle monete imperiali romane" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="container mx-auto py-12 px-4">
         <div className="mb-12 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Roman Imperial Coins Catalog</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Catalogo Monete Imperiali Romane</h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Explore our vast collection of Roman Imperial coins with advanced filtering and search capabilities
+            Esplora la nostra vasta collezione di monete imperiali romane con funzionalità avanzate di ricerca e filtro
           </p>
         </div>
 
@@ -295,9 +443,13 @@ const Browse = () => {
                 </svg>
                 <span>{error}</span>
               </div>
+            ) : coins.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">Nessuna moneta trovata</p>
+              </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {coins.map((coin) => (
                     <Link
                       key={coin._id}
@@ -311,12 +463,45 @@ const Browse = () => {
                           className="w-full h-full object-contain mix-blend-multiply"
                         />
                       </div>
-                      <div className="p-6 flex flex-col h-full bg-gradient-to-b from-white to-yello-50">
+                      <div className="p-6 flex flex-col h-full">
                         <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{coin.name}</h3>
-                        <p className="text-gray-700 mb-2 font-medium">{coin.authority?.emperor}</p>
-                        <p className="text-gray-500 mb-4">{coin.description?.date_range}</p>
+                        
+                        {/* Dettagli principali */}
+                        <div className="space-y-2 text-sm text-gray-600 mb-4">
+                          {coin.description?.date_range && (
+                            <div className="flex items-start">
+                              <span className="font-medium text-gray-700 w-20">Periodo:</span>
+                              <span>{coin.description.date_range}</span>
+                            </div>
+                          )}
+                          {coin.description?.denomination && (
+                            <div className="flex items-start">
+                              <span className="font-medium text-gray-700 w-20">Nominale:</span>
+                              <span>{coin.description.denomination}</span>
+                            </div>
+                          )}
+                          {coin.description?.mint && (
+                            <div className="flex items-start">
+                              <span className="font-medium text-gray-700 w-20">Zecca:</span>
+                              <span>{coin.description.mint}</span>
+                            </div>
+                          )}
+                          {coin.obverse?.legend && (
+                            <div className="flex items-start">
+                              <span className="font-medium text-gray-700 w-20">Dritto:</span>
+                              <span className="line-clamp-2">{coin.obverse.legend}</span>
+                            </div>
+                          )}
+                          {coin.reverse?.legend && (
+                            <div className="flex items-start">
+                              <span className="font-medium text-gray-700 w-20">Rovescio:</span>
+                              <span className="line-clamp-2">{coin.reverse.legend}</span>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex items-center text-yellow-600 font-medium mt-auto">
-                          <span>View Details</span>
+                          <span>Vedi Dettagli</span>
                           <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                           </svg>
@@ -334,17 +519,17 @@ const Browse = () => {
                       disabled={currentPage === 1}
                       className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Previous
+                      Precedente
                     </button>
                     <span className="px-4 py-2 text-gray-700">
-                      Page {currentPage} of {totalPages}
+                      Pagina {currentPage} di {totalPages}
                     </span>
                     <button
                       onClick={() => handlePageChange(currentPage + 1)}
                       disabled={currentPage === totalPages}
                       className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Next
+                      Successiva
                     </button>
                   </div>
                 )}
