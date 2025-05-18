@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 
 const Browse = () => {
+  const router = useRouter();
   const [coins, setCoins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,27 +23,31 @@ const Browse = () => {
     sortBy: 'name',
     order: 'asc'
   });
+  
+  // Flag to avoid double fetching on first load
+  const isFirstLoadRef = useRef(true);
 
-  const fetchCoins = async (page = 1, filters = {}) => {
+  const fetchCoins = async (page = 1, filterParams = {}) => {
     setLoading(true);
     setError(null);
     try {
       let url = `${process.env.NEXT_PUBLIC_API_URL}/api/coins?page=${page}&limit=12`;
       
-      Object.keys(filters).forEach(key => {
-        if (filters[key] && key !== 'sortBy' && key !== 'order') {
-          const value = key === 'material' ? filters[key].trim() : filters[key];
+      Object.keys(filterParams).forEach(key => {
+        if (filterParams[key] && key !== 'sortBy' && key !== 'order') {
+          const value = key === 'material' ? filterParams[key].trim() : filterParams[key];
           url += `&${key}=${encodeURIComponent(value)}`;
         }
       });
 
-      if (filters.sortBy) {
-        url += `&sortBy=${encodeURIComponent(filters.sortBy)}`;
+      if (filterParams.sortBy) {
+        url += `&sortBy=${encodeURIComponent(filterParams.sortBy)}`;
       }
-      if (filters.order) {
-        url += `&order=${encodeURIComponent(filters.order)}`;
+      if (filterParams.order) {
+        url += `&order=${encodeURIComponent(filterParams.order)}`;
       }
       
+      console.log('Fetching with URL:', url);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -59,8 +65,71 @@ const Browse = () => {
     }
   };
 
+  // Save the current URL path when leaving the browse page
+  // to check if we're coming from a coin detail page later
   useEffect(() => {
-    fetchCoins(currentPage, filters);
+    const handleRouteChange = (url) => {
+      if (url.startsWith('/coins/')) {
+        localStorage.setItem('lastVisitedPage', 'coin-detail');
+      } else if (url !== '/browse') {
+        // Clear filters when navigating to a non-coin-detail page
+        localStorage.removeItem('coinFilters');
+        localStorage.removeItem('coinCurrentPage');
+        localStorage.removeItem('lastVisitedPage');
+      }
+    };
+
+    router.events.on('routeChangeStart', handleRouteChange);
+    return () => {
+      router.events.off('routeChangeStart', handleRouteChange);
+    };
+  }, [router]);
+
+  // Load saved filters and apply them on initial mount only if coming from a coin detail page
+  useEffect(() => {
+    const loadSavedFilters = async () => {
+      try {
+        const lastVisitedPage = localStorage.getItem('lastVisitedPage');
+        const savedFilters = localStorage.getItem('coinFilters');
+        const savedPage = localStorage.getItem('coinCurrentPage');
+        
+        // Only restore filters if coming from a coin detail page
+        if (lastVisitedPage === 'coin-detail' && savedFilters) {
+          const parsedFilters = JSON.parse(savedFilters);
+          setFilters(parsedFilters);
+          
+          if (savedPage) {
+            const pageNum = parseInt(savedPage, 10);
+            setCurrentPage(pageNum);
+            await fetchCoins(pageNum, parsedFilters);
+          } else {
+            await fetchCoins(1, parsedFilters);
+          }
+        } else {
+          // Clear any saved filters if not coming from a coin detail page
+          localStorage.removeItem('coinFilters');
+          localStorage.removeItem('coinCurrentPage');
+          await fetchCoins(1, filters);
+        }
+
+        // Clear the last visited page marker
+        localStorage.removeItem('lastVisitedPage');
+      } catch (e) {
+        console.error('Error in initial load:', e);
+        await fetchCoins(1, filters);
+      }
+      isFirstLoadRef.current = false;
+    };
+    
+    loadSavedFilters();
+  }, []);
+
+  // Handle page changes
+  useEffect(() => {
+    if (!isFirstLoadRef.current) {
+      localStorage.setItem('coinCurrentPage', currentPage.toString());
+      fetchCoins(currentPage, filters);
+    }
   }, [currentPage]);
 
   const handlePageChange = (newPage) => {
@@ -89,11 +158,14 @@ const Browse = () => {
   const handleFilterSubmit = (e) => {
     e.preventDefault();
     setCurrentPage(1);
+    // Save filters to localStorage
+    localStorage.setItem('coinFilters', JSON.stringify(filters));
+    localStorage.setItem('coinCurrentPage', '1');
     fetchCoins(1, filters);
   };
 
   const handleFilterReset = () => {
-    setFilters({
+    const resetFilters = {
       keyword: '',
       material: '',
       emperor: '',
@@ -105,8 +177,12 @@ const Browse = () => {
       deity: '',
       sortBy: 'name',
       order: 'asc'
-    });
+    };
+    setFilters(resetFilters);
     setCurrentPage(1);
+    // Clear filters from localStorage
+    localStorage.removeItem('coinFilters');
+    localStorage.setItem('coinCurrentPage', '1');
     fetchCoins(1, {});
   };
 

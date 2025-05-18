@@ -4,11 +4,13 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 
 const CoinDetail = ({ coinId }) => {
+  const router = useRouter();
   const [coin, setCoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeImage, setActiveImage] = useState('obverse');
   const [isZoomed, setIsZoomed] = useState(false);
+  const [hasFilters, setHasFilters] = useState(false);
 
   const fetchCoinDetails = async () => {
     setLoading(true);
@@ -43,6 +45,10 @@ const CoinDetail = ({ coinId }) => {
     if (coinId) {
       fetchCoinDetails();
     }
+    
+    // Check if there are saved filters
+    const savedFilters = localStorage.getItem('coinFilters');
+    setHasFilters(!!savedFilters);
   }, [coinId]);
 
   const handleImageClick = (side) => {
@@ -52,6 +58,15 @@ const CoinDetail = ({ coinId }) => {
 
   const handleZoomClose = () => {
     setIsZoomed(false);
+  };
+
+  // Handle back navigation while preserving filters
+  const handleBackToResults = (e) => {
+    e.preventDefault();
+    // Set a flag that we're coming from a coin detail page
+    localStorage.setItem('lastVisitedPage', 'coin-detail');
+    // Navigate to the browse page
+    router.push('/browse');
   };
 
   return (
@@ -77,7 +92,7 @@ const CoinDetail = ({ coinId }) => {
         ) : coin ? (
           <>
             {/* Breadcrumb */}
-            <div className="mb-8">
+            <div className="mb-8 flex flex-wrap items-center justify-between">
               <nav className="flex" aria-label="Breadcrumb">
                 <ol className="inline-flex items-center space-x-1 md:space-x-3">
                   <li className="inline-flex items-center">
@@ -105,6 +120,18 @@ const CoinDetail = ({ coinId }) => {
                   </li>
                 </ol>
               </nav>
+              
+              {hasFilters && (
+                <button 
+                  onClick={handleBackToResults}
+                  className="mt-4 md:mt-0 bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-xl flex items-center transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back to Results
+                </button>
+              )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
