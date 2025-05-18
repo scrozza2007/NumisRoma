@@ -137,6 +137,40 @@ router.post('/check-username', authMiddleware, async (req, res) => {
   }
 });
 
+// Check email availability
+router.post('/check-email', authMiddleware, async (req, res) => {
+  const { email } = req.body;
+  const userId = req.user.userId;
+
+  // Validate email format
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+
+  try {
+    // Check if email already exists for another user
+    const existingEmail = await User.findOne({ 
+      email, 
+      _id: { $ne: userId } 
+    });
+    
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already registered', available: false });
+    }
+
+    // Email is available
+    res.json({ available: true });
+  } catch (err) {
+    console.error('Email check error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Protected route: returns all user data (without password)
 router.get('/me', authMiddleware, async (req, res) => {
   try {

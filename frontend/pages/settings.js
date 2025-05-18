@@ -83,6 +83,13 @@ const Settings = () => {
   const [passwordErrors, setPasswordErrors] = useState({});
   const [usernameErrors, setUsernameErrors] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [locationError, setLocationError] = useState('');
+  const [currentPasswordError, setCurrentPasswordError] = useState('');
+  const [newPasswordError, setNewPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(0); // 0-4 scale
   
   const [notifications, setNotifications] = useState({
     email: true,
@@ -97,15 +104,23 @@ const Settings = () => {
   
   // Initialize form values from user data or localStorage
   useEffect(() => {
-    if (user) {
-      // Always initialize with the data from the user object first
+    const loadUserData = async () => {
+      if (!user) return;
+      
+      // Aggiornamento dai dati utente attuali
       setName(user.fullName || '');
       setEmail(user.email || '');
       setLocation(user.location || '');
       setUsername(user.username || '');
       
+      console.log('User data loaded from context:', { 
+        fullName: user.fullName, 
+        email: user.email, 
+        location: user.location, 
+        username: user.username 
+      });
+      
       // Try to get saved form data from localStorage only for notifications
-      // or if you're in the middle of editing
       const savedFormData = localStorage.getItem('settingsFormData');
       
       if (savedFormData) {
@@ -116,8 +131,44 @@ const Settings = () => {
           setNotifications(parsedData.notifications);
         }
       }
-    }
+    };
+    
+    loadUserData();
   }, [user]);
+
+  // Add an additional effect to refresh user data when the page is loaded
+  useEffect(() => {
+    const refreshUserData = async () => {
+      // Skip if no user is logged in or user is still loading
+      if (!user || isLoading) return;
+      
+      try {
+        // Fetch fresh user data from the API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('Refreshed user data from API:', userData);
+          
+          // Update the form values with the latest data
+          setName(userData.fullName || '');
+          setEmail(userData.email || '');
+          setLocation(userData.location || '');
+          setUsername(userData.username || '');
+        } else {
+          console.error('Failed to refresh user data:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    };
+    
+    refreshUserData();
+  }, [user, isLoading]);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -163,11 +214,22 @@ const Settings = () => {
 
   // Check if any field has been changed
   const hasChanges = () => {
-    return name !== user.fullName || 
-           email !== user.email || 
-           location !== user.location || 
-           username !== user.username || 
-           (currentPassword && newPassword && confirmPassword); // Include password fields in check
+    return (
+      (name !== '' && name !== user.fullName) || 
+      (email !== '' && email !== user.email) || 
+      (location !== '' && location !== user.location) || 
+      (username !== '' && username !== user.username)
+    ); 
+  };
+
+  // Check if password fields have been changed
+  const hasPasswordChanges = () => {
+    return (currentPassword && newPassword && confirmPassword);
+  };
+
+  // Check if the individual field has been changed and show appropriate message
+  const hasFieldChanged = (field, userField) => {
+    return field && field !== userField;
   };
 
   // Password validation
@@ -197,9 +259,100 @@ const Settings = () => {
     return errors;
   };
 
+  const handleNameChange = (e) => {
+    const value = e.target.value;
+    setName(value);
+    
+    // Real-time validation
+    if (value.trim() === '') {
+      setNameError('Name cannot be empty');
+    } else if (value.length < 2) {
+      setNameError('Name must be at least 2 characters');
+    } else if (value.length > 50) {
+      setNameError('Name must be less than 50 characters');
+    } else {
+      setNameError('');
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    
+    // Real-time validation with regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (value.trim() === '') {
+      setEmailError('Email cannot be empty');
+    } else if (!emailRegex.test(value)) {
+      setEmailError('Please enter a valid email address');
+    } else {
+      setEmailError('');
+      
+      // Don't check availability if the email hasn't changed
+      if (value === user.email) {
+        return;
+      }
+      
+      // Check email availability with debounce
+      const timer = setTimeout(async () => {
+        try {
+          // Only check if the email is valid and not empty
+          if (value.trim() !== '' && emailRegex.test(value)) {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/check-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({ email: value })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok || !data.available) {
+              setEmailError('This email is already registered to another account');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking email availability:', error);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  };
+
+  const handleLocationChange = (e) => {
+    const value = e.target.value;
+    setLocation(value);
+    
+    // Simple validation
+    if (value.length > 100) {
+      setLocationError('Location must be less than 100 characters');
+    } else {
+      setLocationError('');
+    }
+  };
+
   const handleUsernameChange = async (e) => {
     const newUsername = e.target.value;
     setUsername(newUsername);
+    
+    // Basic validation
+    if (newUsername.trim() === '') {
+      setUsernameErrors('Username cannot be empty');
+      return;
+    }
+    
+    if (newUsername.length < 3) {
+      setUsernameErrors('Username must be at least 3 characters');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      setUsernameErrors('Username can only contain letters, numbers and underscores');
+      return;
+    }
     
     // Check if username is the same as current username
     if (newUsername === user.username) {
@@ -223,12 +376,143 @@ const Settings = () => {
     return () => clearTimeout(timer);
   };
 
+  const handleCurrentPasswordChange = (e) => {
+    const value = e.target.value;
+    setCurrentPassword(value);
+    
+    if (value.trim() === '') {
+      setCurrentPasswordError('Current password is required');
+    } else {
+      setCurrentPasswordError('');
+    }
+  };
+
+  const calculatePasswordStrength = (password) => {
+    // Basic password strength algorithm
+    let score = 0;
+    
+    // Length check
+    if (password.length >= 8) score++;
+    
+    // Contains uppercase
+    if (/[A-Z]/.test(password)) score++;
+    
+    // Contains lowercase
+    if (/[a-z]/.test(password)) score++;
+    
+    // Contains number
+    if (/[0-9]/.test(password)) score++;
+    
+    // Contains special character
+    if (/[!@#$%^&*]/.test(password)) score++;
+    
+    return score;
+  };
+
+  const handleNewPasswordChange = (e) => {
+    const value = e.target.value;
+    setNewPassword(value);
+    
+    // Valuta i singoli requisiti in tempo reale
+    const validationErrors = validatePassword(value);
+    
+    // Aggiorna lo stato della validazione
+    setPasswordErrors(prev => ({
+      ...prev,
+      validation: validationErrors
+    }));
+    
+    // Calcola password strength immediatamente
+    const strength = calculatePasswordStrength(value);
+    setPasswordStrength(strength);
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setNewPasswordError('Please ensure password meets all requirements');
+    } else {
+      setNewPasswordError('');
+    }
+    
+    // Check if new password is same as current (if current is provided)
+    if (currentPassword && value === currentPassword) {
+      setNewPasswordError('New password must be different from current password');
+    }
+    
+    // Check if confirm password needs updating
+    if (confirmPassword && value !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
+    } else if (confirmPassword) {
+      setConfirmPasswordError('');
+    }
+  };
+
+  const handleConfirmPasswordChange = (e) => {
+    const value = e.target.value;
+    setConfirmPassword(value);
+    
+    if (value !== newPassword) {
+      setConfirmPasswordError('Passwords do not match');
+    } else {
+      setConfirmPasswordError('');
+    }
+  };
+
+  // Aggiungiamo uno stile CSS globale per prevenire l'evidenziazione blu persistente
+  useEffect(() => {
+    // Crea uno stile globale per sovrascrivere i bordi blu di focus dopo l'autocompletamento
+    const style = document.createElement('style');
+    style.textContent = `
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px white inset !important;
+        -webkit-text-fill-color: inherit !important;
+        transition: background-color 5000s ease-in-out 0s;
+      }
+      
+      input.no-focus-outline:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: #d1d5db !important; /* gray-300 */
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Aggiungi una funzione per rimuovere i bordi blu dopo il salvataggio
+  const removeAllFocusStates = () => {
+    setTimeout(() => {
+      // Aggiungi la classe no-focus-outline a tutti gli input
+      const inputs = document.querySelectorAll('input');
+      inputs.forEach(input => {
+        input.classList.add('no-focus-outline');
+        
+        // Forza il blur
+        input.blur();
+      });
+      
+      // Rimuovi la classe dopo un po' per permettere future interazioni
+      setTimeout(() => {
+        inputs.forEach(input => {
+          input.classList.remove('no-focus-outline');
+        });
+      }, 1000);
+    }, 0);
+  };
+
   const handleSaveChanges = async () => {
     setIsSubmitting(true);
     setErrors({});
     
+    // Rimuovi focus e stili persistenti
+    removeAllFocusStates();
+    
     // Validate passwords if trying to change them
-    if (newPassword || confirmPassword || currentPassword) {
+    if (hasPasswordChanges()) {
       // Reset previous errors
       setPasswordErrors({});
       let hasErrors = false;
@@ -308,7 +592,18 @@ const Settings = () => {
         });
         
         if (!profileResult.success) {
-          setErrors(profileResult.details || { general: profileResult.error || 'Error updating profile' });
+          console.log('Profile update failed:', profileResult);
+          
+          // Check for specific email error
+          if (profileResult.error === 'Email already registered' || 
+              (profileResult.field === 'email') ||
+              (profileResult.details && profileResult.details.email)) {
+            setEmailError('This email is already registered to another account');
+          } else {
+            // For other errors, store in the errors state
+            setErrors(profileResult.details || { general: profileResult.error || 'Error updating profile' });
+          }
+          
           setIsSubmitting(false);
           return;
         }
@@ -351,6 +646,9 @@ const Settings = () => {
       setIsSubmitting(false);
       setIsEditing(false);
       showSuccessMessage('Settings saved successfully!');
+      
+      // Rimuovi focus e stili persistenti di nuovo dopo il salvataggio
+      removeAllFocusStates();
     } catch (error) {
       console.error('Error saving changes:', error);
       setErrors({ general: 'An unexpected error occurred' });
@@ -362,12 +660,13 @@ const Settings = () => {
   const notificationsChanged = () => {
     const formData = JSON.parse(localStorage.getItem('settingsFormData') || '{}');
     
-    // If notifications settings don't exist in localStorage, assume they've changed
-    if (!formData.notifications) return true;
-    
-    // Add debug logs to verify values
-    console.log('Current notifications:', notifications);
-    console.log('Saved notifications:', formData.notifications);
+    // If notifications settings don't exist in localStorage, only return true if user has changed defaults
+    if (!formData.notifications) {
+      // Compare with default values
+      return notifications.email !== true || 
+             notifications.app !== true || 
+             notifications.marketing !== false;
+    }
     
     // Explicitly convert values to booleans to ensure proper comparison
     const currentEmail = Boolean(notifications.email);
@@ -385,12 +684,14 @@ const Settings = () => {
       currentMarketing !== savedMarketing
     );
     
-    console.log('Notifications changed:', hasChanged);
     return hasChanged;
   };
 
   const handleSaveNotifications = () => {
     setIsSubmitting(true);
+    
+    // Rimuovi focus e stili persistenti
+    removeAllFocusStates();
     
     // Simulate API call with a delay
     setTimeout(() => {
@@ -404,6 +705,9 @@ const Settings = () => {
       
       setIsSubmitting(false);
       showSuccessMessage('Notification preferences saved!');
+      
+      // Rimuovi focus e stili persistenti di nuovo dopo il salvataggio
+      removeAllFocusStates();
     }, 800);
   };
 
@@ -487,6 +791,7 @@ const Settings = () => {
               <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Personal Information</h3>
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                  {/* Removing general error message here */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="name">
@@ -497,9 +802,10 @@ const Settings = () => {
                           type="text" 
                           id="name" 
                           className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}`}
+                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}
+                            ${nameError ? 'border-red-500' : ''}`}
                           value={name}
-                          onChange={(e) => setName(e.target.value)}
+                          onChange={handleNameChange}
                           placeholder="Your full name"
                           disabled={!isEditing}
                         />
@@ -508,7 +814,16 @@ const Settings = () => {
                         </svg>
                       </div>
                       
-                      {name === user.fullName && isEditing && (
+                      {nameError && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {nameError}
+                        </p>
+                      )}
+                      
+                      {name === user.fullName && isEditing && !nameError && (
                         <p className="mt-2 text-sm text-yellow-600 flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -526,7 +841,8 @@ const Settings = () => {
                           type="text" 
                           id="username" 
                           className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}`}
+                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}
+                            ${usernameErrors ? 'border-red-500' : ''}`}
                           value={username}
                           onChange={handleUsernameChange}
                           placeholder="Your username"
@@ -544,7 +860,7 @@ const Settings = () => {
                           {usernameErrors}
                         </p>
                       )}
-                      {username === user.username && isEditing && (
+                      {username === user.username && isEditing && !usernameErrors && (
                         <p className="mt-2 text-sm text-yellow-600 flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -562,9 +878,10 @@ const Settings = () => {
                           type="email" 
                           id="email" 
                           className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}`}
+                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}
+                            ${emailError ? 'border-red-500' : ''}`}
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={handleEmailChange}
                           placeholder="your.email@example.com"
                           disabled={!isEditing}
                         />
@@ -573,7 +890,16 @@ const Settings = () => {
                         </svg>
                       </div>
                       
-                      {email === user.email && isEditing && (
+                      {emailError && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>{emailError}</span>
+                        </p>
+                      )}
+                      
+                      {email === user.email && isEditing && !emailError && (
                         <p className="mt-2 text-sm text-yellow-600 flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -591,9 +917,10 @@ const Settings = () => {
                           type="text" 
                           id="location" 
                           className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}`}
+                            ${isEditing ? 'border-gray-300' : 'border-gray-300 bg-gray-50 cursor-not-allowed'}
+                            ${locationError ? 'border-red-500' : ''}`}
                           value={location}
-                          onChange={(e) => setLocation(e.target.value)}
+                          onChange={handleLocationChange}
                           placeholder="City, Country"
                           disabled={!isEditing}
                         />
@@ -603,15 +930,24 @@ const Settings = () => {
                         </svg>
                       </div>
                         
-                        {location === user.location && isEditing && (
-                          <p className="mt-2 text-sm text-yellow-600 flex items-center">
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            This is your current location
-                          </p>
-                        )}
-                      </div>
+                      {locationError && (
+                        <p className="mt-2 text-sm text-red-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {locationError}
+                        </p>
+                      )}
+
+                      {location === user.location && isEditing && !locationError && (
+                        <p className="mt-2 text-sm text-yellow-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          This is your current location
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="mt-6 flex justify-end space-x-4">
@@ -624,6 +960,12 @@ const Settings = () => {
                             setEmail(user.email || '');
                             setLocation(user.location || '');
                             setUsername(user.username || '');
+                            // Clear all validation errors
+                            setNameError('');
+                            setEmailError('');
+                            setLocationError('');
+                            setUsernameErrors('');
+                            setErrors({});
                             setIsEditing(false);
                           }}
                           disabled={isSubmitting}
@@ -676,7 +1018,7 @@ const Settings = () => {
                         className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                         <span>Edit</span>
                       </button>
@@ -710,10 +1052,10 @@ const Settings = () => {
                           type="password" 
                           id="current-password" 
                           className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                            ${passwordErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}
+                            ${passwordErrors.currentPassword || currentPasswordError ? 'border-red-500' : 'border-gray-300'}
                             ${!isEditingPassword ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                           value={currentPassword}
-                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          onChange={handleCurrentPasswordChange}
                           placeholder="Enter your current password"
                           disabled={!isEditingPassword}
                         />
@@ -721,12 +1063,12 @@ const Settings = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                       </div>
-                      {passwordErrors.currentPassword && (
+                      {(passwordErrors.currentPassword || currentPasswordError) && (
                         <p className="mt-2 text-sm text-red-600 flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          {passwordErrors.currentPassword}
+                          {passwordErrors.currentPassword || currentPasswordError}
                         </p>
                       )}
                     </div>
@@ -741,11 +1083,11 @@ const Settings = () => {
                             type="password" 
                             id="new-password" 
                             className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                              ${passwordErrors.newPassword || (passwordErrors.validation && Object.keys(passwordErrors.validation).length > 0) 
+                              ${passwordErrors.newPassword || newPasswordError || (passwordErrors.validation && Object.keys(passwordErrors.validation).length > 0) 
                                 ? 'border-red-500' : 'border-gray-300'}
                               ${!isEditingPassword ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                             value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
+                            onChange={handleNewPasswordChange}
                             placeholder="Create new password"
                             disabled={!isEditingPassword}
                           />
@@ -753,16 +1095,16 @@ const Settings = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                           </svg>
                         </div>
-                        {passwordErrors.newPassword && (
+                        {(passwordErrors.newPassword || newPasswordError) && (
                           <p className="mt-2 text-sm text-red-600 flex items-center">
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {passwordErrors.newPassword}
+                            {passwordErrors.newPassword || newPasswordError}
                           </p>
                         )}
                         
-                        {/* Password requirements */}
+                        {/* Password strength indicator */}
                         {newPassword && isEditingPassword && (
                           <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
                             <p className="text-sm font-medium text-gray-700 mb-2">Password requirements:</p>
@@ -850,10 +1192,10 @@ const Settings = () => {
                             type="password" 
                             id="confirm-password" 
                             className={`w-full px-4 py-3 pl-12 border rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all duration-200
-                              ${passwordErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}
+                              ${passwordErrors.confirmPassword || confirmPasswordError ? 'border-red-500' : 'border-gray-300'}
                               ${!isEditingPassword ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                             value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            onChange={handleConfirmPasswordChange}
                             placeholder="Confirm your new password"
                             disabled={!isEditingPassword}
                           />
@@ -861,12 +1203,12 @@ const Settings = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
                         </div>
-                        {passwordErrors.confirmPassword && (
+                        {(passwordErrors.confirmPassword || confirmPasswordError) && (
                           <p className="mt-2 text-sm text-red-600 flex items-center">
                             <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {passwordErrors.confirmPassword}
+                            {passwordErrors.confirmPassword || confirmPasswordError}
                           </p>
                         )}
                       </div>
@@ -881,7 +1223,12 @@ const Settings = () => {
                               setCurrentPassword('');
                               setNewPassword('');
                               setConfirmPassword('');
+                              // Clear ALL password related errors
                               setPasswordErrors({});
+                              setCurrentPasswordError('');
+                              setNewPasswordError('');
+                              setConfirmPasswordError('');
+                              setPasswordStrength(0);
                               setIsEditingPassword(false);
                             }}
                             disabled={isSubmitting}
@@ -898,12 +1245,12 @@ const Settings = () => {
                           
                           <button 
                             onClick={handleSaveChanges}
-                            disabled={isSubmitting || !(currentPassword && newPassword && confirmPassword)}
+                            disabled={isSubmitting || !hasPasswordChanges()}
                             className={`md:w-auto px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
-                              ${isSubmitting || !(currentPassword && newPassword && confirmPassword)
+                              ${isSubmitting || !hasPasswordChanges()
                                 ? 'bg-gray-400 text-white cursor-not-allowed' 
                                 : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow'}`}
-                            title={!(currentPassword && newPassword && confirmPassword) ? "Fill all password fields" : "Update your password"}
+                            title={!hasPasswordChanges() ? "Fill all password fields" : "Update your password"}
                           >
                             {isSubmitting ? (
                               <>
@@ -913,7 +1260,7 @@ const Settings = () => {
                                 </svg>
                                 <span>Updating Password...</span>
                               </>
-                            ) : !(currentPassword && newPassword && confirmPassword) ? (
+                            ) : !hasPasswordChanges() ? (
                               <>
                                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -936,7 +1283,7 @@ const Settings = () => {
                           className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow"
                         >
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                           <span>Edit</span>
                         </button>
