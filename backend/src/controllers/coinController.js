@@ -19,6 +19,29 @@ exports.createCoin = async (req, res) => {
   }
 };
 
+// Gets random coins
+exports.getRandomCoins = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 3;
+    
+    // Get total count of coins in the database
+    const total = await Coin.countDocuments();
+    
+    // Aggregate with $sample provides true random selection
+    const randomCoins = await Coin.aggregate([
+      { $sample: { size: limit } }
+    ]);
+    
+    res.json({
+      total,
+      results: randomCoins
+    });
+  } catch (error) {
+    console.error('Error fetching random coins:', error.message);
+    res.status(500).send('Errore del server');
+  }
+};
+
 exports.getCoins = async (req, res) => {
   try {
     const { 

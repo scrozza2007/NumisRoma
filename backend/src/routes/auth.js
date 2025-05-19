@@ -95,7 +95,8 @@ router.post(
   [
     body('fullName').optional().isString().withMessage('Full name must be a string'),
     body('email').optional().isEmail().withMessage('Invalid email format'),
-    body('location').optional().isString().withMessage('Location must be a string')
+    body('location').optional().isString().withMessage('Location must be a string'),
+    body('bio').optional().isString().withMessage('Bio must be a string').isLength({ max: 500 }).withMessage('Bio cannot exceed 500 characters')
   ],
   updateProfile
 );

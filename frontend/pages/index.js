@@ -9,8 +9,27 @@ const Home = () => {
 
   const fetchRandomCoins = async () => {
     try {
-      const randomSkip = Math.floor(Math.random() * 41771);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins?limit=3&skip=${randomSkip}`);
+      setLoading(true);
+      // Definiamo un URL di fallback e aggiungiamo log per debug
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      console.log('Calling API at:', apiUrl);
+      
+      const response = await fetch(`${apiUrl}/api/coins/random?limit=3`, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API call failed with status: ${response.status}`);
+      }
+
+      // Verifica che la risposta sia in formato JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Expected JSON response but got ${contentType}`);
+      }
+      
       const data = await response.json();
       
       setIsTransitioning(true);
@@ -18,18 +37,18 @@ const Home = () => {
       setTimeout(() => {
         setFeaturedCoins(data.results);
         setIsTransitioning(false);
+        setLoading(false);
       }, 300);
     } catch (error) {
       console.error('Error fetching random coins:', error);
-    } finally {
       setLoading(false);
+      // Imposta una moneta di placeholder in caso di errore
+      setFeaturedCoins([]);
     }
   };
 
   useEffect(() => {
     fetchRandomCoins();
-    const interval = setInterval(fetchRandomCoins, 2 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -38,6 +57,10 @@ const Home = () => {
         <title>NumisRoma - Online Roman Imperial Coinage Catalog</title>
         <meta name="description" content="Explore the comprehensive catalog of Roman Imperial coins" />
         <link rel="icon" href="/favicon.ico" />
+        {/* This is needed to ensure the page doesn't get cached, so we get new random coins on reload */}
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
       </Head>
 
       <main className="flex-grow">
@@ -96,11 +119,17 @@ const Home = () => {
         {/* Featured Coins Section */}
         <section className="py-24 bg-gray-50">
           <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
+            <div className="text-center mb-8">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Featured Coins</h2>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-4">
                 Discover a random selection from our extensive catalog of Roman Imperial coins
               </p>
+              <button
+                onClick={fetchRandomCoins}
+                className="px-4 py-2 bg-yellow-500 text-black rounded-xl hover:bg-yellow-400 transition-all duration-300 font-medium"
+              >
+                Refresh Random Coins
+              </button>
             </div>
 
             {loading ? (
@@ -116,11 +145,11 @@ const Home = () => {
                       isTransitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
                     } hover:shadow-xl hover:-translate-y-1`}
                   >
-                    <div className="aspect-[4/3] bg-gray-100">
+                    <div className="aspect-[4/3] bg-white p-6">
                       <img
                         src={coin.obverse.image || '/images/coin-placeholder.jpg'}
                         alt={coin.name}
-                        className="w-full h-full object-contain p-6"
+                        className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </div>
                     <div className="p-6">

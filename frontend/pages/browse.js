@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import CustomDropdown from '../components/CustomDropdown';
 
 const Browse = () => {
   const router = useRouter();
@@ -240,24 +241,17 @@ const Browse = () => {
               <div>
                 <label htmlFor="material" className="block text-gray-700 font-medium mb-2">Material</label>
                 <div className="relative">
-                  <select
-                    id="material"
-                    name="material"
+                  <CustomDropdown
                     value={filters.material}
-                    onChange={handleFilterChange}
-                    className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 appearance-none"
-                  >
-                    <option value="">All Materials</option>
-                    <option value="Gold">Gold</option>
-                    <option value="Silver">Silver</option>
-                    <option value="Bronze">Bronze</option>
-                  </select>
-                  <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  <svg className="w-5 h-5 text-gray-400 absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                  </svg>
+                    onChange={value => handleFilterChange({ target: { name: 'material', value } })}
+                    options={[
+                      { value: '', label: 'All Materials' },
+                      { value: 'Gold', label: 'Gold' },
+                      { value: 'Silver', label: 'Silver' },
+                      { value: 'Bronze', label: 'Bronze' },
+                    ]}
+                    placeholder="Select material"
+                  />
                 </div>
               </div>
 
@@ -318,31 +312,28 @@ const Browse = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="sortBy" className="block text-gray-700 font-medium mb-2">Sort by</label>
-                  <select
-                    id="sortBy"
-                    name="sortBy"
+                  <CustomDropdown
                     value={filters.sortBy}
-                    onChange={handleSortChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="name">Name</option>
-                    <option value="authority.emperor">Emperor</option>
-                    <option value="description.date_range">Date</option>
-                    <option value="description.material">Material</option>
-                  </select>
+                    onChange={value => handleSortChange({ target: { name: 'sortBy', value } })}
+                    options={[
+                      { value: 'name', label: 'Name' },
+                      { value: 'authority.emperor', label: 'Emperor' },
+                      { value: 'description.date_range', label: 'Date' },
+                    ]}
+                    placeholder="Sort by"
+                  />
                 </div>
                 <div>
                   <label htmlFor="order" className="block text-gray-700 font-medium mb-2">Order</label>
-                  <select
-                    id="order"
-                    name="order"
+                  <CustomDropdown
                     value={filters.order}
-                    onChange={handleSortChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="asc">Ascending</option>
-                    <option value="desc">Descending</option>
-                  </select>
+                    onChange={value => handleSortChange({ target: { name: 'order', value } })}
+                    options={[
+                      { value: 'asc', label: 'Ascending' },
+                      { value: 'desc', label: 'Descending' },
+                    ]}
+                    placeholder="Order"
+                  />
                 </div>
               </div>
 

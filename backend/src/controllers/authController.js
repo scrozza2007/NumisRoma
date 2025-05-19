@@ -232,7 +232,7 @@ exports.updateProfile = async (req, res) => {
     });
   }
 
-  const { fullName, email, location } = req.body;
+  const { fullName, email, location, bio } = req.body;
   const userId = req.user.userId;
 
   try {
@@ -256,6 +256,7 @@ exports.updateProfile = async (req, res) => {
     if (fullName) updateData.fullName = fullName;
     if (email) updateData.email = email;
     if (location) updateData.location = location;
+    if (bio !== undefined) updateData.bio = bio;
 
     const user = await User.findByIdAndUpdate(
       userId,
