@@ -1518,7 +1518,7 @@ const Settings = () => {
                   </div>
                   
                   <p className="text-xs text-gray-500">
-                    When enabled, you'll need to enter a code from your authentication app each time you log in.
+                    When enabled, you&apos;ll need to enter a code from your authentication app each time you log in.
                   </p>
                 </div>
                 
@@ -1575,7 +1575,7 @@ const Settings = () => {
                 </div>
                 
                 <p className="text-gray-600 mb-6">
-                  Manage your active sessions and sign out from other devices. We'll notify you if we detect any unusual activity.
+                  Manage your active sessions and sign out from other devices. We&apos;ll notify you if we detect any unusual activity.
                 </p>
                 
                 <div className="bg-gray-50 rounded-lg overflow-hidden divide-y divide-gray-200">

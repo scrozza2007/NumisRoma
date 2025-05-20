@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
+import Image from 'next/image';
 
 // Pagina di recupero password (UI e struttura, senza chiamata API)
 const ForgotPassword = () => {
@@ -42,10 +43,12 @@ const ForgotPassword = () => {
         <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md transform hover:scale-[1.02] transition-all duration-300">
           <div className="text-center mb-8">
             <Link href="/" className="inline-block mb-6">
-              <img src="/images/logo.png" alt="NumisRoma" className="h-12" />
+              <Image src="/images/logo.png" alt="NumisRoma" width={250} height={250} priority sizes="250px" />
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Forgot your password?</h2>
-            <p className="text-gray-600">Enter your email address and we'll send you instructions to reset your password.</p>
+            <p className="text-gray-600 mb-8">
+              Enter your email address and we&apos;ll send you a link to reset your password.
+            </p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

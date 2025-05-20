@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
+import Image from 'next/image';
 
 const Navbar = () => {
   const { user, logout, isLoading } = useContext(AuthContext);
@@ -62,13 +63,17 @@ const Navbar = () => {
   if (isLoading) {
     return (
       <header className="bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-xl backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-center h-24">
+        <div className="container mx-auto flex items-center justify-center h-32">
           <div className="absolute left-0">
             <Link href="/" className="flex items-center">
-              <img 
+              <Image 
                 src="/images/logo.png" 
                 alt="NumisRoma" 
-                className="h-32 w-32 object-contain drop-shadow-xl hover:scale-105 transition-transform duration-300" 
+                width={250}
+                height={250}
+                priority
+                sizes="250px"
+                className="drop-shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:brightness-110" 
               />
             </Link>
           </div>
@@ -79,14 +84,18 @@ const Navbar = () => {
 
   return (
     <header className="bg-gradient-to-r from-yellow-500 to-yellow-600 shadow-xl backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-center h-24 relative">
+      <div className="container mx-auto flex items-center justify-center h-32 relative">
         {/* Logo Section */}
         <div className="absolute left-0 flex items-center">
           <Link href="/" className="flex items-center group">
-            <img 
+            <Image 
               src="/images/logo.png" 
               alt="NumisRoma" 
-              className="h-42 w-42 object-contain drop-shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:brightness-110" 
+              width={250}
+              height={250}
+              priority
+              sizes="250px"
+              className="drop-shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:brightness-110" 
             />
           </Link>
         </div>
@@ -115,9 +124,11 @@ const Navbar = () => {
             >
               <div className="flex items-center focus:outline-none group cursor-pointer">
                 {user.profileImage ? (
-                  <img
+                  <Image
                     src={user.profileImage}
                     alt="Profile"
+                    width={56}
+                    height={56}
                     className="w-14 h-14 rounded-full object-cover border-2 border-white transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-xl"
                   />
                 ) : (

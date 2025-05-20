@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 const CoinDetail = ({ coinId }) => {
   const router = useRouter();
@@ -12,7 +13,7 @@ const CoinDetail = ({ coinId }) => {
   const [isZoomed, setIsZoomed] = useState(false);
   const [hasFilters, setHasFilters] = useState(false);
 
-  const fetchCoinDetails = async () => {
+  const fetchCoinDetails = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${coinId}`, {
@@ -39,17 +40,17 @@ const CoinDetail = ({ coinId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [coinId]);
 
   useEffect(() => {
-    if (coinId) {
+    if (router.query.id) {
       fetchCoinDetails();
     }
     
     // Check if there are saved filters
     const savedFilters = localStorage.getItem('coinFilters');
     setHasFilters(!!savedFilters);
-  }, [coinId]);
+  }, [router.query.id, fetchCoinDetails]);
 
   const handleImageClick = (side) => {
     setActiveImage(side);
@@ -164,9 +165,11 @@ const CoinDetail = ({ coinId }) => {
                           onClick={() => handleImageClick('obverse')}
                         >
                           <div className="aspect-square bg-white rounded-lg overflow-hidden shadow-md">
-                            <img
+                            <Image
                               src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
                               alt={`Obverse - ${coin.name}`}
+                              width={400}
+                              height={400}
                               className="w-full h-full object-contain p-6 transition-transform duration-300 group-hover:scale-105"
                               style={{ backgroundColor: 'white' }}
                             />
@@ -182,9 +185,11 @@ const CoinDetail = ({ coinId }) => {
                           onClick={() => handleImageClick('reverse')}
                         >
                           <div className="aspect-square bg-white rounded-lg overflow-hidden shadow-md">
-                            <img
+                            <Image
                               src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
                               alt={`Reverse - ${coin.name}`}
+                              width={400}
+                              height={400}
                               className="w-full h-full object-contain p-6 transition-transform duration-300 group-hover:scale-105"
                               style={{ backgroundColor: 'white' }}
                             />
@@ -213,9 +218,11 @@ const CoinDetail = ({ coinId }) => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
-                          <img
+                          <Image
                             src={activeImage === 'obverse' ? coin.obverse?.image : coin.reverse?.image}
                             alt={`${activeImage === 'obverse' ? 'Obverse' : 'Reverse'} - ${coin.name}`}
+                            width={800}
+                            height={800}
                             className="w-full h-auto rounded-lg"
                             style={{ backgroundColor: 'white' }}
                           />

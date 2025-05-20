@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { AuthContext } from '../../context/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -145,7 +146,7 @@ const ProfilePage = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
         </svg>
         <p className="text-xl text-gray-700 font-medium">Profile not found</p>
-        <p className="text-gray-500 mt-2">This user profile doesn't exist or may have been removed.</p>
+        <p className="text-gray-500 mt-2">This user profile doesn&apos;t exist or may have been removed.</p>
         <Link href="/" className="mt-6 px-5 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors">
           Return to Home
         </Link>
@@ -193,7 +194,13 @@ const ProfilePage = () => {
             <div className="flex justify-center md:justify-start">
               <div className="w-36 h-36 md:w-44 md:h-44 rounded-full border-4 border-white shadow-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
                 {profile.avatar ? (
-                  <img src={profile.avatar} alt={profile.username} className="w-full h-full object-cover" />
+                  <Image
+                    src={profile.avatar}
+                    alt={profile.username}
+                    width={176}
+                    height={176}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-yellow-50">
                     <span className="text-6xl text-yellow-500 font-bold">{profile.username.charAt(0).toUpperCase()}</span>
@@ -335,7 +342,7 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
-                    {profile.bio ? profile.bio : <span className="italic text-gray-400">No biography provided</span>}
+                    {profile.bio || "This user hasn&apos;t added a bio yet."}
                   </p>
                 )}
               </div>
@@ -390,10 +397,22 @@ const ProfilePage = () => {
                   <div key={col._id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group">
                     <div className="h-48 bg-gray-100 relative overflow-hidden">
                       {col.image ? (
-                        <img src={col.image} alt={col.name} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" />
+                        <Image
+                          src={col.image}
+                          alt={col.name}
+                          width={192}
+                          height={192}
+                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-yellow-50">
-                          <img src="/images/coin-placeholder.jpg" alt="Collection" className="w-24 h-24 opacity-70" />
+                          <Image
+                            src="/images/coin-placeholder.jpg"
+                            alt="Collection"
+                            width={96}
+                            height={96}
+                            className="w-24 h-24 opacity-70"
+                          />
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
@@ -430,7 +449,7 @@ const ProfilePage = () => {
                 <p className="text-gray-500 max-w-md mx-auto">
                   {user && user._id === profile._id 
                     ? "Start your numismatic journey by creating your first collection."
-                    : "This user hasn't created any collections yet."}
+                    : "This user hasn&apos;t created any collections yet."}
                 </p>
                 {user && user._id === profile._id && (
                   <Link href="/collections/new" className="mt-6 inline-block px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors">
@@ -454,7 +473,7 @@ const ProfilePage = () => {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">Activity Coming Soon</h3>
               <p className="text-gray-500 max-w-md mx-auto">
-                We're working on activity tracking to show interactions, collection updates, and more.
+                We&apos;re working on activity tracking to show interactions, collection updates, and more.
               </p>
             </div>
           </div>

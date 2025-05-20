@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import Image from 'next/image';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -22,61 +23,7 @@ const Community = () => {
   }, [user, authLoading, router]);
 
   // Load recommended users on startup
-  useEffect(() => {
-    if (!searchTerm && user && !authLoading) {
-      fetchRecommendedUsers();
-    }
-  }, [user, authLoading]);
-
-  // Search users when search term changes
-  useEffect(() => {
-    if (!user || authLoading) return;
-
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm) {
-        searchUsers();
-      } else {
-        fetchRecommendedUsers();
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, user, authLoading]);
-
-  const searchUsers = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('You are not authenticated');
-      }
-      
-      const response = await fetch(`${API_URL}/api/users?search=${encodeURIComponent(searchTerm)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Error searching for users');
-      }
-
-      const data = await response.json();
-      setUsers(data);
-      setRecommendedUsers([]);
-    } catch (error) {
-      console.error('Error searching for users:', error);
-      if (error.message === 'You are not authenticated') {
-        router.push('/login');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRecommendedUsers = async () => {
+  const fetchRecommendedUsers = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -109,7 +56,62 @@ const Community = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, router]);
+
+  // Search users when search term changes
+  const searchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('You are not authenticated');
+      }
+      
+      const response = await fetch(`${API_URL}/api/users?search=${encodeURIComponent(searchTerm)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Error searching for users');
+      }
+
+      const data = await response.json();
+      setUsers(data);
+      setRecommendedUsers([]);
+    } catch (error) {
+      console.error('Error searching for users:', error);
+      if (error.message === 'You are not authenticated') {
+        router.push('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, router]);
+
+  // Update useEffect dependencies
+  useEffect(() => {
+    if (!searchTerm && user && !authLoading) {
+      fetchRecommendedUsers();
+    }
+  }, [user, authLoading, searchTerm, fetchRecommendedUsers]);
+
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm) {
+        searchUsers();
+      } else {
+        fetchRecommendedUsers();
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchTerm, user, authLoading, searchUsers, fetchRecommendedUsers]);
 
   const toggleFollow = async (userId, isFollowing) => {
     if (!user) {
@@ -188,9 +190,11 @@ const Community = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             {profileUser.avatar ? (
-              <img
+              <Image
                 src={profileUser.avatar}
                 alt={profileUser.username}
+                width={56}
+                height={56}
                 className="w-14 h-14 rounded-full object-cover border-2 border-white transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-xl"
               />
             ) : (
@@ -322,7 +326,7 @@ const Community = () => {
                       </svg>
                     </div>
                     <p className="text-gray-500">
-                      No users found for "{searchTerm}"
+                      No users found for &quot;{searchTerm}&quot;
                     </p>
                   </div>
                 )}

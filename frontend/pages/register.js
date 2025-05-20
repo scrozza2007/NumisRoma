@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
+import Image from 'next/image';
 
 const Register = () => {
   const router = useRouter();
@@ -193,7 +194,7 @@ const Register = () => {
         <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md transform hover:scale-[1.02] transition-all duration-300">
           <div className="text-center mb-8">
             <Link href="/" className="inline-block mb-6">
-              <img src="/images/logo.png" alt="NumisRoma" className="h-12" />
+              <Image src="/images/logo.png" alt="NumisRoma" width={250} height={250} priority sizes="250px" />
             </Link>
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Create Account</h2>
             <p className="text-gray-600">Join our community of numismatic enthusiasts</p>

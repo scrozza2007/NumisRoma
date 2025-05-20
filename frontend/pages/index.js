@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
+import Image from 'next/image';
 
 const Home = () => {
   const [featuredCoins, setFeaturedCoins] = useState([]);
@@ -93,10 +94,12 @@ const Home = () => {
         {/* Hero Image Section */}
         <div className="relative w-full h-[600px] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"></div>
-          <img 
+          <Image 
             src="/images/colosseum-bg.JPG" 
             alt="Roman Colosseum"
-            className="w-full h-full object-cover object-center"
+            fill
+            className="object-cover object-center"
+            priority
           />
           <div className="absolute inset-0 flex items-center justify-center z-20">
             <div className="text-center text-white px-6">
@@ -146,9 +149,11 @@ const Home = () => {
                     } hover:shadow-xl hover:-translate-y-1`}
                   >
                     <div className="aspect-[4/3] bg-white p-6">
-                      <img
+                      <Image
                         src={coin.obverse.image || '/images/coin-placeholder.jpg'}
                         alt={coin.name}
+                        width={400}
+                        height={300}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </div>
@@ -193,7 +198,7 @@ const Home = () => {
                   </svg>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Detailed Information</h3>
-                <p className="text-gray-600">Access comprehensive details about each coin's history and characteristics</p>
+                <p className="text-gray-600">Access comprehensive details about each coin&apos;s history and characteristics</p>
               </div>
               <div className="text-center">
                 <div className="w-16 h-16 bg-yellow-100 rounded-2xl flex items-center justify-center mx-auto mb-6">

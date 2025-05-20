@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
+import Image from 'next/image';
 
 const CustomDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -145,7 +146,7 @@ const DeleteAccount = () => {
         <form onSubmit={handleSubmit}>
           {/* Logo */}
           <div className="text-center mb-6">
-            <img src="/images/logo.png" alt="NumisRoma" className="h-12 mx-auto mb-2" />
+            <Image src="/images/logo.png" alt="NumisRoma" width={250} height={250} priority sizes="250px" />
           </div>
           
           <div className="text-center mb-6">

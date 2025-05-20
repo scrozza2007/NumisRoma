@@ -18,7 +18,7 @@ const Custom404 = () => {
         
         <p className="text-gray-600 mb-8">
           Looks like this page has been lost in time, just like that Roman coin you dropped in the Colosseum!
-          Even Emperor Augustus couldn't find it now.
+          Even Emperor Augustus couldn&apos;t find it now.
         </p>
         
         <button

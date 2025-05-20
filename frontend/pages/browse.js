@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import CustomDropdown from '../components/CustomDropdown';
+import Image from 'next/image';
 
 const Browse = () => {
   const router = useRouter();
@@ -28,7 +29,7 @@ const Browse = () => {
   // Flag to avoid double fetching on first load
   const isFirstLoadRef = useRef(true);
 
-  const fetchCoins = async (page = 1, filterParams = {}) => {
+  const fetchCoins = useCallback(async (page = 1, filterParams = {}) => {
     setLoading(true);
     setError(null);
     try {
@@ -64,7 +65,7 @@ const Browse = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Save the current URL path when leaving the browse page
   // to check if we're coming from a coin detail page later
@@ -123,7 +124,7 @@ const Browse = () => {
     };
     
     loadSavedFilters();
-  }, []);
+  }, [fetchCoins]);
 
   // Handle page changes
   useEffect(() => {
@@ -131,7 +132,15 @@ const Browse = () => {
       localStorage.setItem('coinCurrentPage', currentPage.toString());
       fetchCoins(currentPage, filters);
     }
-  }, [currentPage]);
+  }, [currentPage, filters, fetchCoins]);
+
+  // Handle filter changes
+  useEffect(() => {
+    if (!isFirstLoadRef.current) {
+      localStorage.setItem('coinFilters', JSON.stringify(filters));
+      fetchCoins(currentPage, filters);
+    }
+  }, [filters, currentPage, fetchCoins, isFirstLoadRef]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -371,11 +380,12 @@ const Browse = () => {
                       href={`/coins/${coin._id}`}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full"
                     >
-                      <div className="aspect-[4/3] bg-gray-50 p-6">
-                        <img
+                      <div className="aspect-[4/3] bg-gray-50 p-6 relative">
+                        <Image
                           src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
                           alt={coin.name}
-                          className="w-full h-full object-contain mix-blend-multiply"
+                          fill
+                          className="object-contain mix-blend-multiply"
                         />
                       </div>
                       <div className="p-6 flex flex-col h-full bg-gradient-to-b from-white to-yello-50">
