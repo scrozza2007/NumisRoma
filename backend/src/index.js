@@ -7,6 +7,7 @@ const coinRoutes = require('./routes/coins');
 const collectionRoutes = require('./routes/collections');
 const userRoutes = require('./routes/users');
 const contactRoutes = require('./routes/contact');
+const sessionRoutes = require('./routes/sessions');
 
 const app = express();
 
@@ -28,6 +29,8 @@ app.use('/api/collections', collectionRoutes);
 app.use('/api/users', userRoutes);
 // Rotte per il form di contatto
 app.use('/api/contact', contactRoutes);
+// Rotte per la gestione delle sessioni
+app.use('/api/sessions', sessionRoutes);
 
 // Connessione a MongoDB
 mongoose.connect(process.env.MONGODB_URI)

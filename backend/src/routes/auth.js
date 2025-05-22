@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 
-const { registerUser, loginUser, changePassword, deleteAccount, changeUsername, updateProfile } = require('../controllers/authController');
+const { registerUser, loginUser, logoutUser, changePassword, deleteAccount, changeUsername, updateProfile, checkSession } = require('../controllers/authController');
 const User = require('../models/User');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -184,5 +184,11 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Logout route
+router.post('/logout', authMiddleware, logoutUser);
+
+// Verifica stato sessione
+router.get('/session-check', authMiddleware, checkSession);
 
 module.exports = router;

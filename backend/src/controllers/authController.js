@@ -1,9 +1,11 @@
 const User = require('../models/User');
 const Collection = require('../models/Collection');
 const Follow = require('../models/Follow');
+const Session = require('../models/Session');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const sessionController = require('./sessionController');
 
 // Registration
 exports.registerUser = async (req, res) => {
@@ -52,6 +54,9 @@ exports.registerUser = async (req, res) => {
     // Create JWT token
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    // Crea una nuova sessione per l'utente
+    await sessionController.createSession(user._id, token, req);
 
     res.status(201).json({ 
       token,
@@ -102,6 +107,9 @@ exports.loginUser = async (req, res) => {
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+    // Crea una nuova sessione per l'utente
+    await sessionController.createSession(user._id, token, req);
+
     res.json({
       token,
       user: {
@@ -113,6 +121,25 @@ exports.loginUser = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
+  }
+};
+
+// Logout
+exports.logoutUser = async (req, res) => {
+  try {
+    const token = req.headers.authorization.split(' ')[1];
+    const userId = req.user.userId;
+
+    // Trova e disattiva la sessione corrente
+    await Session.findOneAndUpdate(
+      { userId, token, isActive: true },
+      { $set: { isActive: false } }
+    );
+
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -160,6 +187,13 @@ exports.changePassword = async (req, res) => {
     // Hash and save the new password
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
+
+    // Termina tutte le altre sessioni dopo il cambio di password per sicurezza
+    const token = req.headers.authorization.split(' ')[1];
+    await Session.updateMany(
+      { userId, isActive: true, token: { $ne: token } },
+      { $set: { isActive: false } }
+    );
 
     res.json({ message: 'Password changed successfully' });
   } catch (err) {
@@ -342,5 +376,20 @@ exports.deleteAccount = async (req, res) => {
   } catch (err) {
     console.error('Account deletion error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Controller per verificare lo stato della sessione
+exports.checkSession = async (req, res) => {
+  try {
+    // Se siamo arrivati qui, significa che il middleware authMiddleware ha già verificato la sessione
+    // e la sessione è valida
+    return res.status(200).json({
+      active: true,
+      sessionId: req.user.sessionId
+    });
+  } catch (error) {
+    console.error('Errore durante il controllo della sessione:', error);
+    res.status(500).json({ error: 'Errore del server durante il controllo della sessione' });
   }
 };

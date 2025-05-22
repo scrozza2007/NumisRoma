@@ -66,7 +66,7 @@ const CustomDropdown = ({ value, onChange, options, placeholder }) => {
 };
 
 const Settings = () => {
-  const { user, isLoading, changePassword, deleteAccount, logout, changeUsername, updateProfile, checkUsernameAvailability } = useContext(AuthContext);
+  const { user, isLoading, changePassword, deleteAccount, logout, changeUsername, updateProfile, checkUsernameAvailability, sessions, sessionsLoading, fetchSessions, terminateSession, terminateAllOtherSessions } = useContext(AuthContext);
   const router = useRouter();
   
   // Form states
@@ -101,6 +101,10 @@ const Settings = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
+  
+  // Aggiungi stato per la gestione delle sessioni
+  const [terminatingSession, setTerminatingSession] = useState(null);
+  const [terminatingAllSessions, setTerminatingAllSessions] = useState(false);
   
   // Initialize form values from user data or localStorage
   useEffect(() => {
@@ -192,6 +196,15 @@ const Settings = () => {
     }
   }, [activeTab]);
 
+  // Carica le sessioni quando si seleziona la tab privacy
+  useEffect(() => {
+    if (activeTab === 'privacy' && user) {
+      fetchSessions();
+      // Reset any session errors when changing tabs
+      setErrors(prev => ({ ...prev, sessions: null }));
+    }
+  }, [activeTab, user]); // Rimuovo fetchSessions dalle dipendenze poiché causa l'aggiornamento infinito
+
   const handleNotificationChange = (type) => {
     const updatedNotifications = {
       ...notifications,
@@ -224,7 +237,7 @@ const Settings = () => {
 
   // Check if password fields have been changed
   const hasPasswordChanges = () => {
-    return (currentPassword && newPassword && confirmPassword);
+    return currentPassword && newPassword && confirmPassword;
   };
 
   // Check if the individual field has been changed and show appropriate message
@@ -709,6 +722,93 @@ const Settings = () => {
       // Rimuovi focus e stili persistenti di nuovo dopo il salvataggio
       removeAllFocusStates();
     }, 800);
+  };
+
+  // Formatta l'ultima attività di una sessione
+  const formatLastActive = (lastActiveDate) => {
+    try {
+      const date = new Date(lastActiveDate);
+      const now = new Date();
+      const diffMillis = now - date;
+      const diffMinutes = Math.floor(diffMillis / (1000 * 60));
+      const diffHours = Math.floor(diffMillis / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMillis / (1000 * 60 * 60 * 24));
+      
+      if (diffMinutes < 1) {
+        return 'a few seconds ago';
+      } else if (diffMinutes < 60) {
+        return `${diffMinutes} minutes ago`;
+      } else if (diffHours < 24) {
+        return `${diffHours} hours ago`;
+      } else {
+        return `${diffDays} days ago`;
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'unknown date';
+    }
+  };
+  
+  // Handle terminating a single session
+  const handleTerminateSession = async (sessionId) => {
+    setTerminatingSession(sessionId);
+    try {
+      const result = await terminateSession(sessionId);
+      
+      if (result.success) {
+        showSuccessMessage('Session terminated successfully. The device will be logged out.');
+        // Refresh sessions to update the status
+        await fetchSessions();
+      } else {
+        console.error('Error terminating session:', result.error);
+        // Show error message to user
+        setSuccessMessage(null);
+        const errorMessage = result.error || 'Error terminating session';
+        setErrors(prev => ({ ...prev, sessions: errorMessage }));
+        setTimeout(() => {
+          setErrors(prev => ({ ...prev, sessions: null }));
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error terminating session:', error);
+      setErrors(prev => ({ ...prev, sessions: 'A network error occurred' }));
+      setTimeout(() => {
+        setErrors(prev => ({ ...prev, sessions: null }));
+      }, 3000);
+    } finally {
+      setTerminatingSession(null);
+    }
+  };
+  
+  // Handle terminating all other sessions
+  const handleTerminateAllSessions = async () => {
+    setTerminatingAllSessions(true);
+    try {
+      const result = await terminateAllOtherSessions();
+      
+      if (result.success) {
+        showSuccessMessage('All other sessions have been terminated. Devices will be logged out.');
+        // Refresh sessions to update the status
+        await fetchSessions();
+      } else {
+        console.error('Error terminating sessions:', result.error);
+        // Show error message to user
+        setSuccessMessage(null);
+        const errorMessage = result.error || 'Error terminating sessions';
+        setErrors(prev => ({ ...prev, sessions: errorMessage }));
+        setTimeout(() => {
+          setErrors(prev => ({ ...prev, sessions: null }));
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error terminating all sessions:', error);
+      setErrors(prev => ({ ...prev, sessions: 'A network error occurred' }));
+      setTimeout(() => {
+        setErrors(prev => ({ ...prev, sessions: null }));
+      }, 3000);
+    } finally {
+      setTerminatingAllSessions(false);
+    }
   };
 
   // If still loading or user not authenticated, show loading state
@@ -1575,72 +1675,123 @@ const Settings = () => {
                 </div>
                 
                 <p className="text-gray-600 mb-6">
-                  Manage your active sessions and sign out from other devices. We&apos;ll notify you if we detect any unusual activity.
+                  Manage your active sessions and log out from other devices. We'll notify you if we detect unusual activity.
                 </p>
                 
-                <div className="bg-gray-50 rounded-lg overflow-hidden divide-y divide-gray-200">
-                  <div className="p-4 flex justify-between items-center">
-                    <div className="flex items-start space-x-4">
-                      <div className="bg-green-100 p-2 rounded-lg">
-                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Current Session</p>
-                        <p className="text-sm text-gray-500">Windows • Chrome • Rome, Italy</p>
-                        <p className="text-xs text-gray-400 mt-1">Last access: Today, 14:32</p>
-                      </div>
-                    </div>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full flex items-center">
-                      <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-                      Active Now
-                    </span>
+                {errors?.sessions && (
+                  <div className="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-sm animate-fade-in flex items-center">
+                    <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>{errors.sessions}</p>
                   </div>
-                  
-                  <div className="p-4 flex justify-between items-center">
-                    <div className="flex items-start space-x-4">
-                      <div className="bg-blue-100 p-2 rounded-lg">
-                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Mobile Session</p>
-                        <p className="text-sm text-gray-500">iOS • Safari • Last active: 2 days ago</p>
-                        <p className="text-xs text-gray-400 mt-1">Rome, Italy • 192.168.1.1</p>
-                      </div>
-                    </div>
-                    <button className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                      Sign Out
-                    </button>
+                )}
+                
+                {sessionsLoading ? (
+                  <div className="flex justify-center items-center p-8">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-500"></div>
                   </div>
-                  
-                  <div className="p-4 flex justify-between items-center">
-                    <div className="flex items-start space-x-4">
-                      <div className="bg-gray-100 p-2 rounded-lg">
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
+                ) : sessions && sessions.length > 0 ? (
+                  <div className="bg-gray-50 rounded-lg overflow-hidden divide-y divide-gray-200">
+                    {sessions.map(session => (
+                      <div key={session._id} className="p-4 flex justify-between items-center">
+                        <div className="flex items-start space-x-4">
+                          <div className={`${
+                            session.deviceInfo.type === 'mobile' 
+                              ? 'bg-blue-100' 
+                              : session.deviceInfo.type === 'tablet' 
+                              ? 'bg-green-100' 
+                              : 'bg-gray-100'
+                            } p-2 rounded-lg`}
+                          >
+                            {session.deviceInfo.type === 'mobile' ? (
+                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            ) : session.deviceInfo.type === 'tablet' ? (
+                              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {session.isCurrentSession ? 'Current Session' : session.deviceInfo.deviceName}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {session.deviceInfo.operatingSystem} • {session.deviceInfo.browser} • 
+                              {session.isCurrentSession 
+                                ? ' Active now' 
+                                : ` Last activity: ${formatLastActive(session.lastActive)}`
+                              }
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">{session.location} • {session.ipAddress}</p>
+                          </div>
+                        </div>
+                        
+                        {session.isCurrentSession ? (
+                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full flex items-center">
+                            <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                            Active Now
+                          </span>
+                        ) : (
+                          <button 
+                            onClick={() => handleTerminateSession(session._id)}
+                            disabled={terminatingSession === session._id}
+                            className={`px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium 
+                              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                              ${terminatingSession === session._id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {terminatingSession === session._id ? (
+                              <span className="flex items-center">
+                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Logging out...
+                              </span>
+                            ) : 'Logout'}
+                          </button>
+                        )}
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Unknown Device</p>
-                        <p className="text-sm text-gray-500">Windows • Firefox • Last active: 7 days ago</p>
-                        <p className="text-xs text-gray-400 mt-1">Milan, Italy • 87.23.45.67</p>
-                      </div>
-                    </div>
-                    <button className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                      Sign Out
-                    </button>
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-6 text-center">
+                    <p className="text-gray-500">No active sessions found</p>
+                  </div>
+                )}
                 
                 <div className="mt-4 flex justify-end">
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 flex items-center">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                    Sign Out All Devices
+                  <button 
+                    onClick={handleTerminateAllSessions}
+                    disabled={terminatingAllSessions || !sessions || sessions.length <= 1}
+                    className={`px-4 py-2 border border-purple-300 text-purple-700 rounded-lg 
+                      ${(terminatingAllSessions || !sessions || sessions.length <= 1) 
+                        ? 'bg-gray-100 opacity-50 cursor-not-allowed' 
+                        : 'hover:bg-purple-50 transition-colors duration-200'} 
+                      text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center`}
+                  >
+                    {terminatingAllSessions ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-purple-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Logging out...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        Logout from all devices
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

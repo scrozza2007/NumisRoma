@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const Session = require('../models/Session');
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   // Read token from Authorization header
   const authHeader = req.header('Authorization');
 
@@ -16,11 +17,29 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Verifica che la sessione associata al token sia ancora attiva
+    const session = await Session.findOne({ token, isActive: true });
+    
+    if (!session) {
+      return res.status(401).json({ 
+        msg: 'Session terminated', 
+        code: 'SESSION_TERMINATED',
+        sessionTerminated: true
+      });
+    }
+    
+    // Aggiorna l'ultima attività della sessione
+    session.lastActive = new Date();
+    await session.save();
+    
     // Make sure we set userId in the request for controllers that need it
     req.user = { 
       userId: decoded.userId,
-      _id: decoded.userId 
+      _id: decoded.userId,
+      sessionId: session._id
     };
+    
     next(); // Proceed to next middleware or controller
   } catch (err) {
     console.error('JWT verification error:', err);

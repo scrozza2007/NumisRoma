@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -6,23 +6,43 @@ import { AuthContext } from '../context/AuthContext';
 import Image from 'next/image';
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
   const router = useRouter();
+  const { login } = useContext(AuthContext);
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [statusMessage, setStatusMessage] = useState('');
+
+  useEffect(() => {
+    if (router.query.message) {
+      setStatusMessage(router.query.message);
+      const params = new URLSearchParams(window.location.search);
+      params.delete('message');
+      router.replace(
+        {
+          pathname: router.pathname,
+          query: Object.fromEntries(params)
+        },
+        undefined,
+        { shallow: true }
+      );
+    }
+  }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    setIsSubmitting(true);
+    setErrors({});
 
     // Custom validation for empty fields
     if (!identifier || !password) {
-      setError('Please enter both email/username and password.');
-      setIsLoading(false);
+      setErrors({ identifier: 'Please enter both email/username and password.' });
+      setIsSubmitting(false);
       return;
     }
 
@@ -40,16 +60,16 @@ const Login = () => {
           login(data.token, data.user || data);
           router.push('/');
         } else {
-          setError('Invalid response from server');
+          setErrors({ server: 'Invalid response from server' });
         }
       } else {
-        setError(data.msg || 'Invalid credentials');
+        setErrors({ server: data.msg || 'Invalid credentials' });
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Network error');
+      setErrors({ server: 'Network error' });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -69,6 +89,17 @@ const Login = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-3">Welcome Back</h2>
             <p className="text-gray-600">Sign in to access your NumisRoma account</p>
           </div>
+
+          {statusMessage && (
+            <div className="mb-4 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-md">
+              <p className="flex items-center">
+                <svg className="h-5 w-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {statusMessage}
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -106,10 +137,10 @@ const Login = () => {
             </div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isSubmitting}
               className="w-full bg-black text-white py-3.5 rounded-xl hover:bg-gray-800 transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <>
                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -123,14 +154,14 @@ const Login = () => {
             </button>
           </form>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl animate-fade-in flex items-center space-x-2">
+          {Object.keys(errors).map((key) => (
+            <div key={key} className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl animate-fade-in flex items-center space-x-2">
               <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{error}</span>
+              <span>{errors[key]}</span>
             </div>
-          )}
+          ))}
 
           <div className="mt-6 text-center">
             <Link href="/forgot-password" className="text-yellow-600 hover:text-yellow-700 transition-colors duration-200 font-medium">

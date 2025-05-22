@@ -7,6 +7,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionTerminated, setSessionTerminated] = useState(false);
+  const [terminationReason, setTerminationReason] = useState(null);
 
   // Debug function to log state changes
   const logState = (action) => {
@@ -112,13 +116,217 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    console.log('[AuthContext] Logout called');
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-    logState('After logout');
+  // Funzione per verificare se una risposta indica che la sessione è stata terminata
+  const isSessionTerminatedResponse = (response) => {
+    if (response && response.status === 401) {
+      return response.json().then(data => {
+        return data && data.code === 'SESSION_TERMINATED';
+      }).catch(() => false);
+    }
+    return false;
+  };
+
+  // Handle API requests with session verification
+  const makeAuthenticatedRequest = async (url, options = {}) => {
+    if (!token) {
+      throw new Error('User not authenticated');
+    }
+
+    // Add authorization header to request if not already present
+    const headers = options.headers || {};
+    if (!headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers
+      });
+      
+      // Check if session was terminated
+      if (response.status === 401) {
+        const data = await response.json();
+        if (data.code === 'SESSION_TERMINATED' || data.sessionTerminated) {
+          console.log('[AuthContext] Session was terminated, logging out');
+          // Forza il logout se la sessione è stata terminata
+          const reason = 'Your session has been terminated from another device';
+          setSessionTerminated(true);
+          setTerminationReason(reason);
+          await logout(true, reason);
+          return { sessionTerminated: true, error: data.msg || 'Session terminated' };
+        }
+        
+        return { error: data.msg || 'Unauthorized' };
+      }
+      
+      return response;
+    } catch (error) {
+      console.error(`[AuthContext] Error making request to ${url}:`, error);
+      throw error;
+    }
+  };
+
+  // Aggiorna la funzione di logout per gestire la disconnessione forzata
+  const logout = async (skipApiCall = false, logoutReason = null) => {
+    console.log('[AuthContext] Logout called', { skipApiCall, logoutReason });
+    
+    try {
+      if (!skipApiCall && token) {
+        // Chiama l'API di logout per terminare la sessione server-side
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).catch(error => console.error('[AuthContext] Logout API error:', error));
+      }
+    } finally {
+      // Pulisci lo storage e lo state indipendentemente dall'esito della chiamata API
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Se c'è un motivo di logout, salvalo
+      if (logoutReason) {
+        localStorage.setItem('logoutReason', logoutReason);
+      } else {
+        localStorage.removeItem('logoutReason');
+      }
+      
+      setToken(null);
+      setUser(null);
+      setSessions([]);
+      logState('After logout');
+    }
+  };
+
+  // Verifica lo stato della sessione corrente
+  const checkSession = async () => {
+    if (!token || !user) return { active: false };
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/session-check`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        return { active: true };
+      }
+      
+      // Check if session was terminated
+      if (response.status === 401) {
+        const data = await response.json();
+        if (data.code === 'SESSION_TERMINATED' || data.sessionTerminated) {
+          const reason = 'Your session has been terminated from another device';
+          setSessionTerminated(true);
+          setTerminationReason(reason);
+          await logout(true, reason);
+          return { active: false, terminated: true, reason: data.msg };
+        }
+        
+        // Session is invalid for other reasons
+        await logout(true);
+        return { active: false, error: data.msg };
+      }
+      
+      return { active: false };
+    } catch (error) {
+      console.error('[AuthContext] Session check error:', error);
+      return { active: false, error: error.message };
+    }
+  };
+
+  // Funzioni per la gestione delle sessioni
+  const fetchSessions = async () => {
+    if (!token || !user) return;
+    
+    setSessionsLoading(true);
+    try {
+      const response = await makeAuthenticatedRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions`);
+      
+      // Se la sessione è stata terminata, la risposta conterrà sessionTerminated
+      if (response.sessionTerminated) {
+        setSessions([]);
+        return;
+      }
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Filtra solo le sessioni attive
+        const activeSessions = data.sessions?.filter(session => session.isActive !== false) || [];
+        setSessions(activeSessions);
+      } else {
+        console.error('[AuthContext] Error fetching sessions:', await response.text());
+        setSessions([]);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Sessions API error:', error);
+      setSessions([]);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+  
+  const terminateSession = async (sessionId) => {
+    if (!token || !user) return { success: false, error: 'Not authenticated' };
+    
+    try {
+      const response = await makeAuthenticatedRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions/${sessionId}`, {
+        method: 'DELETE'
+      });
+      
+      // Se la sessione è stata terminata, la risposta conterrà sessionTerminated
+      if (response.sessionTerminated) {
+        return { success: false, error: 'Your session has been terminated' };
+      }
+      
+      if (response.ok) {
+        // Aggiorna la lista delle sessioni fetching di nuovo
+        await fetchSessions();
+        return { success: true };
+      } else {
+        const errorData = await response.json();
+        return { 
+          success: false, 
+          error: errorData.error || 'Error terminating session' 
+        };
+      }
+    } catch (error) {
+      console.error('[AuthContext] Terminate session error:', error);
+      return { success: false, error: 'Network error while terminating session' };
+    }
+  };
+  
+  const terminateAllOtherSessions = async () => {
+    if (!token || !user) return { success: false, error: 'Not authenticated' };
+    
+    try {
+      const response = await makeAuthenticatedRequest(`${process.env.NEXT_PUBLIC_API_URL}/api/sessions`, {
+        method: 'DELETE'
+      });
+      
+      // Se la sessione è stata terminata, la risposta conterrà sessionTerminated
+      if (response.sessionTerminated) {
+        return { success: false, error: 'Your session has been terminated' };
+      }
+      
+      if (response.ok) {
+        // Aggiorna la lista delle sessioni fetching di nuovo
+        await fetchSessions();
+        return { success: true };
+      } else {
+        const errorData = await response.json();
+        return { 
+          success: false, 
+          error: errorData.error || 'Error terminating sessions' 
+        };
+      }
+    } catch (error) {
+      console.error('[AuthContext] Terminate all sessions error:', error);
+      return { success: false, error: 'Network error while terminating sessions' };
+    }
   };
 
   const changePassword = async (currentPassword, newPassword, confirmPassword) => {
@@ -158,7 +366,7 @@ export const AuthProvider = ({ children }) => {
       console.error('[AuthContext] Password change error:', error);
       return {
         success: false,
-        error: 'Errore durante il cambio password'
+        error: 'Error during password change'
       };
     }
   };
@@ -234,7 +442,7 @@ export const AuthProvider = ({ children }) => {
       console.error('[AuthContext] Username availability check error:', error);
       return {
         available: false,
-        error: 'Errore durante il controllo della disponibilità'
+        error: 'Error during username availability check'
       };
     }
   };
@@ -278,7 +486,7 @@ export const AuthProvider = ({ children }) => {
       console.error('[AuthContext] Username change error:', error);
       return {
         success: false,
-        error: 'Errore durante la modifica dello username'
+        error: 'Error during username change'
       };
     }
   };
@@ -322,9 +530,15 @@ export const AuthProvider = ({ children }) => {
       console.error('[AuthContext] Profile update error:', error);
       return {
         success: false,
-        error: 'Errore durante l\'aggiornamento del profilo'
+        error: 'Error during profile update'
       };
     }
+  };
+
+  // Funzione per reimpostare lo stato di terminazione della sessione
+  const resetSessionTermination = () => {
+    setSessionTerminated(false);
+    setTerminationReason(null);
   };
 
   // Log state changes
@@ -344,7 +558,18 @@ export const AuthProvider = ({ children }) => {
       deleteAccount,
       checkUsernameAvailability,
       changeUsername,
-      updateProfile
+      updateProfile,
+      // Aggiungi le funzioni per la gestione delle sessioni
+      sessions,
+      sessionsLoading,
+      fetchSessions,
+      terminateSession,
+      terminateAllOtherSessions,
+      checkSession,
+      // Aggiungi lo stato di terminazione della sessione
+      sessionTerminated,
+      terminationReason,
+      resetSessionTermination
     }}>
       {children}
     </AuthContext.Provider>
