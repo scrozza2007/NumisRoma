@@ -66,7 +66,7 @@ const CustomDropdown = ({ value, onChange, options, placeholder }) => {
 };
 
 const Settings = () => {
-  const { user, isLoading, changePassword, deleteAccount, logout, changeUsername, updateProfile, checkUsernameAvailability, sessions, sessionsLoading, fetchSessions, terminateSession, terminateAllOtherSessions } = useContext(AuthContext);
+  const { user, isLoading, changePassword, deleteAccount, logout, changeUsername, updateProfile, checkUsernameAvailability, sessions, sessionsLoading, fetchSessions, terminateSession, terminateAllOtherSessions, setSessions } = useContext(AuthContext);
   const router = useRouter();
   
   // Form states
@@ -203,7 +203,8 @@ const Settings = () => {
       // Reset any session errors when changing tabs
       setErrors(prev => ({ ...prev, sessions: null }));
     }
-  }, [activeTab, user]); // Rimuovo fetchSessions dalle dipendenze poiché causa l'aggiornamento infinito
+  }, [activeTab, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Intentionally omitting fetchSessions from dependencies to prevent infinite loop
 
   const handleNotificationChange = (type) => {
     const updatedNotifications = {
@@ -757,8 +758,8 @@ const Settings = () => {
       
       if (result.success) {
         showSuccessMessage('Session terminated successfully. The device will be logged out.');
-        // Refresh sessions to update the status
-        await fetchSessions();
+        // Update sessions locally instead of fetching again
+        setSessions(prevSessions => prevSessions.filter(session => session._id !== sessionId));
       } else {
         console.error('Error terminating session:', result.error);
         // Show error message to user
@@ -788,8 +789,8 @@ const Settings = () => {
       
       if (result.success) {
         showSuccessMessage('All other sessions have been terminated. Devices will be logged out.');
-        // Refresh sessions to update the status
-        await fetchSessions();
+        // Update sessions locally to only include the current session
+        setSessions(prevSessions => prevSessions.filter(session => session.isCurrentSession));
       } else {
         console.error('Error terminating sessions:', result.error);
         // Show error message to user
@@ -1675,7 +1676,7 @@ const Settings = () => {
                 </div>
                 
                 <p className="text-gray-600 mb-6">
-                  Manage your active sessions and log out from other devices. We'll notify you if we detect unusual activity.
+                  Manage your active sessions and log out from other devices. We&apos;ll notify you if we detect unusual activity.
                 </p>
                 
                 {errors?.sessions && (

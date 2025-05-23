@@ -283,8 +283,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (response.ok) {
-        // Aggiorna la lista delle sessioni fetching di nuovo
-        await fetchSessions();
+        // Return success without fetching sessions again
         return { success: true };
       } else {
         const errorData = await response.json();
@@ -313,8 +312,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (response.ok) {
-        // Aggiorna la lista delle sessioni fetching di nuovo
-        await fetchSessions();
+        // Return success without fetching sessions again
         return { success: true };
       } else {
         const errorData = await response.json();
@@ -565,6 +563,7 @@ export const AuthProvider = ({ children }) => {
       fetchSessions,
       terminateSession,
       terminateAllOtherSessions,
+      setSessions,
       checkSession,
       // Aggiungi lo stato di terminazione della sessione
       sessionTerminated,

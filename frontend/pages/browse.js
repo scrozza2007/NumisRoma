@@ -124,7 +124,7 @@ const Browse = () => {
     };
     
     loadSavedFilters();
-  }, [fetchCoins]);
+  }, [fetchCoins, filters]);
 
   // Handle page changes
   useEffect(() => {
