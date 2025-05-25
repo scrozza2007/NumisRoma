@@ -183,7 +183,7 @@ const CoinDetail = ({ coinId }) => {
                       </h2>
                       <div className="grid grid-cols-2 gap-8 flex-grow">
                         <div 
-                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100"
+                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center pt-12"
                           onClick={() => handleImageClick('obverse')}
                         >
                           <Image
@@ -200,7 +200,7 @@ const CoinDetail = ({ coinId }) => {
                           </div>
                         </div>
                         <div 
-                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100"
+                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center pt-12"
                           onClick={() => handleImageClick('reverse')}
                         >
                           <Image
