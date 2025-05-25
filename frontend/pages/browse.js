@@ -111,36 +111,49 @@ const Browse = () => {
           // Clear any saved filters if not coming from a coin detail page
           localStorage.removeItem('coinFilters');
           localStorage.removeItem('coinCurrentPage');
-          await fetchCoins(1, filters);
+          await fetchCoins(1, {});
         }
 
         // Clear the last visited page marker
         localStorage.removeItem('lastVisitedPage');
       } catch (e) {
         console.error('Error in initial load:', e);
-        await fetchCoins(1, filters);
+        await fetchCoins(1, {});
       }
       isFirstLoadRef.current = false;
     };
     
     loadSavedFilters();
-  }, [fetchCoins, filters]);
+  }, [fetchCoins]);
 
-  // Handle page changes
+  // Handle page changes - only trigger when page changes, not when filters change
   useEffect(() => {
     if (!isFirstLoadRef.current) {
       localStorage.setItem('coinCurrentPage', currentPage.toString());
       fetchCoins(currentPage, filters);
     }
-  }, [currentPage, filters, fetchCoins]);
+  }, [currentPage, fetchCoins]);
 
-  // Handle filter changes
+  // Handle filter changes - use a separate effect for filter changes
+  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  
+  // Debounce filter changes to avoid excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters(filters);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [filters]);
+  
+  // Apply debounced filters
   useEffect(() => {
     if (!isFirstLoadRef.current) {
-      localStorage.setItem('coinFilters', JSON.stringify(filters));
-      fetchCoins(currentPage, filters);
+      localStorage.setItem('coinFilters', JSON.stringify(debouncedFilters));
+      setCurrentPage(1); // Reset to first page when filters change
+      fetchCoins(1, debouncedFilters);
     }
-  }, [filters, currentPage, fetchCoins, isFirstLoadRef]);
+  }, [debouncedFilters, fetchCoins]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -167,10 +180,10 @@ const Browse = () => {
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();
-    setCurrentPage(1);
-    // Save filters to localStorage
+    // Save filters to localStorage and fetch results
     localStorage.setItem('coinFilters', JSON.stringify(filters));
     localStorage.setItem('coinCurrentPage', '1');
+    setCurrentPage(1);
     fetchCoins(1, filters);
   };
 

@@ -6,7 +6,7 @@ const NotificationToast = ({ message, type = 'info', duration = 3000, onClose })
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(() => onClose && onClose(), 300); // Aspetta l'animazione
+      setTimeout(() => onClose && onClose(), 300); // Wait for animation
     }, duration);
 
     return () => clearTimeout(timer);

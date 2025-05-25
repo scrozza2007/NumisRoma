@@ -3,15 +3,15 @@ import Link from 'next/link';
 import Head from 'next/head';
 import Image from 'next/image';
 
-// Pagina di recupero password (UI e struttura, senza chiamata API)
+// Password recovery page (UI and structure, without API call)
 const ForgotPassword = () => {
-  // Stato per l'email inserita
+  // State for email input
   const [email, setEmail] = useState('');
-  // Stato per messaggio di successo
+  // State for success message
   const [success, setSuccess] = useState('');
-  // Stato per messaggio di errore
+  // State for error message
   const [error, setError] = useState('');
-  // Stato per il caricamento
+  // State for loading
   const [isLoading, setIsLoading] = useState(false);
 
   // Gestione invio form (solo mock, senza API)

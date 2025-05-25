@@ -23,21 +23,21 @@ const Messages = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const router = useRouter();
 
-  // Controlla autenticazione
+  // Check authentication
   useEffect(() => {
     if (!authLoading && !user) {
-      // Evita redirect multipli controllando la route corrente
+      // Avoid multiple redirects by checking current route
       if (router.pathname !== '/login') {
         router.replace('/login');
       }
     }
   }, [user, authLoading, router]);
 
-  // Gestione errori di navigazione
+  // Navigation error handling
   useEffect(() => {
     const handleRouteError = (err) => {
-      console.error('Errore di navigazione:', err);
-      // Non fare nulla per errori di navigazione invariant
+      console.error('Navigation error:', err);
+      // Do nothing for invariant navigation errors
       if (err.message && err.message.includes('Invariant')) {
         return;
       }
@@ -50,29 +50,29 @@ const Messages = () => {
     };
   }, [router]);
 
-  // Funzione per aggiungere notifiche
+  // Function to add notifications
   const addNotification = (message, type = 'info') => {
     const id = Date.now();
     const notification = { id, message, type };
     setNotifications(prev => [...prev, notification]);
   };
 
-  // Funzione per rimuovere notifiche
+  // Function to remove notifications
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(notif => notif.id !== id));
   };
 
-  // Carica conversazioni
+  // Load conversations
   useEffect(() => {
     if (user) {
       fetchConversations();
     }
   }, [user]);
 
-  // Polling per aggiornamenti in tempo reale
+  // Polling for real-time updates
   useEffect(() => {
     if (user && selectedConversation) {
-      // Polling ogni 3 secondi per nuovi messaggi
+      // Polling every 3 seconds for new messages
       pollingRef.current = setInterval(() => {
         fetchMessages(selectedConversation._id, true); // true = silent update
       }, 3000);
@@ -85,7 +85,7 @@ const Messages = () => {
     }
   }, [user, selectedConversation]);
 
-  // Polling per aggiornamenti conversazioni
+  // Polling for conversation updates
   useEffect(() => {
     if (user) {
       const conversationPolling = setInterval(() => {
@@ -112,9 +112,9 @@ const Messages = () => {
         setConversations(data);
       }
     } catch (error) {
-      console.error('Errore nel caricamento conversazioni:', error);
+      console.error('Error loading conversations:', error);
       if (!silent) {
-        addNotification('Errore nel caricamento conversazioni', 'error');
+        addNotification('Error loading conversations', 'error');
       }
     } finally {
       if (!silent) setLoading(false);
@@ -161,9 +161,9 @@ const Messages = () => {
         }
       }
     } catch (error) {
-      console.error('Errore nel caricamento messaggi:', error);
+      console.error('Error loading messages:', error);
       if (!silent) {
-        addNotification('Errore nel caricamento messaggi', 'error');
+        addNotification('Error loading messages', 'error');
       }
     }
   };
@@ -179,7 +179,7 @@ const Messages = () => {
         }
       });
     } catch (error) {
-      console.error('Errore nel segnare come letti:', error);
+      console.error('Error marking as read:', error);
     }
   };
 
@@ -209,11 +209,11 @@ const Messages = () => {
         // Aggiorna la lista conversazioni
         fetchConversations(true);
       } else {
-        addNotification('Errore nell\'invio del messaggio', 'error');
+        addNotification('Error sending message', 'error');
       }
     } catch (error) {
-      console.error('Errore nell\'invio messaggio:', error);
-      addNotification('Errore nell\'invio del messaggio', 'error');
+      console.error('Error sending message:', error);
+      addNotification('Error sending message', 'error');
     }
   };
 
@@ -237,8 +237,8 @@ const Messages = () => {
         setFoundUsers(data);
       }
     } catch (error) {
-      console.error('Errore nella ricerca utenti:', error);
-      addNotification('Errore nella ricerca utenti', 'error');
+      console.error('Error searching users:', error);
+      addNotification('Error searching users', 'error');
     }
   };
 
@@ -262,11 +262,11 @@ const Messages = () => {
         setShowUserSearch(false);
         setSearchUsers('');
         setFoundUsers([]);
-        addNotification('Conversazione avviata', 'success');
+        addNotification('Conversation started', 'success');
       }
     } catch (error) {
-      console.error('Errore nella creazione conversazione:', error);
-      addNotification('Errore nella creazione conversazione', 'error');
+      console.error('Error creating conversation:', error);
+      addNotification('Error creating conversation', 'error');
     }
   };
 
@@ -283,7 +283,7 @@ const Messages = () => {
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('it-IT', { 
+    return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
@@ -296,11 +296,11 @@ const Messages = () => {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Oggi';
+      return 'Today';
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Ieri';
+      return 'Yesterday';
     } else {
-      return date.toLocaleDateString('it-IT');
+      return date.toLocaleDateString('en-US');
     }
   };
 
@@ -319,11 +319,11 @@ const Messages = () => {
   return (
     <>
       <Head>
-        <title>Messaggi - NumisRoma</title>
-        <meta name="description" content="Messaggistica diretta tra collezionisti" />
+        <title>Messages - NumisRoma</title>
+        <meta name="description" content="Direct messaging between collectors" />
       </Head>
 
-      {/* Notifiche */}
+      {/* Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {notifications.map(notification => (
           <NotificationToast
@@ -339,12 +339,12 @@ const Messages = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-lg overflow-hidden h-[calc(100vh-8rem)]">
             <div className="flex h-full">
-              {/* Sidebar Conversazioni */}
+              {/* Conversations Sidebar */}
               <div className="w-1/3 border-r border-gray-200 flex flex-col">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-bold text-gray-900">Messaggi</h1>
+                    <h1 className="text-xl font-bold text-gray-900">Messages</h1>
                     <button
                       onClick={() => setShowUserSearch(!showUserSearch)}
                       className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
@@ -355,12 +355,12 @@ const Messages = () => {
                     </button>
                   </div>
 
-                  {/* Ricerca Utenti */}
+                  {/* User Search */}
                   {showUserSearch && (
                     <div className="mt-4">
                       <input
                         type="text"
-                        placeholder="Cerca utenti..."
+                        placeholder="Search users..."
                         value={searchUsers}
                         onChange={(e) => {
                           setSearchUsers(e.target.value);
@@ -394,7 +394,7 @@ const Messages = () => {
                   )}
                 </div>
 
-                {/* Lista Conversazioni */}
+                {/* Conversations List */}
                 <div className="flex-1 overflow-y-auto">
                   {loading ? (
                     <div className="p-4 text-center">
@@ -402,8 +402,8 @@ const Messages = () => {
                     </div>
                   ) : conversations.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">
-                      <p>Nessuna conversazione ancora.</p>
-                      <p className="text-sm mt-1">Inizia una nuova conversazione!</p>
+                      <p>No conversations yet.</p>
+                      <p className="text-sm mt-1">Start a new conversation!</p>
                     </div>
                   ) : (
                     conversations.map(conversation => {
@@ -413,8 +413,8 @@ const Messages = () => {
                           key={conversation._id}
                           onClick={() => {
                             setSelectedConversation(conversation);
-                            setLastMessageId(null); // Reset tracking quando si cambia conversazione
-                            setLastMessageCount(0); // Reset conteggio
+                            setLastMessageId(null); // Reset tracking when conversation changes
+                            setLastMessageCount(0); // Reset counter
                             fetchMessages(conversation._id);
                           }}
                           className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
@@ -469,7 +469,7 @@ const Messages = () => {
                       </div>
                     </div>
 
-                    {/* Messaggi */}
+                    {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                       {messages.map(message => (
                         <div
@@ -492,7 +492,7 @@ const Messages = () => {
                       ))}
                     </div>
 
-                    {/* Input Messaggio */}
+                    {/* Message Input */}
                     <div className="p-4 border-t border-gray-200 bg-white">
                       <div className="flex space-x-2">
                         <input
@@ -500,7 +500,7 @@ const Messages = () => {
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={handleKeyPress}
-                          placeholder="Scrivi un messaggio..."
+                          placeholder="Write a message..."
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                         />
                         <button
@@ -508,7 +508,7 @@ const Messages = () => {
                           disabled={!newMessage.trim()}
                           className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          Invia
+                          Send
                         </button>
                       </div>
                     </div>
@@ -519,8 +519,8 @@ const Messages = () => {
                       <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
-                      <p className="text-lg font-medium">Seleziona una conversazione</p>
-                      <p className="text-sm mt-1">Scegli una conversazione dalla lista o iniziane una nuova</p>
+                      <p className="text-lg font-medium">Select a conversation</p>
+                      <p className="text-sm mt-1">Choose a conversation from the list or start a new one</p>
                     </div>
                   </div>
                 )}

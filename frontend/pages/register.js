@@ -113,7 +113,17 @@ const Register = () => {
         }),
       });
 
-      const registerData = await registerResponse.json();
+      let registerData;
+      try {
+        registerData = await registerResponse.json();
+      } catch (jsonError) {
+        console.error('JSON parse error:', jsonError);
+        setErrors({
+          form: 'Server returned invalid JSON. Please contact support.'
+        });
+        setIsLoading(false);
+        return;
+      }
 
       if (!registerResponse.ok) {
         // Handle specific error cases
@@ -129,10 +139,16 @@ const Register = () => {
         } else if (registerResponse.status === 400) {
           // Handle validation errors
           const validationErrors = {};
-          registerData.details.forEach(err => {
-            validationErrors[err.field] = err.message;
-          });
-          setErrors(validationErrors);
+          if (registerData.details && Array.isArray(registerData.details)) {
+            registerData.details.forEach(err => {
+              validationErrors[err.field] = err.message;
+            });
+            setErrors(validationErrors);
+          } else {
+            setErrors({
+              form: registerData.error || 'Validation failed'
+            });
+          }
           setIsLoading(false);
           return;
         } else {
@@ -140,29 +156,19 @@ const Register = () => {
         }
       }
 
-      // Automatic login after registration
-      const loginResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          identifier: formData.email,
-          password: formData.password
-        }),
-      });
-
-      const loginData = await loginResponse.json();
-
-      if (!loginResponse.ok) {
-        throw new Error(loginData.message || 'Login failed');
+      // Use the token and user data directly from the registration response
+      console.log('Registration successful, using token for automatic login');
+      if (registerData.token && registerData.user) {
+        console.log('Using token and user data from registration response');
+        await login(registerData.token, registerData.user);
+        router.push('/');
+      } else {
+        console.error('Registration response missing token or user data:', registerData);
+        setErrors({
+          form: 'Registration successful but missing login data. Please log in manually.'
+        });
+        setIsLoading(false);
       }
-
-      // Save token and user data in context
-      await login(loginData.token, loginData.user);
-
-      // Redirect to homepage
-      router.push('/');
     } catch (err) {
       console.error('Registration error:', err);
       

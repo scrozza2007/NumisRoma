@@ -28,9 +28,16 @@ const validatePassword = (value) => {
 router.post(
   '/register',
   [
-    body('username').notEmpty().withMessage('Username is required'),
-    body('email').isEmail().withMessage('Invalid email'),
-    body('password').custom(validatePassword)
+    body('username')
+      .notEmpty().withMessage('Username is required')
+      .isLength({ min: 3 }).withMessage('Username must be at least 3 characters long')
+      .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username can only contain letters, numbers, and underscores'),
+    body('email')
+      .notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Invalid email format'),
+    body('password')
+      .notEmpty().withMessage('Password is required')
+      .custom(validatePassword)
   ],
   registerUser
 );

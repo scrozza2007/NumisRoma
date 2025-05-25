@@ -108,8 +108,14 @@ export const AuthProvider = ({ children }) => {
     
     if (userData) {
       console.log('[AuthContext] Setting user data from login:', userData);
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      // Ensure consistent user ID field (some endpoints return _id, others return id)
+      const normalizedUserData = {
+        ...userData,
+        _id: userData._id || userData.id, // Ensure _id exists
+        id: userData._id || userData.id   // Ensure id exists
+      };
+      setUser(normalizedUserData);
+      localStorage.setItem('user', JSON.stringify(normalizedUserData));
       logState('After login with user data');
     } else {
       await fetchUserData(newToken);

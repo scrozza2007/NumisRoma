@@ -13,12 +13,14 @@ const CoinSchema = new Schema({
     date_range: { type: String },
     mint: { type: String },
     denomination: { type: String },
-    material: { type: String }
+    material: { type: String },
+    notes: { type: String }
   },
   obverse: {
     legend: { type: String },
     type: { type: String },
     portrait: { type: String },
+    deity: { type: String },
     image: { type: String },
     license: { type: String },
     credits: { type: String }
@@ -26,7 +28,10 @@ const CoinSchema = new Schema({
   reverse: {
     legend: { type: String },
     type: { type: String },
+    portrait: { type: String },
     deity: { type: String },
+    mintmark: { type: String },
+    officinamark: { type: String },
     image: { type: String },
     license: { type: String },
     credits: { type: String }

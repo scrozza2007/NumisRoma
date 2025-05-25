@@ -11,7 +11,7 @@ const Home = () => {
   const fetchRandomCoins = async () => {
     try {
       setLoading(true);
-      // Definiamo un URL di fallback e aggiungiamo log per debug
+      // Define a fallback URL and add logs for debugging
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       console.log('Calling API at:', apiUrl);
       
@@ -43,7 +43,7 @@ const Home = () => {
     } catch (error) {
       console.error('Error fetching random coins:', error);
       setLoading(false);
-      // Imposta una moneta di placeholder in caso di errore
+      // Set placeholder coins in case of error
       setFeaturedCoins([]);
     }
   };

@@ -53,7 +53,7 @@ const Navbar = () => {
         setUnreadCount(data.unreadCount);
       }
     } catch (error) {
-      console.error('Errore nel recupero messaggi non letti:', error);
+      console.error('Error retrieving unread messages:', error);
     }
   };
 
@@ -143,7 +143,7 @@ const Navbar = () => {
 
         {/* Navigation Links */}
         <nav className="flex justify-center space-x-12">
-          {['Browse', 'Search', 'Community', 'Resources', 'Symbols', 'Contact'].map((item) => (
+          {['Browse', 'Community', 'Resources', 'Symbols', 'Contact'].map((item) => (
             <Link 
               key={item}
               href={`/${item.toLowerCase()}`}
@@ -166,7 +166,7 @@ const Navbar = () => {
                   safeNavigate('/messages');
                 }}
                 className="p-2 text-white hover:text-yellow-100 transition-colors duration-300 relative group"
-                title="Messaggi"
+                title="Messages"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -225,7 +225,7 @@ const Navbar = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                       <span className="group-hover:translate-x-1 transition-transform duration-200 flex items-center">
-                        Messaggi
+                        Messages
                         {unreadCount > 0 && (
                           <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">
                             {unreadCount > 9 ? '9+' : unreadCount}

@@ -55,8 +55,13 @@ exports.registerUser = async (req, res) => {
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Crea una nuova sessione per l'utente
-    await sessionController.createSession(user._id, token, req);
+    try {
+      // Create a new session for the user
+      await sessionController.createSession(user._id, token, req);
+    } catch (sessionError) {
+      console.error('Session creation error during registration:', sessionError);
+      // Continue with registration even if session creation fails
+    }
 
     res.status(201).json({ 
       token,
@@ -79,7 +84,13 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ 
+      error: 'Validation failed',
+      details: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
   }
 
   const { identifier, password } = req.body;
@@ -94,33 +105,47 @@ exports.loginUser = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ 
+        error: 'Invalid credentials',
+        message: 'The email/username or password you entered is incorrect'
+      });
     }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ 
+        error: 'Invalid credentials',
+        message: 'The email/username or password you entered is incorrect'
+      });
     }
 
     // Create token
     const payload = { userId: user._id };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Crea una nuova sessione per l'utente
-    await sessionController.createSession(user._id, token, req);
+    try {
+      // Create a new session for the user
+      await sessionController.createSession(user._id, token, req);
+    } catch (sessionError) {
+      console.error('Session creation error:', sessionError);
+      // Continue with login even if session creation fails
+    }
 
     res.json({
       token,
       user: {
-        _id: user._id,
+        id: user._id,
         username: user.username,
         email: user.email
       }
     });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error('Login error:', err);
+    res.status(500).json({ 
+      error: 'Server error',
+      message: 'An unexpected error occurred during login'
+    });
   }
 };
 
