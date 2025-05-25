@@ -66,7 +66,7 @@ const Community = () => {
       } else {
         setNotification({
           show: true,
-          message: 'Impossibile caricare gli utenti consigliati. Prova a ricaricare la pagina.',
+          message: 'Unable to load recommended users. Please refresh the page.',
           type: 'error'
         });
         
@@ -171,7 +171,7 @@ const Community = () => {
       // Show success notification
       setNotification({
         show: true,
-        message: isFollowing ? 'Utente non seguito con successo' : 'Utente seguito con successo',
+        message: isFollowing ? 'Successfully unfollowed user' : 'Successfully followed user',
         type: 'success'
       });
 
@@ -216,10 +216,10 @@ const Community = () => {
                 alt={profileUser.username}
                 width={56}
                 height={56}
-                className="w-14 h-14 rounded-full object-cover border-2 border-white transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-xl"
+                className="w-14 h-14 rounded-full object-cover border-2 border-gray-100 shadow-lg transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:border-yellow-300 group-hover:shadow-xl"
               />
             ) : (
-              <div className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center font-semibold text-2xl border-2 border-gray-100 transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:bg-gray-50 group-hover:shadow-xl">
+              <div className="w-14 h-14 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center font-semibold text-2xl border-2 border-gray-100 shadow-lg transition-all duration-300 ease-in-out transform group-hover:scale-110 group-hover:bg-gray-50 group-hover:shadow-xl">
                 {initials}
               </div>
             )}
@@ -230,7 +230,7 @@ const Community = () => {
           </div>
           <button
             onClick={e => { e.stopPropagation(); toggleFollow(profileUser._id, profileUser.isFollowing); }}
-            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 ${
+            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 cursor-pointer ${
               profileUser.isFollowing
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 : 'bg-yellow-500 text-black hover:bg-yellow-400'
@@ -260,7 +260,7 @@ const Community = () => {
   // If we're still loading the authentication state, show a loader
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
       </div>
     );
@@ -272,7 +272,7 @@ const Community = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-white">
+    <div className="min-h-screen bg-gray-50">
       <Head>
         <title>Community - NumisRoma</title>
         <meta name="description" content="Connect with other numismatic enthusiasts on NumisRoma" />

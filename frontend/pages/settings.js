@@ -843,7 +843,7 @@ const Settings = () => {
             <nav className="space-y-1">
               <button 
                 onClick={() => setActiveTab('account')}
-                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 
+                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 cursor-pointer
                   ${activeTab === 'account' 
                     ? 'bg-yellow-100 text-yellow-800' 
                     : 'text-gray-700 hover:bg-gray-100'}`}
@@ -856,7 +856,7 @@ const Settings = () => {
               
               <button 
                 onClick={() => setActiveTab('notifications')}
-                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 
+                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 cursor-pointer
                   ${activeTab === 'notifications' 
                     ? 'bg-yellow-100 text-yellow-800' 
                     : 'text-gray-700 hover:bg-gray-100'}`}
@@ -869,7 +869,7 @@ const Settings = () => {
               
               <button 
                 onClick={() => setActiveTab('privacy')}
-                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 
+                className={`w-full text-left px-4 py-3 rounded-md flex items-center space-x-3 cursor-pointer
                   ${activeTab === 'privacy' 
                     ? 'bg-yellow-100 text-yellow-800' 
                     : 'text-gray-700 hover:bg-gray-100'}`}
@@ -1070,7 +1070,7 @@ const Settings = () => {
                             setIsEditing(false);
                           }}
                           disabled={isSubmitting}
-                          className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                          className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center cursor-pointer
                             ${isSubmitting ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                         >
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1082,7 +1082,7 @@ const Settings = () => {
                         <button 
                           onClick={handleSaveChanges}
                           disabled={isSubmitting || !hasChanges()}
-                          className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                          className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center cursor-pointer
                             ${isSubmitting || !hasChanges()
                               ? 'bg-gray-400 text-white cursor-not-allowed' 
                               : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow'}`}
@@ -1116,7 +1116,7 @@ const Settings = () => {
                     ) : (
                       <button 
                         onClick={() => setIsEditing(true)}
-                        className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow"
+                        className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow cursor-pointer"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1333,7 +1333,7 @@ const Settings = () => {
                               setIsEditingPassword(false);
                             }}
                             disabled={isSubmitting}
-                            className={`md:w-auto px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                            className={`md:w-auto px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center cursor-pointer
                               ${isSubmitting 
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
@@ -1347,7 +1347,7 @@ const Settings = () => {
                           <button 
                             onClick={handleSaveChanges}
                             disabled={isSubmitting || !hasPasswordChanges()}
-                            className={`md:w-auto px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                            className={`md:w-auto px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center cursor-pointer
                               ${isSubmitting || !hasPasswordChanges()
                                 ? 'bg-gray-400 text-white cursor-not-allowed' 
                                 : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow'}`}
@@ -1381,7 +1381,7 @@ const Settings = () => {
                       ) : (
                         <button 
                           onClick={() => setIsEditingPassword(true)}
-                          className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow"
+                          className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow cursor-pointer"
                         >
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1422,7 +1422,7 @@ const Settings = () => {
                         Get a copy of all your personal data that we store, including your profile, activities, and preferences.
                       </p>
                       <button 
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
                         onClick={() => {
                           // Handle download data logic here
                           console.log('Download data clicked');
@@ -1446,7 +1446,7 @@ const Settings = () => {
                         Permanently delete your account and all associated data. This action cannot be undone.
                       </p>
                       <button 
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center"
+                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
                         onClick={() => router.push('/delete-account')}
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1474,7 +1474,7 @@ const Settings = () => {
                     </div>
                     <button 
                       onClick={() => handleNotificationChange('email')}
-                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none 
+                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none cursor-pointer
                         ${notifications.email ? 'bg-yellow-500' : 'bg-gray-300'}`}
                     >
                       <span 
@@ -1491,7 +1491,7 @@ const Settings = () => {
                     </div>
                     <button 
                       onClick={() => handleNotificationChange('app')}
-                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none 
+                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none cursor-pointer
                         ${notifications.app ? 'bg-yellow-500' : 'bg-gray-300'}`}
                     >
                       <span 
@@ -1508,7 +1508,7 @@ const Settings = () => {
                     </div>
                     <button 
                       onClick={() => handleNotificationChange('marketing')}
-                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none 
+                      className={`relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none cursor-pointer
                         ${notifications.marketing ? 'bg-yellow-500' : 'bg-gray-300'}`}
                     >
                       <span 
@@ -1536,12 +1536,12 @@ const Settings = () => {
                       }
                     }}
                     disabled={isSubmitting || !notificationsChanged()}
-                    className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                    className={`px-6 py-3 rounded-xl transition-all duration-200 font-medium flex items-center justify-center
                       ${isSubmitting 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : !notificationsChanged()
                           ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 transform hover:scale-[1.02] cursor-pointer'}`}
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -1552,10 +1552,10 @@ const Settings = () => {
                   <button 
                     onClick={handleSaveNotifications}
                     disabled={isSubmitting || !notificationsChanged()}
-                    className={`px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center
+                    className={`px-6 py-3 rounded-xl transition-all duration-200 font-medium flex items-center justify-center
                       ${isSubmitting || !notificationsChanged()
                         ? 'bg-gray-400 text-white cursor-not-allowed' 
-                        : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow'}`}
+                        : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow transform hover:scale-[1.02] cursor-pointer'}`}
                     title={!notificationsChanged() ? "No changes to notification preferences" : "Save your notification preferences"}
                   >
                     {isSubmitting ? (
@@ -1612,7 +1612,7 @@ const Settings = () => {
                       <p className="text-sm text-red-600">Not enabled</p>
                     </div>
                     <button 
-                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transform hover:scale-[1.02]"
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transform hover:scale-[1.02] cursor-pointer"
                     >
                       Enable 2FA
                     </button>
@@ -1644,7 +1644,7 @@ const Settings = () => {
                         <p className="text-xs text-gray-500">Receive email notifications for new logins</p>
                       </div>
                       <button 
-                        className="relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none bg-yellow-500"
+                        className="relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none bg-yellow-500 cursor-pointer"
                       >
                         <span className="inline-block w-4 h-4 transform transition ease-in-out duration-200 rounded-full translate-x-7 bg-white" />
                       </button>
@@ -1656,7 +1656,7 @@ const Settings = () => {
                         <p className="text-xs text-gray-500">Get push notifications on your devices</p>
                       </div>
                       <button 
-                        className="relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none bg-gray-300"
+                        className="relative inline-flex items-center h-6 rounded-full w-12 transition-colors ease-in-out duration-200 focus:outline-none bg-gray-300 cursor-pointer"
                       >
                         <span className="inline-block w-4 h-4 transform transition ease-in-out duration-200 rounded-full translate-x-1 bg-white" />
                       </button>
@@ -1744,7 +1744,7 @@ const Settings = () => {
                             onClick={() => handleTerminateSession(session._id)}
                             disabled={terminatingSession === session._id}
                             className={`px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium 
-                              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                              transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 cursor-pointer
                               ${terminatingSession === session._id ? 'opacity-50 cursor-not-allowed' : ''}`}
                           >
                             {terminatingSession === session._id ? (
@@ -1775,7 +1775,7 @@ const Settings = () => {
                       ${(terminatingAllSessions || !sessions || sessions.length <= 1) 
                         ? 'bg-gray-100 opacity-50 cursor-not-allowed' 
                         : 'hover:bg-purple-50 transition-colors duration-200'} 
-                      text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center`}
+                      text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center cursor-pointer`}
                   >
                     {terminatingAllSessions ? (
                       <>

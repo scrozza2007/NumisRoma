@@ -5,7 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const ProfilePage = () => {
   const router = useRouter();
@@ -21,6 +21,15 @@ const ProfilePage = () => {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState('');
   const [bioLoading, setBioLoading] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Recupera dati utente
   useEffect(() => {
@@ -64,6 +73,155 @@ const ProfilePage = () => {
     fetchCollections();
   }, [id]);
 
+  // Recupera attività utente
+  useEffect(() => {
+    if (!id) return;
+    const fetchActivities = async () => {
+      setLoadingActivities(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/users/${id}/activity`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Error retrieving activities');
+        const data = await res.json();
+        setActivities(data);
+      } catch (err) {
+        console.error('Error loading activities:', err);
+        setActivities([]);
+      } finally {
+        setLoadingActivities(false);
+      }
+    };
+    fetchActivities();
+  }, [id]);
+
+  // Funzione per caricare i follower
+  const loadFollowers = async () => {
+    setLoadingFollowers(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token not found');
+      }
+
+      console.log('Fetching followers from:', `${API_URL}/api/users/${id}/followers`);
+      
+      const res = await fetch(`${API_URL}/api/users/${id}/followers`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Error retrieving followers');
+        } else {
+          throw new Error(`Server error: ${res.status}`);
+        }
+      }
+
+      const data = await res.json();
+      console.log('Followers data:', data);
+      setFollowers(data);
+    } catch (err) {
+      console.error('Error loading followers:', err);
+      setNotification({
+        show: true,
+        message: err.message || 'Error loading followers',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  // Funzione per caricare i following
+  const loadFollowing = async () => {
+    setLoadingFollowing(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token not found');
+      }
+
+      console.log('Fetching following from:', `${API_URL}/api/users/${id}/following`);
+      
+      const res = await fetch(`${API_URL}/api/users/${id}/following`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Error retrieving following');
+        } else {
+          throw new Error(`Server error: ${res.status}`);
+        }
+      }
+
+      const data = await res.json();
+      console.log('Following data:', data);
+      setFollowing(data);
+    } catch (err) {
+      console.error('Error loading following:', err);
+      setNotification({
+        show: true,
+        message: err.message || 'Error loading following',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  // Funzione per aprire la chat
+  const handleOpenChat = async () => {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    setChatLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/messages/conversations/${id}`, {
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) throw new Error('Error creating chat');
+      
+      const data = await res.json();
+      // Redirect directly to specific chat using conversationId
+      router.push(`/messages?conversationId=${data._id}`);
+    } catch (err) {
+      console.error('Error creating chat:', err);
+      setNotification({ 
+        show: true, 
+        message: 'Error creating chat. Please try again.', 
+        type: 'error' 
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   // Logica follow/unfollow
   const handleFollow = async () => {
     if (!user) {
@@ -78,8 +236,34 @@ const ProfilePage = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Error in follow/unfollow');
+      
+      // Aggiorna il profilo
       setProfile({ ...profile, isFollowing: !profile.isFollowing });
-      setNotification({ show: true, message: profile.isFollowing ? "You no longer follow this user" : "You now follow this user", type: 'success' });
+      
+      // Se stiamo smettendo di seguire, rimuovi l'attività dalla lista
+      if (profile.isFollowing) {
+        setActivities(prevActivities => 
+          prevActivities.filter(activity => activity.user._id !== user._id)
+        );
+      } else {
+        // Se stiamo seguendo, aggiungi la nuova attività
+        const newActivity = {
+          type: 'follow',
+          user: {
+            _id: user._id,
+            username: user.username,
+            avatar: user.avatar
+          },
+          createdAt: new Date().toISOString()
+        };
+        setActivities(prevActivities => [newActivity, ...prevActivities]);
+      }
+
+      setNotification({ 
+        show: true, 
+        message: profile.isFollowing ? "You have stopped following this user" : "You have started following this user", 
+        type: 'success' 
+      });
       setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     } catch (err) {
       setNotification({ show: true, message: 'Error. Please try again.', type: 'error' });
@@ -220,7 +404,7 @@ const ProfilePage = () => {
                     {user._id === profile._id ? (
                       <Link
                         href="/settings"
-                        className="px-5 py-2.5 rounded-xl font-medium bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-all duration-200 flex items-center"
+                        className="px-5 py-2.5 rounded-xl font-medium bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-all duration-200 flex items-center cursor-pointer"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -232,7 +416,7 @@ const ProfilePage = () => {
                         <button 
                           onClick={handleFollow} 
                           disabled={followLoading} 
-                          className={`px-5 py-2.5 rounded-xl font-medium text-white shadow-sm transition-all duration-200 flex items-center ${
+                          className={`px-5 py-2.5 rounded-xl font-medium text-white shadow-sm transition-all duration-200 flex items-center cursor-pointer ${
                             profile.isFollowing 
                               ? 'bg-gray-700 hover:bg-gray-800' 
                               : 'bg-yellow-500 hover:bg-yellow-600'
@@ -251,11 +435,19 @@ const ProfilePage = () => {
                           )}
                           {profile.isFollowing ? 'Following' : 'Follow'}
                         </button>
-                        <button className="px-5 py-2.5 rounded-xl font-medium bg-white text-gray-700 hover:bg-gray-100 shadow-sm border border-gray-200 transition-all duration-200 flex items-center">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-                          </svg>
-                          Message
+                        <button 
+                          onClick={handleOpenChat}
+                          disabled={chatLoading}
+                          className="px-5 py-2.5 rounded-xl font-medium bg-white text-gray-700 hover:bg-gray-100 shadow-sm border border-gray-200 transition-all duration-200 flex items-center cursor-pointer"
+                        >
+                          {chatLoading ? (
+                            <div className="animate-spin w-5 h-5 border-2 border-gray-700 border-t-transparent rounded-full mr-2"></div>
+                          ) : (
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                            </svg>
+                          )}
+                          {chatLoading ? 'Apertura...' : 'Messaggio'}
                         </button>
                       </>
                     )}
@@ -274,11 +466,17 @@ const ProfilePage = () => {
 
               {/* Stats */}
               <div className="flex justify-center md:justify-start space-x-12 mt-6 p-4 bg-gray-50 rounded-xl w-full md:w-auto">
-                <div className="text-center">
+                <div className="text-center cursor-pointer" onClick={() => {
+                  setShowFollowersModal(true);
+                  loadFollowers();
+                }}>
                   <div className="font-bold text-2xl text-yellow-500">{profile.followersCount || 0}</div>
                   <div className="text-sm text-gray-500 uppercase tracking-wide font-medium">Followers</div>
                 </div>
-                <div className="text-center">
+                <div className="text-center cursor-pointer" onClick={() => {
+                  setShowFollowingModal(true);
+                  loadFollowing();
+                }}>
                   <div className="font-bold text-2xl text-yellow-500">{profile.followingCount || 0}</div>
                   <div className="text-sm text-gray-500 uppercase tracking-wide font-medium">Following</div>
                 </div>
@@ -295,7 +493,7 @@ const ProfilePage = () => {
                   {user && user._id === profile._id && !isEditingBio && (
                     <button 
                       onClick={() => setIsEditingBio(true)}
-                      className="text-gray-500 hover:text-yellow-600 transition-colors"
+                      className="text-gray-500 hover:text-yellow-600 transition-colors cursor-pointer"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -319,14 +517,14 @@ const ProfilePage = () => {
                         <button
                           onClick={cancelBioEdit}
                           disabled={bioLoading}
-                          className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={saveBio}
                           disabled={bioLoading}
-                          className="px-3 py-1 text-sm text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors flex items-center"
+                          className="px-3 py-1 text-sm text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors flex items-center cursor-pointer"
                         >
                           {bioLoading ? (
                             <>
@@ -342,7 +540,7 @@ const ProfilePage = () => {
                   </div>
                 ) : (
                   <p className="text-gray-700 leading-relaxed">
-                    {profile.bio || "This user hasn&apos;t added a bio yet."}
+                    <div dangerouslySetInnerHTML={{ __html: profile.bio || "This user hasn't added a bio yet." }} />
                   </p>
                 )}
               </div>
@@ -353,7 +551,7 @@ const ProfilePage = () => {
           <div className="border-t border-gray-100 mt-4">
             <div className="flex">
               <button 
-                className={`flex-1 py-4 px-6 font-medium text-center transition-all duration-200 ${
+                className={`flex-1 py-4 px-6 font-medium text-center transition-all duration-200 cursor-pointer ${
                   activeTab === 'collections' 
                     ? 'text-yellow-500 border-b-2 border-yellow-500' 
                     : 'text-gray-500 hover:text-gray-800'
@@ -363,7 +561,7 @@ const ProfilePage = () => {
                 Collections
               </button>
               <button 
-                className={`flex-1 py-4 px-6 font-medium text-center transition-all duration-200 ${
+                className={`flex-1 py-4 px-6 font-medium text-center transition-all duration-200 cursor-pointer ${
                   activeTab === 'activity' 
                     ? 'text-yellow-500 border-b-2 border-yellow-500' 
                     : 'text-gray-500 hover:text-gray-800'
@@ -464,21 +662,195 @@ const ProfilePage = () => {
         {/* Activity Tab */}
         {activeTab === 'activity' && (
           <div className="mt-8 pb-16">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Activity</h2>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
-              <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Activities</h2>
+            
+            {loadingActivities ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading activities...</p>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Activity Coming Soon</h3>
-              <p className="text-gray-500 max-w-md mx-auto">
-                We&apos;re working on activity tracking to show interactions, collection updates, and more.
-              </p>
-            </div>
+            ) : activities.length > 0 ? (
+              <div className="space-y-4">
+                {activities.map((activity, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-4 ring-1 ring-white/50">
+                      {activity.user.avatar ? (
+                        <Image
+                          src={activity.user.avatar}
+                          alt={activity.user.username}
+                          width={40}
+                          height={40}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <span className="text-lg font-bold text-yellow-500">{activity.user.username.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900">
+                        <span className="font-medium">{activity.user.username}</span> has started following you
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(activity.createdAt).toLocaleDateString('en-US', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => router.push(`/profile/${activity.user._id}`)}
+                      className="px-4 py-2 text-sm text-yellow-600 hover:text-yellow-700 font-medium cursor-pointer"
+                    >
+                      View Profile
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
+                <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">No Recent Activities</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  There are no recent activities to show.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Modale Follower */}
+      {showFollowersModal && (
+        <div 
+          className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFollowersModal(false);
+            }
+          }}
+        >
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-xl border border-white/20">
+            <div className="p-4 border-b border-gray-200/50 flex justify-between items-center bg-white/80">
+              <h3 className="text-xl font-bold text-gray-900">Followers</h3>
+              <button 
+                onClick={() => setShowFollowersModal(false)}
+                className="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-80px)] bg-white/80">
+              {loadingFollowers ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading followers...</p>
+                </div>
+              ) : followers.length > 0 ? (
+                <div className="divide-y divide-gray-100/50">
+                  {followers.map((follower) => (
+                    <div key={follower._id} className="p-4 flex items-center hover:bg-white/90 cursor-pointer transition-colors" onClick={() => {
+                      setShowFollowersModal(false);
+                      router.push(`/profile/${follower._id}`);
+                    }}>
+                      <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-3 ring-1 ring-white/50">
+                        {follower.avatar ? (
+                          <Image
+                            src={follower.avatar}
+                            alt={follower.username}
+                            width={40}
+                            height={40}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <span className="text-lg font-bold text-yellow-500">{follower.username.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{follower.username}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-gray-500">
+                  No followers yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale Following */}
+      {showFollowingModal && (
+        <div 
+          className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowFollowingModal(false);
+            }
+          }}
+        >
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden shadow-xl border border-white/20">
+            <div className="p-4 border-b border-gray-200/50 flex justify-between items-center bg-white/80">
+              <h3 className="text-xl font-bold text-gray-900">Following</h3>
+              <button 
+                onClick={() => setShowFollowingModal(false)}
+                className="text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto max-h-[calc(80vh-80px)] bg-white/80">
+              {loadingFollowing ? (
+                <div className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading following...</p>
+                </div>
+              ) : following.length > 0 ? (
+                <div className="divide-y divide-gray-100/50">
+                  {following.map((followed) => (
+                    <div key={followed._id} className="p-4 flex items-center hover:bg-white/90 cursor-pointer transition-colors" onClick={() => {
+                      setShowFollowingModal(false);
+                      router.push(`/profile/${followed._id}`);
+                    }}>
+                      <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-3 ring-1 ring-white/50">
+                        {followed.avatar ? (
+                          <Image
+                            src={followed.avatar}
+                            alt={followed.username}
+                            width={40}
+                            height={40}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <span className="text-lg font-bold text-yellow-500">{followed.username.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{followed.username}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-gray-500">
+                  Not following anyone yet
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

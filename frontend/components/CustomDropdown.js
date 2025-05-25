@@ -30,7 +30,7 @@ const CustomDropdown = ({ value, onChange, options, placeholder }) => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 bg-white text-left"
+        className="w-full px-4 py-3 pl-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 bg-white text-left cursor-pointer"
       >
         {selectedOption ? selectedOption.label : placeholder}
       </button>

@@ -4,8 +4,15 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
 import NotificationToast from '../components/NotificationToast';
+import Navbar from '../components/Navbar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+const COMMON_EMOJIS = [
+  '😊', '😂', '❤️', '👍', '🎉', '🙏', '👋', '🔥',
+  '😍', '🤔', '😎', '😢', '😡', '🤗', '👏', '💪',
+  '😴', '🤣', '😭', '😱', '🤩', '😇', '🤪', '😅'
+];
 
 const Messages = () => {
   const [conversations, setConversations] = useState([]);
@@ -22,6 +29,9 @@ const Messages = () => {
   const pollingRef = useRef(null);
   const { user, isLoading: authLoading } = useContext(AuthContext);
   const router = useRouter();
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Check authentication
   useEffect(() => {
@@ -32,6 +42,19 @@ const Messages = () => {
       }
     }
   }, [user, authLoading, router]);
+
+  // Gestione del parametro conversationId nell'URL
+  useEffect(() => {
+    if (user && router.query.conversationId) {
+      const conversationId = router.query.conversationId;
+      // Trova la conversazione corrispondente
+      const conversation = conversations.find(c => c._id === conversationId);
+      if (conversation) {
+        setSelectedConversation(conversation);
+        fetchMessages(conversationId);
+      }
+    }
+  }, [user, router.query.conversationId, conversations]);
 
   // Navigation error handling
   useEffect(() => {
@@ -140,7 +163,7 @@ const Messages = () => {
           
           // Verifica se è davvero un nuovo messaggio (ID diverso dall'ultimo)
           if (lastMessageId && latestMessage._id !== lastMessageId && latestMessage.sender._id !== user._id) {
-            addNotification(`Nuovo messaggio da ${latestMessage.sender.username}`, 'message');
+            addNotification(`New message from ${latestMessage.sender.username}`, 'message');
           }
           
           // Aggiorna l'ID dell'ultimo messaggio
@@ -262,7 +285,6 @@ const Messages = () => {
         setShowUserSearch(false);
         setSearchUsers('');
         setFoundUsers([]);
-        addNotification('Conversation started', 'success');
       }
     } catch (error) {
       console.error('Error creating conversation:', error);
@@ -304,6 +326,24 @@ const Messages = () => {
     }
   };
 
+  // Chiudi il picker quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const onEmojiClick = (emoji) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -335,19 +375,19 @@ const Messages = () => {
         ))}
       </div>
 
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden h-[calc(100vh-8rem)]">
-            <div className="flex h-full">
+      <div className="h-full w-full bg-gray-50">
+        <div className="h-full w-full">
+          <div className="bg-white h-full w-full">
+            <div className="flex h-full w-full">
               {/* Conversations Sidebar */}
-              <div className="w-1/3 border-r border-gray-200 flex flex-col">
+              <div className="w-1/4 border-r border-gray-200 flex flex-col">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold text-gray-900">Messages</h1>
                     <button
                       onClick={() => setShowUserSearch(!showUserSearch)}
-                      className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                      className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors cursor-pointer"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -377,8 +417,18 @@ const Messages = () => {
                               onClick={() => startConversation(foundUser._id)}
                               className="p-3 hover:bg-gray-50 cursor-pointer flex items-center space-x-3"
                             >
-                              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                                {foundUser.username.charAt(0).toUpperCase()}
+                              <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center ring-1 ring-white/50">
+                                {foundUser.avatar ? (
+                                  <Image
+                                    src={foundUser.avatar}
+                                    alt={foundUser.username}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-full"
+                                  />
+                                ) : (
+                                  <span className="text-lg font-bold text-yellow-500">{foundUser.username.charAt(0).toUpperCase()}</span>
+                                )}
                               </div>
                               <div>
                                 <p className="font-medium text-gray-900">{foundUser.username}</p>
@@ -413,17 +463,27 @@ const Messages = () => {
                           key={conversation._id}
                           onClick={() => {
                             setSelectedConversation(conversation);
-                            setLastMessageId(null); // Reset tracking when conversation changes
-                            setLastMessageCount(0); // Reset counter
+                            setLastMessageId(null);
+                            setLastMessageCount(0);
                             fetchMessages(conversation._id);
                           }}
-                          className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          className={`p-4 border-b border-gray-100 cursor-pointer ${
                             selectedConversation?._id === conversation._id ? 'bg-yellow-50 border-yellow-200' : ''
                           }`}
                         >
                           <div className="flex items-center space-x-3">
-                            <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center text-white font-medium">
-                              {otherUser?.username?.charAt(0).toUpperCase()}
+                            <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center ring-1 ring-white/50">
+                              {otherUser?.avatar ? (
+                                <Image
+                                  src={otherUser.avatar}
+                                  alt={otherUser.username}
+                                  width={48}
+                                  height={48}
+                                  className="rounded-full"
+                                />
+                              ) : (
+                                <span className="text-xl font-bold text-yellow-500">{otherUser?.username?.charAt(0).toUpperCase()}</span>
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-gray-900 truncate">
@@ -448,15 +508,27 @@ const Messages = () => {
                 </div>
               </div>
 
-              {/* Area Chat */}
+              {/* Chat Area */}
               <div className="flex-1 flex flex-col">
                 {selectedConversation ? (
                   <>
-                    {/* Header Chat */}
+                    {/* Chat Header */}
                     <div className="p-4 border-b border-gray-200 bg-white">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-medium">
-                          {getOtherUser(selectedConversation)?.username?.charAt(0).toUpperCase()}
+                        <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center ring-1 ring-white/50">
+                          {getOtherUser(selectedConversation)?.avatar ? (
+                            <Image
+                              src={getOtherUser(selectedConversation).avatar}
+                              alt={getOtherUser(selectedConversation).username}
+                              width={40}
+                              height={40}
+                              className="rounded-full"
+                            />
+                          ) : (
+                            <span className="text-lg font-bold text-yellow-500">
+                              {getOtherUser(selectedConversation)?.username?.charAt(0).toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div>
                           <h2 className="font-medium text-gray-900">
@@ -495,20 +567,49 @@ const Messages = () => {
                     {/* Message Input */}
                     <div className="p-4 border-t border-gray-200 bg-white">
                       <div className="flex space-x-2">
+                        <div className="relative" ref={emojiPickerRef}>
+                          <button
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="p-2 text-gray-500 hover:text-yellow-600 transition-colors cursor-pointer"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                          {showEmojiPicker && (
+                            <div className="absolute bottom-12 left-0 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-6 min-w-[500px]">
+                              <div className="grid grid-cols-6 gap-x-8 gap-y-6">
+                                {COMMON_EMOJIS.map((emoji, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => onEmojiClick(emoji)}
+                                    className="w-12 h-12 flex items-center justify-center hover:bg-gray-100 rounded cursor-pointer text-3xl"
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <input
+                          ref={inputRef}
                           type="text"
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={handleKeyPress}
                           placeholder="Write a message..."
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none"
                         />
                         <button
                           onClick={sendMessage}
                           disabled={!newMessage.trim()}
-                          className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center cursor-pointer"
                         >
                           Send
+                          <svg className="w-5 h-5 ml-2 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -530,6 +631,17 @@ const Messages = () => {
         </div>
       </div>
     </>
+  );
+};
+
+Messages.getLayout = function getLayout(page) {
+  return (
+    <div className="h-screen w-screen flex flex-col bg-gray-100">
+      <Navbar />
+      <main className="flex-1 overflow-hidden">
+        {page}
+      </main>
+    </div>
   );
 };
 

@@ -5,6 +5,7 @@ const Follow = require('../models/Follow');
 const authMiddleware = require('../middlewares/authMiddleware');
 const mongoose = require('mongoose');
 const Collection = require('../models/Collection');
+const Chat = require('../models/Chat');
 
 // GET /api/users - Cerca utenti
 router.get('/', authMiddleware, async (req, res) => {
@@ -232,6 +233,134 @@ router.get('/:id/profile', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Errore nel recupero del profilo:', error);
     res.status(500).json({ message: 'Errore nel recupero del profilo utente' });
+  }
+});
+
+// GET /api/users/:id/followers - Ottieni i follower di un utente
+router.get('/:id/followers', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log('Getting followers for user:', userId);
+    
+    // Trova tutti i follow dove l'utente è seguito
+    const follows = await Follow.find({ following: userId })
+      .populate('follower', 'username avatar bio')
+      .sort({ createdAt: -1 });
+
+    console.log('Found follows:', follows);
+
+    // Estrai i follower dai risultati
+    const followers = follows.map(follow => follow.follower);
+    console.log('Extracted followers:', followers);
+
+    res.json(followers);
+  } catch (error) {
+    console.error('Error getting followers:', error);
+    res.status(500).json({ 
+      message: 'Error retrieving followers',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/users/:id/following - Ottieni gli utenti seguiti da un utente
+router.get('/:id/following', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    console.log('Getting following for user:', userId);
+    
+    // Trova tutti i follow dove l'utente è il follower
+    const follows = await Follow.find({ follower: userId })
+      .populate('following', 'username avatar bio')
+      .sort({ createdAt: -1 });
+
+    console.log('Found follows:', follows);
+
+    // Estrai gli utenti seguiti dai risultati
+    const following = follows.map(follow => follow.following);
+    console.log('Extracted following:', following);
+
+    res.json(following);
+  } catch (error) {
+    console.error('Error getting following:', error);
+    res.status(500).json({ 
+      message: 'Error retrieving following',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/users/:id/activity - Ottieni le attività recenti dell'utente
+router.get('/:id/activity', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Trova i follower più recenti
+    const recentFollowers = await Follow.find({ following: userId })
+      .populate('follower', 'username avatar')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    // Formatta i dati per il frontend
+    const activities = recentFollowers.map(follow => ({
+      type: 'follow',
+      user: follow.follower,
+      createdAt: follow.createdAt
+    }));
+
+    res.json(activities);
+  } catch (error) {
+    console.error('Error getting user activity:', error);
+    res.status(500).json({ 
+      message: 'Error retrieving user activity',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/users/:id/chat - Crea o ottieni una chat con un utente
+router.get('/:id/chat', authMiddleware, async (req, res) => {
+  try {
+    const currentUserId = req.user.userId;
+    const otherUserId = req.params.id;
+
+    // Verifica che l'utente esista
+    const otherUser = await User.findById(otherUserId).select('username avatar');
+    if (!otherUser) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+
+    // Crea una nuova chat tra i due utenti
+    const chat = await Chat.findOneAndUpdate(
+      {
+        participants: { 
+          $all: [currentUserId, otherUserId],
+          $size: 2
+        }
+      },
+      {
+        $setOnInsert: {
+          participants: [currentUserId, otherUserId],
+          lastMessage: null,
+          lastMessageAt: new Date()
+        }
+      },
+      {
+        new: true,
+        upsert: true
+      }
+    );
+
+    res.json({
+      chatId: chat._id,
+      user: otherUser
+    });
+  } catch (error) {
+    console.error('Error creating/getting chat:', error);
+    res.status(500).json({ 
+      message: 'Errore nella creazione della chat',
+      error: error.message 
+    });
   }
 });
 
