@@ -8,6 +8,7 @@ const collectionRoutes = require('./routes/collections');
 const userRoutes = require('./routes/users');
 const contactRoutes = require('./routes/contact');
 const sessionRoutes = require('./routes/sessions');
+const messageRoutes = require('./routes/messages');
 
 const app = express();
 
@@ -31,6 +32,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/contact', contactRoutes);
 // Rotte per la gestione delle sessioni
 app.use('/api/sessions', sessionRoutes);
+// Rotte per i messaggi
+app.use('/api/messages', messageRoutes);
 
 // Connessione a MongoDB
 mongoose.connect(process.env.MONGODB_URI)
