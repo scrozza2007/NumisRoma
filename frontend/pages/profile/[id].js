@@ -670,53 +670,69 @@ const ProfilePage = () => {
                 <p className="mt-2 text-gray-600">Loading activities...</p>
               </div>
             ) : activities.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {activities.map((activity, index) => (
-                  <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-4 ring-1 ring-white/50">
-                      {activity.user.avatar ? (
-                        <Image
-                          src={activity.user.avatar}
-                          alt={activity.user.username}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <span className="text-lg font-bold text-yellow-500">{activity.user.username.charAt(0).toUpperCase()}</span>
-                      )}
+                  <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-300">
+                    <div className="flex items-start space-x-4">
+                      <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center ring-2 ring-yellow-100 flex-shrink-0">
+                        {activity.user.avatar ? (
+                          <Image
+                            src={activity.user.avatar}
+                            alt={activity.user.username}
+                            width={48}
+                            height={48}
+                            className="rounded-full"
+                          />
+                        ) : (
+                          <span className="text-xl font-bold text-yellow-500">{activity.user.username.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-gray-900 font-medium">
+                              <span 
+                                className="text-yellow-600 hover:text-yellow-700 cursor-pointer transition-colors duration-200"
+                                onClick={() => router.push(`/profile/${activity.user._id}`)}
+                              >
+                                {activity.user.username}
+                              </span> started following you
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {new Date(activity.createdAt).toLocaleDateString('en-US', {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => router.push(`/profile/${activity.user._id}`)}
+                            className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
+                          >
+                            <span>View Profile</span>
+                            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900">
-                        <span className="font-medium">{activity.user.username}</span> has started following you
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(activity.createdAt).toLocaleDateString('en-US', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                    <button 
-                      onClick={() => router.push(`/profile/${activity.user._id}`)}
-                      className="px-4 py-2 text-sm text-yellow-600 hover:text-yellow-700 font-medium cursor-pointer"
-                    >
-                      View Profile
-                    </button>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
-                <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-24 h-24 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-12 h-12 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No Recent Activities</h3>
-                <p className="text-gray-500 max-w-md mx-auto">
-                  There are no recent activities to show.
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No Recent Activities</h3>
+                <p className="text-gray-500 max-w-md mx-auto text-lg">
+                  There are no recent activities to show. Start following other users to see their activities here!
                 </p>
               </div>
             )}
