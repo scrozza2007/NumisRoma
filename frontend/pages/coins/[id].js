@@ -70,9 +70,17 @@ const CoinDetail = ({ coinId }) => {
     router.push('/browse');
   };
 
+  // Helper function to check if data exists and is not empty
+  const hasValidData = (data) => {
+    return data !== undefined && 
+           data !== null && 
+           data !== '' && 
+           (typeof data !== 'object' || Object.keys(data).length > 0);
+  };
+
   // Helper function to render field data if it exists
   const renderField = (label, value, className = "") => {
-    if (!value) return null;
+    if (!hasValidData(value)) return null;
     
     return (
       <div className={`bg-gray-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 ${className}`}>
@@ -80,6 +88,28 @@ const CoinDetail = ({ coinId }) => {
         <p className="mt-2 text-lg text-gray-900 font-medium">{value}</p>
       </div>
     );
+  };
+
+  // Helper function to render all valid fields from an object
+  const renderObjectFields = (obj, excludeFields = []) => {
+    if (!obj) return null;
+    
+    // Format field name from camelCase or snake_case to Title Case for display
+    const formatFieldName = (fieldName) => {
+      return fieldName
+        .replace(/_/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (str) => str.toUpperCase())
+        .trim();
+    };
+
+    return Object.entries(obj)
+      .filter(([key, value]) => 
+        !excludeFields.includes(key) && 
+        hasValidData(value) && 
+        typeof value !== 'object'
+      )
+      .map(([key, value]) => renderField(formatFieldName(key), value, "mb-4"));
   };
 
   return (
@@ -151,7 +181,7 @@ const CoinDetail = ({ coinId }) => {
               <div className="p-8 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                 <h1 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">{coin.name}</h1>
                 <div className="flex flex-wrap items-center gap-4 text-gray-600 mt-2">
-                  {coin.description?.date_range && (
+                  {hasValidData(coin.description?.date_range) && (
                     <span className="flex items-center bg-gray-50 px-3 py-1.5 rounded-full">
                       <svg className="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -159,7 +189,7 @@ const CoinDetail = ({ coinId }) => {
                       {coin.description.date_range}
                     </span>
                   )}
-                  {coin.description?.material && (
+                  {hasValidData(coin.description?.material) && (
                     <span className="flex items-center bg-gray-50 px-3 py-1.5 rounded-full">
                       <svg className="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -167,14 +197,22 @@ const CoinDetail = ({ coinId }) => {
                       {coin.description.material}
                     </span>
                   )}
+                  {hasValidData(coin.description?.denomination) && (
+                    <span className="flex items-center bg-gray-50 px-3 py-1.5 rounded-full">
+                      <svg className="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {coin.description.denomination}
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="p-8">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Images Section - now positioned top left */}
+                  {/* Images Section */}
                   <div>
-                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
                       <h2 className="text-2xl font-bold text-yellow-600 mb-6 flex items-center">
                         <svg className="w-6 h-6 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -183,7 +221,7 @@ const CoinDetail = ({ coinId }) => {
                       </h2>
                       <div className="grid grid-cols-2 gap-8 flex-grow">
                         <div 
-                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center pt-12"
+                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center"
                           onClick={() => handleImageClick('obverse')}
                         >
                           <Image
@@ -191,7 +229,7 @@ const CoinDetail = ({ coinId }) => {
                             alt={`Obverse - ${coin.name}`}
                             width={400}
                             height={400}
-                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 p-2"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
                           />
                           <div className="absolute inset-0 transition-opacity duration-300 flex items-center justify-center">
                             <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-60 px-4 py-2 rounded-full text-sm font-medium">
@@ -200,7 +238,7 @@ const CoinDetail = ({ coinId }) => {
                           </div>
                         </div>
                         <div 
-                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center pt-12"
+                          className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white transition-all duration-300 border border-gray-100 flex items-center justify-center"
                           onClick={() => handleImageClick('reverse')}
                         >
                           <Image
@@ -208,7 +246,7 @@ const CoinDetail = ({ coinId }) => {
                             alt={`Reverse - ${coin.name}`}
                             width={400}
                             height={400}
-                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110 p-2"
+                            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
                           />
                           <div className="absolute inset-0 transition-opacity duration-300 flex items-center justify-center">
                             <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black bg-opacity-60 px-4 py-2 rounded-full text-sm font-medium">
@@ -235,6 +273,21 @@ const CoinDetail = ({ coinId }) => {
                         {renderField("Dynasty", coin.authority?.dynasty)}
                         {renderField("Period", coin.description?.date_range)}
                         {renderField("Mint", coin.description?.mint)}
+                        {/* Render any additional fields from authority */}
+                        {Object.entries(coin.authority || {})
+                          .filter(([key, value]) => 
+                            !['emperor', 'dynasty'].includes(key) && 
+                            hasValidData(value) && 
+                            typeof value !== 'object'
+                          )
+                          .map(([key, value]) => {
+                            const label = key
+                              .replace(/_/g, ' ')
+                              .replace(/([A-Z])/g, ' $1')
+                              .replace(/^./, str => str.toUpperCase())
+                              .trim();
+                            return renderField(label, value);
+                          })}
                       </div>
                     </div>
 
@@ -251,6 +304,25 @@ const CoinDetail = ({ coinId }) => {
                         {renderField("Material", coin.description?.material)}
                         {renderField("Weight", coin.description?.weight)}
                         {renderField("Diameter", coin.description?.diameter)}
+                        {renderField("Axis", coin.description?.axis)}
+                        {renderField("Edge", coin.description?.edge)}
+                        {renderField("Shape", coin.description?.shape)}
+                        
+                        {/* Render any additional physical attributes from description */}
+                        {Object.entries(coin.description || {})
+                          .filter(([key, value]) => 
+                            !['date_range', 'mint', 'denomination', 'material', 'weight', 'diameter', 'axis', 'edge', 'shape', 'notes'].includes(key) && 
+                            hasValidData(value) && 
+                            typeof value !== 'object'
+                          )
+                          .map(([key, value]) => {
+                            const label = key
+                              .replace(/_/g, ' ')
+                              .replace(/([A-Z])/g, ' $1')
+                              .replace(/^./, str => str.toUpperCase())
+                              .trim();
+                            return renderField(label, value);
+                          })}
                       </div>
                     </div>
                   </div>
@@ -267,9 +339,31 @@ const CoinDetail = ({ coinId }) => {
                       Obverse Details
                     </h2>
                     <div className="space-y-4">
+                      {/* Core fields first for consistent ordering */}
                       {renderField("Legend", coin.obverse?.legend)}
                       {renderField("Type", coin.obverse?.type)}
                       {renderField("Portrait", coin.obverse?.portrait)}
+                      {renderField("Deity", coin.obverse?.deity)}
+                      
+                      {/* Render any additional fields from obverse */}
+                      {Object.entries(coin.obverse || {})
+                        .filter(([key, value]) => 
+                          !['legend', 'type', 'portrait', 'deity', 'image', 'license', 'credits'].includes(key) && 
+                          hasValidData(value) && 
+                          typeof value !== 'object'
+                        )
+                        .map(([key, value]) => {
+                          const label = key
+                            .replace(/_/g, ' ')
+                            .replace(/([A-Z])/g, ' $1')
+                            .replace(/^./, str => str.toUpperCase())
+                            .trim();
+                          return renderField(label, value);
+                        })}
+                        
+                      {/* Image attribution fields at the end */}
+                      {renderField("Image Credits", coin.obverse?.credits)}
+                      {renderField("Image License", coin.obverse?.license)}
                     </div>
                   </div>
 
@@ -282,17 +376,39 @@ const CoinDetail = ({ coinId }) => {
                       Reverse Details
                     </h2>
                     <div className="space-y-4">
+                      {/* Core fields first for consistent ordering */}
                       {renderField("Legend", coin.reverse?.legend)}
                       {renderField("Type", coin.reverse?.type)}
+                      {renderField("Portrait", coin.reverse?.portrait)}
                       {renderField("Deity", coin.reverse?.deity)}
                       {renderField("Mintmark", coin.reverse?.mintmark)}
                       {renderField("Officina Mark", coin.reverse?.officinamark)}
+                      
+                      {/* Render any additional fields from reverse */}
+                      {Object.entries(coin.reverse || {})
+                        .filter(([key, value]) => 
+                          !['legend', 'type', 'portrait', 'deity', 'mintmark', 'officinamark', 'image', 'license', 'credits'].includes(key) && 
+                          hasValidData(value) && 
+                          typeof value !== 'object'
+                        )
+                        .map(([key, value]) => {
+                          const label = key
+                            .replace(/_/g, ' ')
+                            .replace(/([A-Z])/g, ' $1')
+                            .replace(/^./, str => str.toUpperCase())
+                            .trim();
+                          return renderField(label, value);
+                        })}
+                        
+                      {/* Image attribution fields at the end */}
+                      {renderField("Image Credits", coin.reverse?.credits)}
+                      {renderField("Image License", coin.reverse?.license)}
                     </div>
                   </div>
                 </div>
 
                 {/* Historical Context - Only show if notes exist */}
-                {coin.description?.notes && (
+                {hasValidData(coin.description?.notes) && (
                   <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-6 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 mt-8">
                     <h2 className="text-2xl font-bold text-yellow-600 mb-6 flex items-center">
                       <svg className="w-6 h-6 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -314,23 +430,24 @@ const CoinDetail = ({ coinId }) => {
                 className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
                 onClick={handleZoomClose}
               >
-                <div className="relative max-w-4xl w-full bg-white rounded-2xl p-4 shadow-2xl transform animate-fade-in">
+                <div className="relative max-w-4xl w-full bg-white rounded-2xl p-4 shadow-2xl transform animate-fade-in" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={handleZoomClose}
-                    className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors duration-200 hover:rotate-90 transform border border-gray-200"
+                    className="absolute -top-4 -right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors duration-200 hover:rotate-90 transform border border-gray-200 z-10"
                   >
                     <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
-                  <Image
-                    src={activeImage === 'obverse' ? coin.obverse?.image || '/images/coin-placeholder.jpg' : coin.reverse?.image || '/images/coin-placeholder.jpg'}
-                    alt={`${activeImage === 'obverse' ? 'Obverse' : 'Reverse'} - ${coin.name}`}
-                    width={800}
-                    height={800}
-                    className="w-full h-auto rounded-lg"
-                    style={{ backgroundColor: 'white' }}
-                  />
+                  <div className="flex items-center justify-center bg-white rounded-lg p-2">
+                    <Image
+                      src={activeImage === 'obverse' ? coin.obverse?.image || '/images/coin-placeholder.jpg' : coin.reverse?.image || '/images/coin-placeholder.jpg'}
+                      alt={`${activeImage === 'obverse' ? 'Obverse' : 'Reverse'} - ${coin.name}`}
+                      width={800}
+                      height={800}
+                      className="w-full h-auto object-contain max-h-[80vh]"
+                    />
+                  </div>
                 </div>
               </div>
             )}
