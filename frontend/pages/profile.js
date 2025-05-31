@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { AuthContext } from '../../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -693,7 +693,7 @@ const ProfilePage = () => {
                             <p className="text-gray-900 font-medium">
                               <span 
                                 className="text-yellow-600 hover:text-yellow-700 cursor-pointer transition-colors duration-200"
-                                onClick={() => router.push(`/profile/${activity.user._id}`)}
+                                onClick={() => router.push(`/profile?id=${activity.user._id}`)}
                               >
                                 {activity.user.username}
                               </span> started following you
@@ -709,7 +709,7 @@ const ProfilePage = () => {
                             </p>
                           </div>
                           <button 
-                            onClick={() => router.push(`/profile/${activity.user._id}`)}
+                            onClick={() => router.push(`/profile?id=${activity.user._id}`)}
                             className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
                           >
                             <span>View Profile</span>
@@ -773,7 +773,7 @@ const ProfilePage = () => {
                   {followers.map((follower) => (
                     <div key={follower._id} className="p-4 flex items-center hover:bg-white/90 cursor-pointer transition-colors" onClick={() => {
                       setShowFollowersModal(false);
-                      router.push(`/profile/${follower._id}`);
+                      router.push(`/profile?id=${follower._id}`);
                     }}>
                       <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-3 ring-1 ring-white/50">
                         {follower.avatar ? (
@@ -837,7 +837,7 @@ const ProfilePage = () => {
                   {following.map((followed) => (
                     <div key={followed._id} className="p-4 flex items-center hover:bg-white/90 cursor-pointer transition-colors" onClick={() => {
                       setShowFollowingModal(false);
-                      router.push(`/profile/${followed._id}`);
+                      router.push(`/profile?id=${followed._id}`);
                     }}>
                       <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center mr-3 ring-1 ring-white/50">
                         {followed.avatar ? (

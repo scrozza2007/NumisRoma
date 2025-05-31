@@ -4,8 +4,9 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 
-const CoinDetail = ({ coinId }) => {
+const CoinDetail = () => {
   const router = useRouter();
+  const { id } = router.query;
   const [coin, setCoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,7 +17,7 @@ const CoinDetail = ({ coinId }) => {
   const fetchCoinDetails = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${coinId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${id}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -40,7 +41,7 @@ const CoinDetail = ({ coinId }) => {
     } finally {
       setLoading(false);
     }
-  }, [coinId]);
+  }, [id]);
 
   useEffect(() => {
     if (router.query.id) {
@@ -430,11 +431,3 @@ const CoinDetail = ({ coinId }) => {
 };
 
 export default CoinDetail;
-
-export async function getServerSideProps(context) {
-  return {
-    props: {
-      coinId: context.params.id
-    }
-  };
-}

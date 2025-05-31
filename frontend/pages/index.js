@@ -162,7 +162,7 @@ const Home = () => {
                       <p className="text-gray-700 mb-2 font-medium">{coin.authority.emperor}</p>
                       <p className="text-gray-500 mb-4">{coin.description.date_range}</p>
                       <Link 
-                        href={`/coins/${coin._id}`}
+                        href={`/coin-detail?id=${coin._id}`}
                         className="inline-flex items-center text-yellow-600 hover:text-yellow-700 font-medium transition-colors duration-200"
                       >
                         View Details

@@ -153,7 +153,7 @@ const Navbar = () => {
                   className={`absolute right-0 mt-2 w-64 bg-white border-gray-100 rounded-xl shadow-2xl py-2 z-50 border transform transition-all duration-300 ease-in-out`}
                 >
                   <Link
-                    href={`/profile/${user._id}`}
+                    href={`/profile?id=${user._id}`}
                     className={`flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 group`}
                     onClick={() => setIsDropdownOpen(false)}
                   >

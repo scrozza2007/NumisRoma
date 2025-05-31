@@ -206,7 +206,7 @@ const Community = () => {
     return (
       <div
         className="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-        onClick={() => router.push(`/profile/${profileUser._id}`)}
+        onClick={() => router.push(`/profile?id=${profileUser._id}`)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">

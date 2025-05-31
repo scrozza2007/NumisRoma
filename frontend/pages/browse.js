@@ -71,7 +71,7 @@ const Browse = () => {
   // to check if we're coming from a coin detail page later
   useEffect(() => {
     const handleRouteChange = (url) => {
-      if (url.startsWith('/coins/')) {
+      if (url.startsWith('/coin-detail')) {
         localStorage.setItem('lastVisitedPage', 'coin-detail');
       } else if (url !== '/browse') {
         // Clear filters when navigating to a non-coin-detail page
@@ -390,7 +390,7 @@ const Browse = () => {
                   {coins.map((coin) => (
                     <Link
                       key={coin._id}
-                      href={`/coins/${coin._id}`}
+                      href={`/coin-detail?id=${coin._id}`}
                       className="bg-white rounded-2xl shadow-lg overflow-hidden transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full"
                     >
                       <div className="aspect-[4/3] bg-gray-50 p-6 relative">
