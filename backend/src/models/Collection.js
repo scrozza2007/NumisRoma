@@ -13,6 +13,9 @@ const CollectionSchema = new Schema({
   description: {
     type: String
   },
+  image: {
+    type: String // URL dell'immagine della collezione
+  },
   isPublic: {
     type: Boolean,
     default: false

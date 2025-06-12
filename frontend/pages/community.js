@@ -18,7 +18,7 @@ const Community = () => {
   // Check authentication on startup
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push('/login?message=You must be logged in to access community features');
     }
   }, [user, authLoading, router]);
 

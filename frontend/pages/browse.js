@@ -227,7 +227,7 @@ const Browse = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Filters */}
-          <div className="bg-white p-8 rounded-2xl shadow-lg sticky top-8">
+          <div className="bg-white p-8 rounded-2xl shadow-lg h-fit">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Filters</h2>
               <button
@@ -401,7 +401,7 @@ const Browse = () => {
                           className="object-contain mix-blend-multiply"
                         />
                       </div>
-                      <div className="p-6 flex flex-col h-full bg-gradient-to-b from-white to-yello-50">
+                      <div className="p-6 flex flex-col h-full bg-gradient-to-b from-white to-yellow-50">
                         <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{coin.name}</h3>
                         <p className="text-gray-700 mb-2 font-medium">{coin.authority?.emperor}</p>
                         <p className="text-gray-500 mb-4">{coin.description?.date_range}</p>

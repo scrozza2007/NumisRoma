@@ -31,6 +31,27 @@ const ProfilePage = () => {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Blocca lo scroll quando i modali sono aperti
+  useEffect(() => {
+    if (showFollowersModal || showFollowingModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup quando il componente viene smontato
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showFollowersModal, showFollowingModal]);
+
+  // Check authentication on startup
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login?message=You must be logged in to access community features');
+    }
+  }, [user, authLoading, router]);
+
   // Recupera dati utente
   useEffect(() => {
     if (!id) return;
@@ -85,7 +106,20 @@ const ProfilePage = () => {
         });
         if (!res.ok) throw new Error('Error retrieving activities');
         const data = await res.json();
-        setActivities(data);
+        
+        // Combina le attività del backend con le attività delle collezioni locali
+        const collectionsActivities = collections.map(collection => ({
+          type: 'collection_created',
+          user: profile,
+          collection: collection,
+          createdAt: collection.createdAt
+        }));
+        
+        // Unisce e ordina per data
+        const allActivities = [...data, ...collectionsActivities]
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        setActivities(allActivities);
       } catch (err) {
         console.error('Error loading activities:', err);
         setActivities([]);
@@ -94,7 +128,7 @@ const ProfilePage = () => {
       }
     };
     fetchActivities();
-  }, [id]);
+  }, [id, collections, profile]);
 
   // Funzione per caricare i follower
   const loadFollowers = async () => {
@@ -323,6 +357,11 @@ const ProfilePage = () => {
     );
   }
 
+  // If there's no authenticated user, show nothing (will be redirected)
+  if (!user) {
+    return null;
+  }
+
   if (!profile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
@@ -447,7 +486,7 @@ const ProfilePage = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
                             </svg>
                           )}
-                          {chatLoading ? 'Apertura...' : 'Messaggio'}
+                          {chatLoading ? 'Opening...' : 'Message'}
                         </button>
                       </>
                     )}
@@ -577,11 +616,14 @@ const ProfilePage = () => {
         {/* Collections Tab */}
         {activeTab === 'collections' && (
           <div className="mt-8 pb-16">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Collections</h2>
+            <div className="flex justify-between items-center mb-8">
+              <div>
+                              <h2 className="text-3xl font-bold text-gray-900 mb-2">Collections</h2>
+              <p className="text-gray-600">Explore numismatic collections</p>
+              </div>
               {user && user._id === profile._id && (
-                <Link href="/collections/new" className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Link href="/new-collection" className="group flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer">
+                  <svg className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
                   </svg>
                   New Collection
@@ -590,70 +632,158 @@ const ProfilePage = () => {
             </div>
             
             {collections.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {collections.map((col) => (
-                  <div key={col._id} className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group">
-                    <div className="h-48 bg-gray-100 relative overflow-hidden">
+                  <Link
+                    key={col._id}
+                    href={`/collection-detail?id=${col._id}`}
+                    className="group relative bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-amber-200 transform hover:-translate-y-1 cursor-pointer"
+                  >
+                    {/* Immagine principale */}
+                    <div className="relative h-48 overflow-hidden">
                       {col.image ? (
                         <Image
                           src={col.image}
                           alt={col.name}
-                          width={192}
-                          height={192}
-                          className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300"
+                          fill
+                          className="object-cover group-hover:scale-110 transition-transform duration-700"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-yellow-50">
-                          <Image
-                            src="/images/coin-placeholder.jpg"
-                            alt="Collection"
-                            width={96}
-                            height={96}
-                            className="w-24 h-24 opacity-70"
-                          />
+                        <div className="w-full h-full bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 flex items-center justify-center relative">
+                          <div className="absolute inset-0 bg-[url('/images/roman-pattern.png')] bg-repeat opacity-5"></div>
+                          <div className="relative z-10 text-center">
+                                                         <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg mb-3 transition-transform duration-500">
+                              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                              </svg>
+                            </div>
+                            <span className="text-amber-600 text-sm font-medium">Collezione</span>
+                          </div>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end">
-                        <div className="p-4 w-full">
-                          <div className="text-white font-medium">{col.name}</div>
-                          <div className="text-white/80 text-sm">{col.coins?.length || 0} coins</div>
+                      
+                      {/* Badge visibilità */}
+                      <div className="absolute top-4 left-4">
+                        {col.isPublic ? (
+                          <div className="bg-emerald-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-lg">
+                            <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            Public
+                          </div>
+                        ) : (
+                          <div className="bg-slate-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-lg">
+                            <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                            </svg>
+                            Private
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contatore monete */}
+                      <div className="absolute top-4 right-4">
+                        <div className="bg-black/20 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center">
+                          <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" fill="currentColor"/>
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="white" strokeWidth="1"/>
+                            <circle cx="12" cy="12" r="5" fill="none" stroke="white" strokeWidth="0.5"/>
+                            <text x="12" y="16" textAnchor="middle" fontSize="8" fill="white" fontFamily="serif">₡</text>
+                          </svg>
+                          {col.coins?.length || 0}
                         </div>
                       </div>
                     </div>
-                    <div className="p-5">
-                      <h3 className="font-bold text-gray-900">{col.name}</h3>
-                      <p className="text-gray-500 text-sm mt-1 line-clamp-2">{col.description || "No description provided"}</p>
-                      <Link 
-                        href={`/collections/${col._id}`} 
-                        className="mt-4 inline-flex items-center text-yellow-600 hover:text-yellow-700 font-medium"
-                      >
-                        View Collection
-                        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+
+                    {/* Contenuto */}
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-amber-600 transition-colors duration-300 line-clamp-1">
+                          {col.name}
+                        </h3>
+                        <svg className="w-5 h-5 text-gray-400 group-hover:text-amber-500 group-hover:translate-x-1 transition-all duration-300 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                         </svg>
-                      </Link>
+                      </div>
+                      
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
+                        {col.description || "Discover this fascinating collection of ancient coins"}
+                      </p>
+
+                      {/* Statistiche */}
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                        <div className="flex items-center text-sm text-gray-500">
+                          <div className="w-2 h-2 bg-amber-400 rounded-full mr-2"></div>
+                          {col.coins?.length || 0} {col.coins?.length === 1 ? 'coin' : 'coins'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {new Date(col.createdAt).toLocaleDateString('en-US', { 
+                            day: 'numeric', 
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Effetto hover */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-amber-500/0 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                  </Link>
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
-                <div className="w-20 h-20 mx-auto bg-yellow-50 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-gradient-to-br from-white to-yellow-50/50 rounded-2xl shadow-lg border border-yellow-100/50 p-12 text-center relative overflow-hidden">
+                {/* Background Pattern */}
+                <div className="absolute inset-0 bg-[url('/images/roman-pattern.png')] bg-repeat opacity-5"></div>
+                
+                {/* Content */}
+                <div className="relative z-10">
+                  <div className="w-28 h-28 mx-auto bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-full flex items-center justify-center mb-6 shadow-lg transform hover:scale-105 transition-transform duration-300">
+                    <svg className="w-14 h-14 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No Collections Yet</h3>
-                <p className="text-gray-500 max-w-md mx-auto">
+                  
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    {user && user._id === profile._id ? "No Collections" : "No Collections"}
+                  </h3>
+                  
+                  <p className="text-gray-600 max-w-lg mx-auto text-lg leading-relaxed mb-8">
                   {user && user._id === profile._id 
-                    ? "Start your numismatic journey by creating your first collection."
-                    : "This user hasn&apos;t created any collections yet."}
-                </p>
+                      ? "Start your numismatic journey by creating your first Roman coin collection!"
+                      : "This user hasn't created any collections yet."}
+                  </p>
+
+                  {/* Stats cards quando non ci sono collezioni */}
+                  <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-8">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-yellow-100">
+                      <div className="text-2xl font-bold text-yellow-500">0</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">Collections</div>
+                    </div>
+                    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-yellow-100">
+                      <div className="text-2xl font-bold text-yellow-500">0</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">Coins</div>
+                    </div>
+                    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-yellow-100">
+                      <div className="text-2xl font-bold text-yellow-500">
+                        {new Date().getFullYear()}
+                      </div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wide">Member since</div>
+                    </div>
+                  </div>
+                  
                 {user && user._id === profile._id && (
-                  <Link href="/collections/new" className="mt-6 inline-block px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors">
-                    Create Your First Collection
+                    <Link 
+                      href="/new-collection" 
+                      className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 font-medium shadow-lg hover:shadow-xl cursor-pointer"
+                    >
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                      </svg>
+                      Create Your First Collection
                   </Link>
                 )}
+                </div>
               </div>
             )}
           </div>
@@ -674,30 +804,83 @@ const ProfilePage = () => {
                 {activities.map((activity, index) => (
                   <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-300">
                     <div className="flex items-start space-x-4">
-                      <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center ring-2 ring-yellow-100 flex-shrink-0">
-                        {activity.user.avatar ? (
-                          <Image
-                            src={activity.user.avatar}
-                            alt={activity.user.username}
-                            width={48}
-                            height={48}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <span className="text-xl font-bold text-yellow-500">{activity.user.username.charAt(0).toUpperCase()}</span>
-                        )}
+                      {/* Avatar e icona attività */}
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center ring-2 ring-yellow-100 flex-shrink-0">
+                          {activity.user.avatar ? (
+                            <Image
+                              src={activity.user.avatar}
+                              alt={activity.user.username}
+                              width={48}
+                              height={48}
+                              className="rounded-full"
+                            />
+                          ) : (
+                            <span className="text-xl font-bold text-yellow-500">{activity.user.username.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        {/* Icona tipo attività */}
+                        <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs shadow-lg ${
+                          activity.type === 'collection_created' ? 'bg-yellow-500' : 'bg-yellow-500'
+                        }`}>
+                          {activity.type === 'collection_created' ? (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                          )}
+                        </div>
                       </div>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-gray-900 font-medium">
-                              <span 
-                                className="text-yellow-600 hover:text-yellow-700 cursor-pointer transition-colors duration-200"
-                                onClick={() => router.push(`/profile?id=${activity.user._id}`)}
-                              >
-                                {activity.user.username}
-                              </span> started following you
-                            </p>
+                            {/* Contenuto in base al tipo di attività */}
+                            {activity.type === 'collection_created' ? (
+                              <>
+                                <p className="text-gray-900 font-medium">
+                                  <span 
+                                    className="text-yellow-600 hover:text-yellow-700 cursor-pointer transition-colors duration-200"
+                                    onClick={() => router.push(`/profile?id=${activity.user._id}`)}
+                                  >
+                                    {activity.user.username}
+                                  </span> created a new collection
+                                  <span 
+                                    className="text-yellow-600 hover:text-yellow-700 cursor-pointer font-semibold ml-1"
+                                    onClick={() => router.push(`/collection-detail?id=${activity.collection._id}`)}
+                                  >
+                                    "{activity.collection.name}"
+                                  </span>
+                                </p>
+                                <div className="flex items-center mt-2 text-sm text-gray-500">
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" fill="currentColor"/>
+                                    <circle cx="12" cy="12" r="8" fill="none" stroke="white" strokeWidth="1"/>
+                                    <circle cx="12" cy="12" r="5" fill="none" stroke="white" strokeWidth="0.5"/>
+                                    <text x="12" y="16" textAnchor="middle" fontSize="8" fill="white" fontFamily="serif">₡</text>
+                                  </svg>
+                                  {activity.collection.coins?.length || 0} coins
+                                  <span className="mx-2">•</span>
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                  </svg>
+                                  {activity.collection.isPublic ? 'Public' : 'Private'}
+                                </div>
+                              </>
+                            ) : (
+                              <p className="text-gray-900 font-medium">
+                                <span 
+                                  className="text-yellow-600 hover:text-yellow-700 cursor-pointer transition-colors duration-200"
+                                  onClick={() => router.push(`/profile?id=${activity.user._id}`)}
+                                >
+                                  {activity.user.username}
+                                                                  </span> started following you
+                              </p>
+                            )}
+                            
                             <p className="text-sm text-gray-500 mt-1">
                               {new Date(activity.createdAt).toLocaleDateString('en-US', {
                                 day: 'numeric',
@@ -708,15 +891,29 @@ const ProfilePage = () => {
                               })}
                             </p>
                           </div>
-                          <button 
-                            onClick={() => router.push(`/profile?id=${activity.user._id}`)}
-                            className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
-                          >
-                            <span>View Profile</span>
-                            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                          </button>
+                          
+                          {/* Bottoni azione */}
+                          {activity.type === 'collection_created' ? (
+                            <button 
+                              onClick={() => router.push(`/collection-detail?id=${activity.collection._id}`)}
+                              className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
+                            >
+                              <span>View</span>
+                              <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                              </svg>
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => router.push(`/profile?id=${activity.user._id}`)}
+                              className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
+                            >
+                              <span>View Profile</span>
+                              <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -730,9 +927,11 @@ const ProfilePage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">No Recent Activities</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No Recent Activity</h3>
                 <p className="text-gray-500 max-w-md mx-auto text-lg">
-                  There are no recent activities to show. Start following other users to see their activities here!
+                                      {user && user._id === profile._id 
+                    ? "Create your first collection or start following other users to see activities here!"
+                    : "No recent activities to show for this user."}
                 </p>
               </div>
             )}

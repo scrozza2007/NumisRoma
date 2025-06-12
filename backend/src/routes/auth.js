@@ -1,5 +1,6 @@
 const express = require('express');
 const { body } = require('express-validator');
+const bcrypt = require('bcryptjs');
 
 const { registerUser, loginUser, logoutUser, changePassword, deleteAccount, changeUsername, updateProfile, checkSession } = require('../controllers/authController');
 const User = require('../models/User');
@@ -197,5 +198,33 @@ router.post('/logout', authMiddleware, logoutUser);
 
 // Verifica stato sessione
 router.get('/session-check', authMiddleware, checkSession);
+
+// POST /api/auth/verify-password
+router.post('/verify-password', authMiddleware, async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ msg: 'Password is required' });
+    }
+
+    // Get user with password
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Password incorretta' });
+    }
+
+    res.json({ msg: 'Password verified successfully' });
+  } catch (err) {
+    console.error('Verify password error:', err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
 
 module.exports = router;
