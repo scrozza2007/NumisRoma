@@ -77,13 +77,13 @@ const Home = () => {
             <div className="flex justify-center space-x-4">
               <Link 
                 href="/browse" 
-                className="px-8 py-4 bg-black text-white rounded-xl hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg font-medium"
+                                  className="group px-8 py-4 bg-gradient-to-r from-gray-800 to-black text-white rounded-xl hover:from-gray-900 hover:to-gray-800 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
               >
                 Browse Catalog
               </Link>
               <Link 
                 href="/search" 
-                className="px-8 py-4 bg-white text-black border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg font-medium"
+                                  className="group px-8 py-4 bg-white text-black border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
               >
                 Advanced Search
               </Link>
@@ -111,7 +111,7 @@ const Home = () => {
               </p>
               <Link 
                 href="/browse" 
-                className="inline-block px-10 py-4 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                className="group inline-block px-10 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 Start Exploring
               </Link>
@@ -129,7 +129,7 @@ const Home = () => {
               </p>
               <button
                 onClick={fetchRandomCoins}
-                className="px-4 py-2 bg-yellow-500 text-black rounded-xl hover:bg-yellow-400 transition-all duration-300 font-medium"
+                className="group px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
               >
                 Refresh Random Coins
               </button>

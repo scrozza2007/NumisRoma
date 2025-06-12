@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 const authRoutes = require('./routes/auth');
 const coinRoutes = require('./routes/coins');
 const collectionRoutes = require('./routes/collections');
@@ -15,6 +16,9 @@ const app = express();
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Servire file statici per le immagini caricate
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Rotta di test
 app.get('/', (req, res) => {

@@ -1116,7 +1116,7 @@ const Settings = () => {
                     ) : (
                       <button 
                         onClick={() => setIsEditing(true)}
-                        className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow cursor-pointer"
+                        className="group px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-105 font-medium flex items-center justify-center bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 shadow-lg hover:shadow-xl cursor-pointer"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1381,7 +1381,7 @@ const Settings = () => {
                       ) : (
                         <button 
                           onClick={() => setIsEditingPassword(true)}
-                          className="px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow cursor-pointer"
+                          className="group px-6 py-3 rounded-xl transition-all duration-200 transform hover:scale-105 font-medium flex items-center justify-center bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 shadow-lg hover:shadow-xl cursor-pointer"
                         >
                           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1422,7 +1422,7 @@ const Settings = () => {
                         Get a copy of all your personal data that we store, including your profile, activities, and preferences.
                       </p>
                       <button 
-                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
+                        className="group w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
                         onClick={() => {
                           // Handle download data logic here
                           console.log('Download data clicked');
@@ -1446,7 +1446,7 @@ const Settings = () => {
                         Permanently delete your account and all associated data. This action cannot be undone.
                       </p>
                       <button 
-                        className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
+                        className="group w-full px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl font-medium focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center cursor-pointer"
                         onClick={() => router.push('/delete-account')}
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1552,10 +1552,10 @@ const Settings = () => {
                   <button 
                     onClick={handleSaveNotifications}
                     disabled={isSubmitting || !notificationsChanged()}
-                    className={`px-6 py-3 rounded-xl transition-all duration-200 font-medium flex items-center justify-center
+                    className={`group px-6 py-3 rounded-xl transition-all duration-200 font-medium flex items-center justify-center
                       ${isSubmitting || !notificationsChanged()
                         ? 'bg-gray-400 text-white cursor-not-allowed' 
-                        : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-sm hover:shadow transform hover:scale-[1.02] cursor-pointer'}`}
+                        : 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 shadow-lg hover:shadow-xl transform hover:scale-105 cursor-pointer'}`}
                     title={!notificationsChanged() ? "No changes to notification preferences" : "Save your notification preferences"}
                   >
                     {isSubmitting ? (
@@ -1612,7 +1612,7 @@ const Settings = () => {
                       <p className="text-sm text-red-600">Not enabled</p>
                     </div>
                     <button 
-                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transform hover:scale-[1.02] cursor-pointer"
+                      className="group px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl font-medium focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 cursor-pointer"
                     >
                       Enable 2FA
                     </button>

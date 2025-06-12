@@ -21,10 +21,11 @@ const NewCollectionPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    image: '',
     isPublic: true
   });
   
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
@@ -34,6 +35,50 @@ const NewCollectionPage = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limite
+        setNotification({
+          show: true,
+          message: 'File size must be less than 5MB',
+          type: 'error'
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        setNotification({
+          show: true,
+          message: 'Please select an image file',
+          type: 'error'
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+        return;
+      }
+
+      setSelectedImage(file);
+      
+      // Crea preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    // Reset dell'input file
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -57,17 +102,42 @@ const NewCollectionPage = () => {
         throw new Error('Authentication token not found. Please log in.');
       }
 
-      const res = await fetch(`${API_URL}/api/collections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
+      let res;
+      
+      if (selectedImage) {
+        // Se c'è un'immagine, usa FormData
+        const submitData = new FormData();
+        submitData.append('name', formData.name);
+        submitData.append('description', formData.description);
+        submitData.append('isPublic', formData.isPublic);
+        submitData.append('image', selectedImage);
+        
+        console.log('Sending FormData with image');
+        
+        res = await fetch(`${API_URL}/api/collections`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: submitData
+        });
+      } else {
+        // Se non c'è immagine, usa JSON come prima
+        console.log('Sending JSON without image');
+        
+        res = await fetch(`${API_URL}/api/collections`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(formData)
+        });
+      }
 
       if (!res.ok) {
         const errorData = await res.json();
+        console.error('Backend error response:', errorData);
         throw new Error(errorData.msg || 'Error creating collection');
       }
 
@@ -167,7 +237,7 @@ const NewCollectionPage = () => {
             </div>
             <Link
               href={`/profile?id=${user._id}`}
-              className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-yellow-500 border border-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors text-white cursor-pointer"
+                              className="mt-4 md:mt-0 group inline-flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 border border-amber-500 rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl text-white cursor-pointer"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -214,41 +284,63 @@ const NewCollectionPage = () => {
                 />
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
-                <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-2">
-                  Cover Image URL
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cover Image
                 </label>
-                <input
-                  type="url"
-                  id="image"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleInputChange}
-                  placeholder="https://example.com/image.jpg"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
-                />
-                {formData.image && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                    <p className="text-sm text-gray-600 mb-2">Image Preview:</p>
-                    <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-                      <Image
-                        src={formData.image}
-                        alt="Preview"
-                        width={400}
-                        height={192}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 hidden">
-                        Error loading image
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-yellow-400 transition-colors">
+                  <div className="space-y-1 text-center">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden mb-4">
+                          <Image
+                            src={imagePreview}
+                            alt="Preview"
+                            width={400}
+                            height={192}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <p className="text-sm text-gray-600">
+                          {selectedImage.name} ({(selectedImage.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div className="flex text-sm text-gray-600">
+                          <label htmlFor="image-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-yellow-600 hover:text-yellow-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-yellow-500">
+                            <span>Upload an image</span>
+                            <input
+                              id="image-upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                      </>
+                    )}
                   </div>
-                )}
+                </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Upload a representative image for your collection (optional)
+                </p>
               </div>
 
               {/* Visibility */}
@@ -291,7 +383,7 @@ const NewCollectionPage = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-yellow-500 text-white py-3 rounded-xl hover:bg-yellow-600 transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
+                  className="group w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white py-3 rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                 >
                   {loading ? (
                     <>

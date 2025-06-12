@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const Collection = require('../models/Collection');
-const Coin = require('../models/Coin');
+const Collection = require('../src/models/Collection');
+const Coin = require('../src/models/Coin');
 const { auth, optionalAuth } = require('../middleware/auth');
+const { upload, processCollectionImage, deleteImage } = require('../middleware/upload');
 
 // GET /api/collections - Get user's collections (both public and private)
 router.get('/', auth, async (req, res) => {
@@ -72,8 +73,14 @@ router.get('/:id', optionalAuth, async (req, res) => {
 });
 
 // POST /api/collections - Create new collection
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, upload, processCollectionImage, async (req, res) => {
   try {
+    console.log('POST /api/collections - Request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    console.log('Uploaded image:', req.uploadedImage);
+    
     const { name, description, image, isPublic } = req.body;
 
     // Validation
@@ -89,18 +96,24 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Description cannot exceed 1000 characters' });
     }
 
-    // Validate image URL if provided
-    if (image && image.trim() !== '') {
+    // Determina il percorso dell'immagine (upload o URL)
+    let imageUrl = '';
+    if (req.uploadedImage) {
+      // Immagine caricata
+      imageUrl = req.uploadedImage.path;
+    } else if (image && image.trim() !== '') {
+      // URL fornito (manteniamo per compatibilità)
       const urlPattern = /^https?:\/\/.+/;
       if (!urlPattern.test(image.trim())) {
         return res.status(400).json({ msg: 'Invalid image URL format' });
       }
+      imageUrl = image.trim();
     }
 
     const collection = new Collection({
       name: name.trim(),
       description: description ? description.trim() : '',
-      image: image && image.trim() !== '' ? image.trim() : '',
+      image: imageUrl,
       isPublic: isPublic !== undefined ? Boolean(isPublic) : true,
       user: req.user.id,
       coins: []
@@ -114,12 +127,14 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(savedCollection);
   } catch (err) {
     console.error('Error in POST /api/collections:', err);
+    console.error('Error details:', err.message);
+    console.error('Stack trace:', err.stack);
     res.status(500).json({ msg: 'Server error during collection creation' });
   }
 });
 
 // PUT /api/collections/:id - Update collection
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, upload, processCollectionImage, async (req, res) => {
   try {
     const { name, description, image, isPublic } = req.body;
 
@@ -152,14 +167,29 @@ router.put('/:id', auth, async (req, res) => {
       collection.description = description.trim();
     }
 
-    if (image !== undefined) {
+    // Gestione aggiornamento immagine
+    if (req.uploadedImage) {
+      // Elimina la vecchia immagine se esistente e non è un URL esterno
+      if (collection.image && !collection.image.startsWith('http')) {
+        deleteImage(collection.image);
+      }
+      collection.image = req.uploadedImage.path;
+    } else if (image !== undefined) {
       if (image.trim() !== '') {
         const urlPattern = /^https?:\/\/.+/;
         if (!urlPattern.test(image.trim())) {
           return res.status(400).json({ msg: 'Invalid image URL format' });
         }
+        // Elimina la vecchia immagine se esistente e non è un URL esterno
+        if (collection.image && !collection.image.startsWith('http')) {
+          deleteImage(collection.image);
+        }
         collection.image = image.trim();
       } else {
+        // Elimina la vecchia immagine se esistente e non è un URL esterno
+        if (collection.image && !collection.image.startsWith('http')) {
+          deleteImage(collection.image);
+        }
         collection.image = '';
       }
     }
@@ -199,6 +229,11 @@ router.delete('/:id', auth, async (req, res) => {
     // Check if user owns the collection
     if (collection.user.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'Not authorized to delete this collection' });
+    }
+
+    // Elimina l'immagine associata se non è un URL esterno
+    if (collection.image && !collection.image.startsWith('http')) {
+      deleteImage(collection.image);
     }
 
     await Collection.findByIdAndDelete(req.params.id);

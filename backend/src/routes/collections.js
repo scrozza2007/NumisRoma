@@ -14,13 +14,36 @@ const {
 } = require('../controllers/collectionController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
+const { upload, processCollectionImage, deleteImage } = require('../../middleware/upload');
 
 const router = express.Router();
+
+// Wrapper per gestire sia FormData che JSON
+const createCollectionWrapper = async (req, res) => {
+  try {
+    // Se c'è un file caricato, processa l'immagine
+    if (req.file) {
+      await processCollectionImage(req, res, () => {});
+    }
+    
+    // Se abbiamo un'immagine caricata, sostituisci il campo image
+    if (req.uploadedImage) {
+      req.body.image = req.uploadedImage.path;
+    }
+    
+    // Passa al controller originale
+    return createCollection(req, res);
+  } catch (error) {
+    console.error('Error in createCollectionWrapper:', error);
+    res.status(500).json({ msg: 'Server error during collection creation' });
+  }
+};
 
 // Crea una nuova collezione personale
 router.post(
   '/',
   authMiddleware,
+  upload, // Middleware per upload
   [
     body('name').notEmpty().withMessage('Il nome della collezione è obbligatorio'),
     body('description').optional(),
@@ -36,7 +59,7 @@ router.post(
     }),
     body('isPublic').optional().isBoolean()
   ],
-  createCollection
+  createCollectionWrapper
 );
 
 // Ritorna tutte le collezioni personali dell'utente loggato
@@ -51,10 +74,38 @@ router.get('/user/:userId', optionalAuthMiddleware, getUserCollections);
 // Ritorna una collezione specifica per ID
 router.get('/:collectionId', optionalAuthMiddleware, getCollectionById);
 
+// Wrapper per l'update delle collezioni
+const updateCollectionWrapper = async (req, res) => {
+  try {
+    const Collection = require('../models/Collection');
+    
+    // Se c'è un file caricato, processa l'immagine
+    if (req.file) {
+      await processCollectionImage(req, res, () => {});
+      
+      // Se abbiamo una nuova immagine caricata, elimina la vecchia
+      if (req.uploadedImage) {
+        const collection = await Collection.findById(req.params.collectionId);
+        if (collection && collection.image && !collection.image.startsWith('http')) {
+          deleteImage(collection.image);
+        }
+        req.body.image = req.uploadedImage.path;
+      }
+    }
+    
+    // Passa al controller originale
+    return updateCollection(req, res);
+  } catch (error) {
+    console.error('Error in updateCollectionWrapper:', error);
+    res.status(500).json({ msg: 'Server error during collection update' });
+  }
+};
+
 // Aggiorna una collezione
 router.put(
   '/:collectionId',
   authMiddleware,
+  upload, // Middleware per upload
   [
     body('name').optional().notEmpty().withMessage('Il nome della collezione non può essere vuoto'),
     body('description').optional(),
@@ -70,7 +121,7 @@ router.put(
     }),
     body('isPublic').optional().isBoolean()
   ],
-  updateCollection
+  updateCollectionWrapper
 );
 
 // Elimina una collezione

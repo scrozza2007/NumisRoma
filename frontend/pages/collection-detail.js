@@ -125,15 +125,9 @@ const CollectionDetailPage = () => {
 
       if (!res.ok) throw new Error('Error deleting the collection');
 
-      setNotification({
-        show: true,
-        message: 'Collection deleted successfully',
-        type: 'success'
-      });
-
-      setTimeout(() => {
-        router.push('/');
-      }, 1500);
+      // Prima reindirizza alla pagina del profilo con un parametro per la notifica
+      const userId = collection.user._id || collection.user;
+      router.push(`/profile?id=${userId}&message=Collection deleted successfully&type=success`);
 
     } catch (err) {
       console.error('Error deleting:', err);
@@ -174,7 +168,7 @@ const CollectionDetailPage = () => {
         </svg>
         <p className="text-xl text-gray-700 font-medium">Collection not found</p>
         <p className="text-gray-500 mt-2">This collection doesn't exist or might have been removed.</p>
-        <Link href="/" className="mt-6 px-5 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors">
+        <Link href="/" className="mt-6 group flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer">
           Back to Collections
         </Link>
       </div>
@@ -310,7 +304,7 @@ const CollectionDetailPage = () => {
                 <div className="flex flex-col space-y-3 md:ml-8">
                   <Link
                     href={`/edit-collection?id=${id}`}
-                    className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center cursor-pointer"
+                    className="group px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center cursor-pointer"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -319,7 +313,7 @@ const CollectionDetailPage = () => {
                   </Link>
                   <button
                     onClick={() => setShowDeleteModal(true)}
-                    className="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center cursor-pointer"
+                    className="group px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center cursor-pointer"
                   >
                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -339,7 +333,7 @@ const CollectionDetailPage = () => {
             {isOwner && (
               <Link
                 href={`/add-coin?id=${id}`}
-                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center cursor-pointer"
+                className="group px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center cursor-pointer"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
@@ -417,7 +411,7 @@ const CollectionDetailPage = () => {
               {isOwner && (
                 <Link
                   href={`/add-coin?id=${id}`}
-                  className="inline-block px-8 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium cursor-pointer"
+                  className="group inline-flex items-center px-8 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl font-medium cursor-pointer"
                 >
                   Add First Coin
                 </Link>
@@ -468,14 +462,16 @@ const CollectionDetailPage = () => {
                     setDeletePassword('');
                   }}
                   disabled={deleteLoading}
-                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium cursor-pointer"
+                  className="group px-6 py-3 text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                                   <button
                   onClick={handleDeleteCollection}
                   disabled={deleteLoading || !deletePassword.trim()}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-50 flex items-center cursor-pointer"
+                  className={`group px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl font-medium disabled:opacity-50 flex items-center ${
+                    deleteLoading || !deletePassword.trim() ? 'cursor-not-allowed' : 'cursor-pointer'
+                  }`}
                 >
                   {deleteLoading ? (
                     <>

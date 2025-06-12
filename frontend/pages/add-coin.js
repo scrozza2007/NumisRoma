@@ -321,7 +321,7 @@ const AddCoinToCollectionPage = () => {
             </div>
             <Link
               href={`/collection-detail?id=${id}`}
-              className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 bg-yellow-500 border border-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors text-white cursor-pointer"
+                              className="mt-4 md:mt-0 group inline-flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 border border-amber-500 rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl text-white cursor-pointer"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

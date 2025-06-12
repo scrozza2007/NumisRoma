@@ -52,6 +52,34 @@ const ProfilePage = () => {
     }
   }, [user, authLoading, router]);
 
+  // Gestisce notifiche da parametri URL (per la cancellazione delle collezioni)
+  useEffect(() => {
+    const { message, type } = router.query;
+    if (message && type) {
+      setNotification({
+        show: true,
+        message: decodeURIComponent(message),
+        type: type
+      });
+      
+      // Rimuovi i parametri dall'URL dopo aver mostrato la notifica
+      setTimeout(() => {
+        const newQuery = { ...router.query };
+        delete newQuery.message;
+        delete newQuery.type;
+        router.replace({
+          pathname: router.pathname,
+          query: newQuery
+        }, undefined, { shallow: true });
+      }, 100);
+      
+      // Nascondi la notifica dopo 3 secondi
+      setTimeout(() => {
+        setNotification({ show: false, message: '', type: '' });
+      }, 3000);
+    }
+  }, [router.query, router]);
+
   // Recupera dati utente
   useEffect(() => {
     if (!id) return;
@@ -370,7 +398,7 @@ const ProfilePage = () => {
         </svg>
         <p className="text-xl text-gray-700 font-medium">Profile not found</p>
         <p className="text-gray-500 mt-2">This user profile doesn&apos;t exist or may have been removed.</p>
-        <Link href="/" className="mt-6 px-5 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors">
+        <Link href="/" className="mt-6 group flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer">
           Return to Home
         </Link>
       </div>
@@ -406,7 +434,7 @@ const ProfilePage = () => {
       {/* Banner */}
       <div className="w-full h-64 md:h-80 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-yellow-50 via-yellow-50/50 to-gray-50"></div>
-        <div className="absolute inset-0 bg-[url('/images/roman-pattern.png')] bg-repeat opacity-10"></div>
+
       </div>
 
       <div className="max-w-6xl mx-auto px-4 relative">
@@ -443,7 +471,7 @@ const ProfilePage = () => {
                     {user._id === profile._id ? (
                       <Link
                         href="/settings"
-                        className="px-5 py-2.5 rounded-xl font-medium bg-yellow-500 text-white hover:bg-yellow-600 shadow-sm transition-all duration-200 flex items-center cursor-pointer"
+                        className="group px-6 py-3 rounded-xl font-medium bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -455,10 +483,10 @@ const ProfilePage = () => {
                         <button 
                           onClick={handleFollow} 
                           disabled={followLoading} 
-                          className={`px-5 py-2.5 rounded-xl font-medium text-white shadow-sm transition-all duration-200 flex items-center cursor-pointer ${
+                          className={`group px-6 py-3 rounded-xl font-medium text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer ${
                             profile.isFollowing 
-                              ? 'bg-gray-700 hover:bg-gray-800' 
-                              : 'bg-yellow-500 hover:bg-yellow-600'
+                              ? 'bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900' 
+                              : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600'
                           }`}
                         >
                           {followLoading ? (
@@ -477,7 +505,7 @@ const ProfilePage = () => {
                         <button 
                           onClick={handleOpenChat}
                           disabled={chatLoading}
-                          className="px-5 py-2.5 rounded-xl font-medium bg-white text-gray-700 hover:bg-gray-100 shadow-sm border border-gray-200 transition-all duration-200 flex items-center cursor-pointer"
+                          className="group px-6 py-3 rounded-xl font-medium bg-white text-gray-700 hover:bg-gray-50 shadow-lg hover:shadow-xl border border-gray-200 hover:border-gray-300 transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer"
                         >
                           {chatLoading ? (
                             <div className="animate-spin w-5 h-5 border-2 border-gray-700 border-t-transparent rounded-full mr-2"></div>
@@ -556,14 +584,14 @@ const ProfilePage = () => {
                         <button
                           onClick={cancelBioEdit}
                           disabled={bioLoading}
-                          className="px-3 py-1 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                          className="group px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={saveBio}
                           disabled={bioLoading}
-                          className="px-3 py-1 text-sm text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 transition-colors flex items-center cursor-pointer"
+                          className="group px-4 py-2 text-sm text-white bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 rounded-lg shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer"
                         >
                           {bioLoading ? (
                             <>
@@ -578,9 +606,7 @@ const ProfilePage = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-700 leading-relaxed">
-                    <div dangerouslySetInnerHTML={{ __html: profile.bio || "This user hasn't added a bio yet." }} />
-                  </p>
+                  <div className="text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: profile.bio || "This user hasn't added a bio yet." }} />
                 )}
               </div>
             </div>
@@ -623,7 +649,7 @@ const ProfilePage = () => {
               </div>
               {user && user._id === profile._id && (
                 <Link href="/new-collection" className="group flex items-center px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl cursor-pointer">
-                  <svg className="w-5 h-5 mr-2 group-hover:rotate-90 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 mr-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
                   </svg>
                   New Collection
@@ -643,14 +669,14 @@ const ProfilePage = () => {
                     <div className="relative h-48 overflow-hidden">
                       {col.image ? (
                         <Image
-                          src={col.image}
+                          src={col.image.startsWith('http') ? col.image : `${API_URL}${col.image}`}
                           alt={col.name}
                           fill
                           className="object-cover group-hover:scale-110 transition-transform duration-700"
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 flex items-center justify-center relative">
-                          <div className="absolute inset-0 bg-[url('/images/roman-pattern.png')] bg-repeat opacity-5"></div>
+
                           <div className="relative z-10 text-center">
                                                          <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg mb-3 transition-transform duration-500">
                               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -679,19 +705,6 @@ const ProfilePage = () => {
                             Private
                           </div>
                         )}
-                      </div>
-
-                      {/* Contatore monete */}
-                      <div className="absolute top-4 right-4">
-                        <div className="bg-black/20 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center">
-                          <svg className="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" fill="currentColor"/>
-                            <circle cx="12" cy="12" r="8" fill="none" stroke="white" strokeWidth="1"/>
-                            <circle cx="12" cy="12" r="5" fill="none" stroke="white" strokeWidth="0.5"/>
-                            <text x="12" y="16" textAnchor="middle" fontSize="8" fill="white" fontFamily="serif">₡</text>
-                          </svg>
-                          {col.coins?.length || 0}
-                        </div>
                       </div>
                     </div>
 
@@ -734,7 +747,7 @@ const ProfilePage = () => {
             ) : (
               <div className="bg-gradient-to-br from-white to-yellow-50/50 rounded-2xl shadow-lg border border-yellow-100/50 p-12 text-center relative overflow-hidden">
                 {/* Background Pattern */}
-                <div className="absolute inset-0 bg-[url('/images/roman-pattern.png')] bg-repeat opacity-5"></div>
+
                 
                 {/* Content */}
                 <div className="relative z-10">
@@ -775,7 +788,7 @@ const ProfilePage = () => {
                 {user && user._id === profile._id && (
                     <Link 
                       href="/new-collection" 
-                      className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl hover:from-yellow-600 hover:to-yellow-700 transition-all duration-300 transform hover:scale-105 font-medium shadow-lg hover:shadow-xl cursor-pointer"
+                      className="group inline-flex items-center px-8 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 font-medium shadow-lg hover:shadow-xl cursor-pointer"
                     >
                       <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
@@ -896,7 +909,7 @@ const ProfilePage = () => {
                           {activity.type === 'collection_created' ? (
                             <button 
                               onClick={() => router.push(`/collection-detail?id=${activity.collection._id}`)}
-                              className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
+                              className="group px-5 py-2.5 text-sm bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer"
                             >
                               <span>View</span>
                               <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -906,7 +919,7 @@ const ProfilePage = () => {
                           ) : (
                             <button 
                               onClick={() => router.push(`/profile?id=${activity.user._id}`)}
-                              className="px-4 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg font-medium transition-colors duration-200 flex items-center cursor-pointer"
+                              className="group px-5 py-2.5 text-sm bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600 rounded-lg font-medium shadow-sm hover:shadow-md transform hover:scale-105 transition-all duration-200 flex items-center cursor-pointer"
                             >
                               <span>View Profile</span>
                               <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

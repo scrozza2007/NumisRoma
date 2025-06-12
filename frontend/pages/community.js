@@ -230,10 +230,10 @@ const Community = () => {
           </div>
           <button
             onClick={e => { e.stopPropagation(); toggleFollow(profileUser._id, profileUser.isFollowing); }}
-            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 cursor-pointer ${
+            className={`group flex items-center space-x-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-sm hover:shadow-md cursor-pointer ${
               profileUser.isFollowing
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                : 'bg-yellow-500 text-black hover:bg-yellow-400'
+                : 'bg-gradient-to-r from-amber-500 to-yellow-500 text-white hover:from-amber-600 hover:to-yellow-600'
             }`}
           >
             {profileUser.isFollowing ? (

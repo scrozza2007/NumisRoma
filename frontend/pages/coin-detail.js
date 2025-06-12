@@ -34,10 +34,33 @@ const CoinDetail = () => {
   const [coinNotes, setCoinNotes] = useState('');
   const [addingToCollection, setAddingToCollection] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+  
+  // Stati per il menu della collezione
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Stati per i dati di modifica della moneta nella collezione
+  const [editWeight, setEditWeight] = useState('');
+  const [editDiameter, setEditDiameter] = useState('');
+  const [editGrade, setEditGrade] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  
+  // Stati per l'upload delle immagini
+  const [showImageEditModal, setShowImageEditModal] = useState(false);
+  const [selectedObverseImage, setSelectedObverseImage] = useState(null);
+  const [selectedReverseImage, setSelectedReverseImage] = useState(null);
+  const [obversePreview, setObversePreview] = useState(null);
+  const [reversePreview, setReversePreview] = useState(null);
+  const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [dragActiveObverse, setDragActiveObverse] = useState(false);
+  const [dragActiveReverse, setDragActiveReverse] = useState(false);
+  const [imageResetLoading, setImageResetLoading] = useState(false);
 
-  // Blocca lo scroll quando il modale è aperto
+  // Blocca lo scroll quando i modali sono aperti
   useEffect(() => {
-    if (showAddToCollection) {
+    if (showAddToCollection || showEditModal || showDeleteModal || showImageEditModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -47,7 +70,7 @@ const CoinDetail = () => {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showAddToCollection]);
+  }, [showAddToCollection, showEditModal, showDeleteModal, showImageEditModal]);
 
   // Check if this is a collection context (has collection-specific data)
   const isFromCollection = collectionId || weight || diameter || grade || notes;
@@ -55,11 +78,18 @@ const CoinDetail = () => {
   const fetchCoinDetails = useCallback(async () => {
     setLoading(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${id}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
+        headers
       });
 
       if (!response.ok) {
@@ -99,7 +129,7 @@ const CoinDetail = () => {
     if (user && !isFromCollection) {
       fetchUserCollections();
     }
-  }, [router.query.id, fetchCoinDetails, collectionId, user, isFromCollection]);
+  }, [router.query.id, fetchCoinDetails, collectionId, isFromCollection]);
 
   const fetchCollectionData = async () => {
     try {
@@ -137,6 +167,102 @@ const CoinDetail = () => {
       }
     } catch (error) {
       console.error('Error fetching user collections:', error);
+    }
+  };
+
+  // Funzioni per gestire il menu della collezione
+  const handleEditCoin = () => {
+    setEditWeight(weight || '');
+    setEditDiameter(diameter || '');
+    setEditGrade(grade || '');
+    setEditNotes(notes || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    setEditLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections/${collectionId}/coins/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          weight: editWeight || undefined,
+          diameter: editDiameter || undefined,
+          grade: editGrade || undefined,
+          notes: editNotes || undefined
+        })
+      });
+
+      if (response.ok) {
+        setNotification({
+          show: true,
+          message: 'Coin updated successfully!',
+          type: 'success'
+        });
+        setShowEditModal(false);
+        // Aggiorna l'URL con i nuovi parametri
+        const newQuery = {
+          ...router.query,
+          weight: editWeight || undefined,
+          diameter: editDiameter || undefined,
+          grade: editGrade || undefined,
+          notes: editNotes || undefined
+        };
+        router.replace({ pathname: router.pathname, query: newQuery }, undefined, { shallow: true });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error updating the coin');
+      }
+    } catch (error) {
+      console.error('Error updating coin:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Error updating coin',
+        type: 'error'
+      });
+    } finally {
+      setEditLoading(false);
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
+  const handleDeleteCoin = async () => {
+    setDeleteLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/collections/${collectionId}/coins/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setNotification({
+          show: true,
+          message: 'Coin removed from collection successfully!',
+          type: 'success'
+        });
+        setShowDeleteModal(false);
+        // Reindirizza alla collezione dopo un breve delay
+        setTimeout(() => {
+          router.push(`/collection-detail?id=${collectionId}`);
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error removing the coin');
+      }
+    } catch (error) {
+      console.error('Error removing coin:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Error removing coin from collection',
+        type: 'error'
+      });
+      setDeleteLoading(false);
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     }
   };
 
@@ -206,6 +332,197 @@ const CoinDetail = () => {
 
   const handleZoomClose = () => {
     setIsZoomed(false);
+  };
+
+  // Funzioni per l'upload delle immagini
+  const handleImageEdit = () => {
+    setShowImageEditModal(true);
+  };
+
+  const handleImageChange = (file, type) => {
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limite
+      setNotification({
+        show: true,
+        message: 'File size must be less than 5MB',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setNotification({
+        show: true,
+        message: 'Please select an image file',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      return;
+    }
+
+    if (type === 'obverse') {
+      setSelectedObverseImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setObversePreview(e.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedReverseImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setReversePreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDrag = (e, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      if (type === 'obverse') setDragActiveObverse(true);
+      else setDragActiveReverse(true);
+    } else if (e.type === "dragleave") {
+      if (type === 'obverse') setDragActiveObverse(false);
+      else setDragActiveReverse(false);
+    }
+  };
+
+  const handleDrop = (e, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (type === 'obverse') setDragActiveObverse(false);
+    else setDragActiveReverse(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageChange(e.dataTransfer.files[0], type);
+    }
+  };
+
+  const removeImage = (type) => {
+    if (type === 'obverse') {
+      setSelectedObverseImage(null);
+      setObversePreview(null);
+      const fileInput = document.getElementById('obverse-upload');
+      if (fileInput) fileInput.value = '';
+    } else {
+      setSelectedReverseImage(null);
+      setReversePreview(null);
+      const fileInput = document.getElementById('reverse-upload');
+      if (fileInput) fileInput.value = '';
+    }
+  };
+
+  const handleImageUpload = async () => {
+    if (!selectedObverseImage && !selectedReverseImage) {
+      setNotification({
+        show: true,
+        message: 'Please select at least one image to upload',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      return;
+    }
+
+    setImageUploadLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      
+      if (selectedObverseImage) {
+        formData.append('obverse', selectedObverseImage);
+      }
+      if (selectedReverseImage) {
+        formData.append('reverse', selectedReverseImage);
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${id}/images`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCoin(data.coin);
+        setShowImageEditModal(false);
+        setSelectedObverseImage(null);
+        setSelectedReverseImage(null);
+        setObversePreview(null);
+        setReversePreview(null);
+        
+        // Ricarica completamente i dati per assicurarsi che tutto sia aggiornato
+        fetchCoinDetails();
+        
+        setNotification({
+          show: true,
+          message: 'Images updated successfully!',
+          type: 'success'
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.msg || 'Error updating images');
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Error uploading images. Please try again.',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    } finally {
+      setImageUploadLoading(false);
+    }
+  };
+
+  const handleImageReset = async () => {
+    setImageResetLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/${id}/images`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCoin(data.coin);
+        setShowImageEditModal(false);
+        setSelectedObverseImage(null);
+        setSelectedReverseImage(null);
+        setObversePreview(null);
+        setReversePreview(null);
+        
+        // Ricarica completamente i dati per assicurarsi che tutto sia aggiornato
+        fetchCoinDetails();
+        
+        setNotification({
+          show: true,
+          message: 'Images reset to catalog defaults successfully!',
+          type: 'success'
+        });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.msg || 'Error resetting images');
+      }
+    } catch (error) {
+      console.error('Error resetting images:', error);
+      setNotification({
+        show: true,
+        message: error.message || 'Error resetting images. Please try again.',
+        type: 'error'
+      });
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    } finally {
+      setImageResetLoading(false);
+    }
   };
 
   // Handle back navigation while preserving filters
@@ -370,16 +687,29 @@ const CoinDetail = () => {
                 )}
                 
                 {isFromCollection && collectionData && (
-                  <Link 
-                    href={`/collection-detail?id=${collectionId}`}
-                    className="mt-4 md:mt-0 bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2.5 rounded-full flex items-center transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-1 border border-yellow-500 font-medium cursor-pointer"
-                  >
-                    <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back to Collection
-                </Link>
-              )}
+                  <div className="flex items-center space-x-3 mt-4 md:mt-0">
+                    <Link 
+                      href={`/collection-detail?id=${collectionId}`}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2.5 rounded-full flex items-center transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-1 border border-yellow-500 font-medium cursor-pointer"
+                    >
+                      <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                      </svg>
+                      Back to Collection
+                    </Link>
+                    
+                    {/* Icona per eliminare la moneta */}
+                    <button 
+                      onClick={() => setShowDeleteModal(true)}
+                      className="bg-red-100 hover:bg-red-200 text-red-600 p-2.5 rounded-full transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-1 cursor-pointer"
+                      title="Remove coin from collection"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
 
               {!isFromCollection && user && (
                 <button 
@@ -421,15 +751,28 @@ const CoinDetail = () => {
                   {/* Images Section */}
                   <div>
                     <div className="bg-white rounded-2xl p-6 shadow-lg h-auto border border-gray-100 hover:border-yellow-200 transition-all duration-300">
-                      <h2 className="text-2xl font-bold text-yellow-600 mb-6">
-                        Coin Images
-                      </h2>
+                      <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-yellow-600">
+                          Coin Images
+                        </h2>
+                        {user && (
+                          <button
+                            onClick={handleImageEdit}
+                            className="group px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md flex items-center cursor-pointer text-sm font-medium"
+                          >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                            Edit Images
+                          </button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="group relative cursor-pointer aspect-square overflow-hidden rounded-xl bg-white flex items-center justify-center shadow-md border border-gray-100 hover:border-yellow-200 transition-all duration-300"
                           onClick={() => handleImageClick('obverse')}
                         >
                           <Image
-                            src={coin.obverse?.image || '/images/coin-placeholder.jpg'}
+                            src={coin.obverse?.image ? (coin.obverse.image.startsWith('http') ? coin.obverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.obverse.image}`) : '/images/coin-placeholder.jpg'}
                             alt={`Obverse - ${coin.name}`}
                             width={400}
                             height={400}
@@ -446,7 +789,7 @@ const CoinDetail = () => {
                           onClick={() => handleImageClick('reverse')}
                         >
                           <Image
-                            src={coin.reverse?.image || '/images/coin-placeholder.jpg'}
+                            src={coin.reverse?.image ? (coin.reverse.image.startsWith('http') ? coin.reverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.reverse.image}`) : '/images/coin-placeholder.jpg'}
                             alt={`Reverse - ${coin.name}`}
                             width={400}
                             height={400}
@@ -618,9 +961,20 @@ const CoinDetail = () => {
                 {/* Collection Data - Only show if we have collection context and data */}
                 {isFromCollection && (weight || diameter || grade || notes) && (
                   <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-md mt-6 hover:border-yellow-200 transition-all duration-300">
-                    <h2 className="text-2xl font-bold text-yellow-600 mb-6">
-                      Additional Information
-                    </h2>
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold text-yellow-600">
+                        Additional Information
+                      </h2>
+                      <button 
+                        onClick={handleEditCoin}
+                        className="bg-yellow-100 hover:bg-yellow-200 text-yellow-600 p-2.5 rounded-full transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-1 cursor-pointer"
+                        title="Edit coin information"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    </div>
                     <div className="grid grid-cols-2 gap-6">
                       {weight && renderField("Weight", `${weight}g`)}
                       {diameter && renderField("Diameter", `${diameter}mm`)}
@@ -649,6 +1003,165 @@ const CoinDetail = () => {
                 )}
               </div>
             </div>
+
+            {/* Edit Coin Modal */}
+            {showEditModal && (
+              <div 
+                className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowEditModal(false);
+                  }
+                }}
+              >
+                <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl transform animate-fade-in border border-white/20" onClick={e => e.stopPropagation()}>
+                  <div className="p-6 border-b border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Edit Coin in Collection</h2>
+                      <button
+                        onClick={() => setShowEditModal(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <p className="text-gray-600 mt-2">Update the details for "{coin?.name}" in this collection</p>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Weight (g)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editWeight}
+                            onChange={(e) => setEditWeight(e.target.value)}
+                            placeholder="e.g. 3.2"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Diameter (mm)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={editDiameter}
+                            onChange={(e) => setEditDiameter(e.target.value)}
+                            placeholder="e.g. 19.5"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
+                        <select
+                          value={editGrade}
+                          onChange={(e) => setEditGrade(e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        >
+                          <option value="">Select grade...</option>
+                          <option value="Poor (P)">Poor (P)</option>
+                          <option value="Fair (F)">Fair (F)</option>
+                          <option value="Very Good (VG)">Very Good (VG)</option>
+                          <option value="Fine (F)">Fine (F)</option>
+                          <option value="Very Fine (VF)">Very Fine (VF)</option>
+                          <option value="Extremely Fine (EF)">Extremely Fine (EF)</option>
+                          <option value="About Uncirculated (AU)">About Uncirculated (AU)</option>
+                          <option value="Uncirculated (UNC)">Uncirculated (UNC)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Personal Notes</label>
+                        <textarea
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          placeholder="Add notes about the coin, provenance, condition..."
+                          rows={3}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent resize-none"
+                        />
+                      </div>
+
+                      <div className="flex space-x-4 pt-4">
+                        <button
+                          onClick={() => setShowEditModal(false)}
+                          className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveEdit}
+                          disabled={editLoading}
+                          className="flex-1 px-6 py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-xl hover:from-yellow-600 hover:to-amber-600 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                        >
+                          {editLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                              Saving...
+                            </>
+                          ) : (
+                            'Save Changes'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delete Coin Modal */}
+            {showDeleteModal && (
+              <div 
+                className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowDeleteModal(false);
+                  }
+                }}
+              >
+                <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl transform animate-fade-in border border-white/20" onClick={e => e.stopPropagation()}>
+                  <div className="p-6">
+                    <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
+                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 text-center mb-2">Remove Coin from Collection</h3>
+                    <p className="text-gray-600 text-center mb-6">
+                      Are you sure you want to remove "{coin?.name}" from "{collectionData?.name}"? This action cannot be undone.
+                    </p>
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={() => setShowDeleteModal(false)}
+                        className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleDeleteCoin}
+                        disabled={deleteLoading}
+                        className="flex-1 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                      >
+                        {deleteLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                            Removing...
+                          </>
+                        ) : (
+                          'Remove Coin'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Add to Collection Modal */}
             {showAddToCollection && (
@@ -817,7 +1330,10 @@ const CoinDetail = () => {
                   </button>
                   <div className="flex items-center justify-center bg-white rounded-lg p-6 shadow-inner">
                     <Image
-                      src={activeImage === 'obverse' ? coin.obverse?.image || '/images/coin-placeholder.jpg' : coin.reverse?.image || '/images/coin-placeholder.jpg'}
+                      src={activeImage === 'obverse' 
+                        ? (coin.obverse?.image ? (coin.obverse.image.startsWith('http') ? coin.obverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.obverse.image}`) : '/images/coin-placeholder.jpg')
+                        : (coin.reverse?.image ? (coin.reverse.image.startsWith('http') ? coin.reverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.reverse.image}`) : '/images/coin-placeholder.jpg')
+                      }
                       alt={`${activeImage === 'obverse' ? 'Obverse' : 'Reverse'} - ${coin.name}`}
                       width={800}
                       height={800}
@@ -827,6 +1343,235 @@ const CoinDetail = () => {
                   </div>
                   <div className="mt-4 text-center text-sm text-gray-700 font-medium bg-gray-50 py-2 rounded-lg">
                     {activeImage === 'obverse' ? 'Obverse' : 'Reverse'} view of {coin.name}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Image Edit Modal */}
+            {showImageEditModal && (
+              <div 
+                className="fixed inset-0 backdrop-blur-sm bg-white/20 z-50 flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setShowImageEditModal(false);
+                  }
+                }}
+              >
+                <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl transform animate-fade-in border border-white/20" onClick={e => e.stopPropagation()}>
+                  <div className="p-6 border-b border-gray-100">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Edit Coin Images</h2>
+                      <button
+                        onClick={() => setShowImageEditModal(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <p className="text-gray-600 mt-2">Upload custom images for "{coin?.name}". These will replace the original images for you.</p>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Obverse Upload */}
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Obverse (Front)</h3>
+                        
+                        {/* Current or Preview Image */}
+                        {(obversePreview || coin?.obverse?.image) && (
+                          <div className="mb-4 p-4 bg-gray-50 rounded-xl">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-gray-700">
+                                {obversePreview ? 'New Image Preview' : 'Current Image'}
+                              </p>
+                              {obversePreview && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage('obverse')}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                              <Image
+                                src={obversePreview || (coin.obverse?.image.startsWith('http') ? coin.obverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.obverse.image}`)}
+                                alt="Obverse preview"
+                                width={400}
+                                height={192}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            {selectedObverseImage && (
+                              <p className="text-sm text-gray-600 mt-2">
+                                New: {selectedObverseImage.name} ({(selectedObverseImage.size / 1024 / 1024).toFixed(2)} MB)
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Upload Area */}
+                        <div 
+                          className={`flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${
+                            dragActiveObverse 
+                              ? 'border-yellow-400 bg-yellow-50' 
+                              : 'border-gray-300 hover:border-yellow-400'
+                          }`}
+                          onDragEnter={(e) => handleDrag(e, 'obverse')}
+                          onDragLeave={(e) => handleDrag(e, 'obverse')}
+                          onDragOver={(e) => handleDrag(e, 'obverse')}
+                          onDrop={(e) => handleDrop(e, 'obverse')}
+                          onClick={() => document.getElementById('obverse-upload').click()}
+                        >
+                          <div className="space-y-1 text-center">
+                            <svg className={`mx-auto h-12 w-12 ${dragActiveObverse ? 'text-yellow-500' : 'text-gray-400'}`} stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium text-yellow-600 hover:text-yellow-500">Upload obverse image</span>
+                              <p>or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                            {dragActiveObverse && (
+                              <p className="text-sm text-yellow-600 font-medium">Drop your image here!</p>
+                            )}
+                          </div>
+                          <input
+                            id="obverse-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageChange(e.target.files[0], 'obverse')}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Reverse Upload */}
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Reverse (Back)</h3>
+                        
+                        {/* Current or Preview Image */}
+                        {(reversePreview || coin?.reverse?.image) && (
+                          <div className="mb-4 p-4 bg-gray-50 rounded-xl">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-gray-700">
+                                {reversePreview ? 'New Image Preview' : 'Current Image'}
+                              </p>
+                              {reversePreview && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage('reverse')}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <div className="w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                              <Image
+                                src={reversePreview || (coin.reverse?.image.startsWith('http') ? coin.reverse.image : `${process.env.NEXT_PUBLIC_API_URL}${coin.reverse.image}`)}
+                                alt="Reverse preview"
+                                width={400}
+                                height={192}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                            {selectedReverseImage && (
+                              <p className="text-sm text-gray-600 mt-2">
+                                New: {selectedReverseImage.name} ({(selectedReverseImage.size / 1024 / 1024).toFixed(2)} MB)
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Upload Area */}
+                        <div 
+                          className={`flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-colors cursor-pointer ${
+                            dragActiveReverse 
+                              ? 'border-yellow-400 bg-yellow-50' 
+                              : 'border-gray-300 hover:border-yellow-400'
+                          }`}
+                          onDragEnter={(e) => handleDrag(e, 'reverse')}
+                          onDragLeave={(e) => handleDrag(e, 'reverse')}
+                          onDragOver={(e) => handleDrag(e, 'reverse')}
+                          onDrop={(e) => handleDrop(e, 'reverse')}
+                          onClick={() => document.getElementById('reverse-upload').click()}
+                        >
+                          <div className="space-y-1 text-center">
+                            <svg className={`mx-auto h-12 w-12 ${dragActiveReverse ? 'text-yellow-500' : 'text-gray-400'}`} stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium text-yellow-600 hover:text-yellow-500">Upload reverse image</span>
+                              <p>or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                            {dragActiveReverse && (
+                              <p className="text-sm text-yellow-600 font-medium">Drop your image here!</p>
+                            )}
+                          </div>
+                          <input
+                            id="reverse-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageChange(e.target.files[0], 'reverse')}
+                            className="hidden"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex space-x-3 pt-6 mt-6 border-t border-gray-200">
+                      <button
+                        onClick={() => setShowImageEditModal(false)}
+                        className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleImageReset}
+                        disabled={imageResetLoading || imageUploadLoading}
+                        className="flex-1 px-6 py-3 border border-red-300 text-red-700 rounded-xl hover:bg-red-50 hover:border-red-400 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                      >
+                        {imageResetLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-red-600 border-t-transparent mr-2"></div>
+                            Resetting...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                            </svg>
+                            Reset to Catalog
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleImageUpload}
+                        disabled={imageUploadLoading || imageResetLoading || (!selectedObverseImage && !selectedReverseImage)}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-xl hover:from-yellow-600 hover:to-amber-600 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                      >
+                        {imageUploadLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            Save Images
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -23,7 +23,7 @@ const Custom404 = () => {
         
         <button
           onClick={() => router.push('/')}
-          className="px-8 py-4 bg-yellow-500 text-black font-semibold rounded-xl hover:bg-yellow-400 transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+          className="group px-8 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
         >
           Return to Home
         </button>

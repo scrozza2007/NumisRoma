@@ -604,7 +604,7 @@ const Messages = () => {
                         <button
                           onClick={sendMessage}
                           disabled={!newMessage.trim()}
-                          className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center cursor-pointer"
+                          className="group px-6 py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center cursor-pointer"
                         >
                           Send
                           <svg className="w-5 h-5 ml-2 transform rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">

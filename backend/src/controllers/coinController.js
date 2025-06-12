@@ -1,5 +1,7 @@
 const Coin = require('../models/Coin');
+const CoinCustomImage = require('../models/CoinCustomImage');
 const { validationResult } = require('express-validator');
+const { deleteImage } = require('../../middleware/upload');
 
 // Aggiunge una nuova moneta
 exports.createCoin = async (req, res) => {
@@ -130,6 +132,39 @@ exports.getCoinById = async (req, res) => {
       return res.status(404).json({ msg: 'Moneta non trovata' });
     }
 
+    // Se l'utente è autenticato, controlla se ha immagini personalizzate
+    if (req.user) {
+      try {
+        const customImages = await CoinCustomImage.findOne({
+          coinId: req.params.id,
+          userId: req.user.userId
+        });
+
+        if (customImages) {
+          // Sostituisci le immagini con quelle personalizzate se esistono
+          const coinWithCustomImages = coin.toObject();
+          if (customImages.obverseImage) {
+            coinWithCustomImages.obverse = {
+              ...coinWithCustomImages.obverse,
+              image: customImages.obverseImage
+            };
+            console.log('Using custom obverse image:', customImages.obverseImage);
+          }
+          if (customImages.reverseImage) {
+            coinWithCustomImages.reverse = {
+              ...coinWithCustomImages.reverse,
+              image: customImages.reverseImage
+            };
+            console.log('Using custom reverse image:', customImages.reverseImage);
+          }
+          return res.json(coinWithCustomImages);
+        }
+      } catch (customError) {
+        console.error('Error fetching custom images:', customError);
+        // Continua con le immagini originali se c'è un errore
+      }
+    }
+
     res.json(coin);
   } catch (error) {
     console.error(error.message);
@@ -137,5 +172,111 @@ exports.getCoinById = async (req, res) => {
       return res.status(404).json({ msg: 'Moneta non trovata' });
     }
     res.status(500).send('Errore del server');
+  }
+};
+
+// Aggiorna le immagini personalizzate di una moneta
+exports.updateCoinImages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Verifica che la moneta esista
+    const coin = await Coin.findById(id);
+    if (!coin) {
+      return res.status(404).json({ msg: 'Coin not found' });
+    }
+
+    // Trova o crea il record delle immagini personalizzate
+    let customImages = await CoinCustomImage.findOne({ coinId: id, userId });
+    
+    if (!customImages) {
+      customImages = new CoinCustomImage({ coinId: id, userId });
+    }
+
+    // Elimina le vecchie immagini se esistono e vengono sostituite
+    if (req.processedImages.obverse && customImages.obverseImage) {
+      deleteImage(customImages.obverseImage);
+    }
+    if (req.processedImages.reverse && customImages.reverseImage) {
+      deleteImage(customImages.reverseImage);
+    }
+
+    // Aggiorna con le nuove immagini
+    if (req.processedImages.obverse) {
+      customImages.obverseImage = req.processedImages.obverse.path;
+      console.log('Saved obverse image path:', req.processedImages.obverse.path);
+    }
+    if (req.processedImages.reverse) {
+      customImages.reverseImage = req.processedImages.reverse.path;
+      console.log('Saved reverse image path:', req.processedImages.reverse.path);
+    }
+
+    await customImages.save();
+
+    // Restituisce la moneta con le immagini aggiornate
+    const updatedCoin = coin.toObject();
+    if (customImages.obverseImage) {
+      updatedCoin.obverse = {
+        ...updatedCoin.obverse,
+        image: customImages.obverseImage
+      };
+    }
+    if (customImages.reverseImage) {
+      updatedCoin.reverse = {
+        ...updatedCoin.reverse,
+        image: customImages.reverseImage
+      };
+    }
+
+    res.json({
+      msg: 'Coin images updated successfully',
+      coin: updatedCoin
+    });
+  } catch (error) {
+    console.error('Error updating coin images:', error);
+    res.status(500).json({ msg: 'Server error during image update' });
+  }
+};
+
+// Resetta le immagini personalizzate di una moneta (torna a quelle del catalogo)
+exports.resetCoinImages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    // Verifica che la moneta esista
+    const coin = await Coin.findById(id);
+    if (!coin) {
+      return res.status(404).json({ msg: 'Coin not found' });
+    }
+
+    // Trova il record delle immagini personalizzate
+    const customImages = await CoinCustomImage.findOne({ coinId: id, userId });
+    
+    if (customImages) {
+      // Elimina i file fisici
+      if (customImages.obverseImage) {
+        deleteImage(customImages.obverseImage);
+        console.log('Deleted custom obverse image:', customImages.obverseImage);
+      }
+      if (customImages.reverseImage) {
+        deleteImage(customImages.reverseImage);
+        console.log('Deleted custom reverse image:', customImages.reverseImage);
+      }
+
+      // Elimina il record dal database
+      await CoinCustomImage.deleteOne({ coinId: id, userId });
+      console.log('Deleted custom images record for coin:', id, 'user:', userId);
+    }
+
+    // Restituisce la moneta con le immagini originali del catalogo
+    res.json({
+      msg: 'Coin images reset to catalog defaults successfully',
+      coin: coin
+    });
+  } catch (error) {
+    console.error('Error resetting coin images:', error);
+    res.status(500).json({ msg: 'Server error during image reset' });
   }
 };

@@ -225,7 +225,7 @@ const DeleteAccount = () => {
             <button 
               type="button"
               onClick={handleCancel}
-              className="w-full bg-gray-200 text-gray-800 py-3.5 rounded-xl hover:bg-gray-300 transition-all duration-200 transform hover:scale-[1.02] font-medium"
+              className="group w-full bg-gray-200 text-gray-800 py-3.5 rounded-xl hover:bg-gray-300 transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
             >
               Cancel
             </button>
@@ -233,8 +233,8 @@ const DeleteAccount = () => {
             <button 
               type="submit"
               disabled={!password || !isConfirmed || isSubmitting}
-              className={`w-full py-3.5 rounded-xl transition-all duration-200 transform hover:scale-[1.02] font-medium flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed
-                ${!password || !isConfirmed || isSubmitting ? 'bg-red-300 text-white' : 'bg-red-600 text-white hover:bg-red-700'}`}
+              className={`group w-full py-3.5 rounded-xl transition-all duration-200 transform hover:scale-105 font-medium flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed
+                ${!password || !isConfirmed || isSubmitting ? 'bg-red-300 text-white' : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 shadow-lg hover:shadow-xl'}`}
             >
               {isSubmitting ? (
                 <>
