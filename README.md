@@ -39,7 +39,7 @@
 ### Community
 - 👤 Follow / unfollow collectors
 - 📰 Activity feed per user
-- 💬 Direct messaging with conversation threads and unread counts
+- 💬 End-to-end encrypted direct messaging (Signal Protocol — X3DH + Double Ratchet)
 - 🔎 User search
 
 ### Auth & Security
@@ -220,6 +220,14 @@ See `backend/.env.example` and `.env.example` for the full list.
 - JWT access tokens (15 min) + rotating refresh tokens (7 days)
 - Tokens stored as httpOnly cookies, never exposed to JS
 - Max 5 concurrent sessions per user
+
+✅ **End-to-End Encrypted Messaging**
+- Signal Protocol: X3DH key exchange + Double Ratchet algorithm
+- Private keys stored exclusively in IndexedDB — never in Web Storage or on the server
+- Server stores only opaque ciphertext; cannot read any message content
+- Per-message forward secrecy via HMAC-SHA-256 chain key ratchet (KDF_CK)
+- Password-protected key backup with Argon2id + AES-GCM-256
+- Safety numbers via BLAKE2b for out-of-band identity verification
 
 ✅ **CSRF Protection**
 - Double-submit cookie pattern (`csrf-csrf`)

@@ -86,8 +86,8 @@ Copy `frontend/.env.example`. Key variable:
 ### Backend (`backend/src/`)
 Standard Express MVC layout:
 - **`routes/`** — thin route files that apply rate limiting and wire controllers; includes `health.js` (liveness/readiness) and `cache.js` (admin cache-flush, requires `ADMIN_API_KEY`)
-- **`controllers/`** — business logic; one file per domain (auth, coins, collections, users, messages, sessions, contact, notifications)
-- **`models/`** — Mongoose schemas (Coin, Collection, User, Session, Message, Conversation, Follow, Notification, Chat, Contact, CoinCustomImage)
+- **`controllers/`** — business logic; one file per domain (auth, coins, collections, users, messages, sessions, contact, notifications, e2ee)
+- **`models/`** — Mongoose schemas (Coin, Collection, User, Session, Message, Conversation, Follow, Notification, Contact, CoinCustomImage, DeviceIdentity, PreKeyBundle)
 - **`utils/sseEmitter.js`** — singleton `EventEmitter` (max 1000 listeners) used by the notification SSE stream; keyed on `user:<userId>`
 - **`middlewares/`** — security (helmet/rate-limit), auth (JWT), CSRF, upload (multer/sharp), request ID, timeout, logging, error handler, `adminMiddleware.js` (API-key guard for admin routes), `enhancedValidation.js`
 - **`utils/cache.js`** — Redis-backed cache with automatic in-memory fallback; used via `cacheHelpers` (coins, collections, users, search, filters) and `cacheMiddleware` for HTTP routes
@@ -112,11 +112,20 @@ Standard Express MVC layout:
 
 **Observability**: Sentry is initialised before any other `require` in `index.js` so it can instrument built-in Node modules. Prometheus metrics are collected by default (`numisroma_` prefix) and scraped from `GET /metrics`.
 
+**E2EE messaging**: Signal Protocol (X3DH + Double Ratchet) implemented entirely client-side.
+- `DeviceIdentity` — stores Ed25519 identity key (signing) and X25519 DH identity key (public only)
+- `PreKeyBundle` — signed pre-key + one-time pre-keys; OTPKs are consumed atomically (one per X3DH handshake)
+- `GET /api/e2ee/pre-keys/:userId` — fetches a bundle and marks one OTPK as used; returns `X-OTPK-Remaining` header
+- `POST /api/e2ee/pre-keys/replenish` — upload new OTPKs when supply is low
+- Private keys never leave the client; the `encryptedKeyBundle` stored server-side is an Argon2id+AES-GCM blob — opaque to the server
+- Ratchet sessions stored in IndexedDB `ratchet` store keyed by conversation ID; messages cached in `messages` store keyed by message ID (decrypt-once)
+
 ### Frontend (`frontend/`)
 Next.js **Pages Router** (not App Router). Key patterns:
 - **`utils/apiClient.js`** — central fetch wrapper; attaches `credentials: 'include'`, CSRF token on mutating requests; throws `ApiError` with `.status`, `.details`, `.code`; auto-retries once on `CSRF_INVALID` 403
 - **`utils/csrf.js`** — CSRF token fetch-once / cache / invalidate helpers consumed by `apiClient.js`
-- **`context/AuthContext.js`** — global auth state (token + user in localStorage); exposes login/logout, session management, profile/password/username changes
+- **`utils/e2ee.js`** — complete Signal Protocol implementation: X3DH, Double Ratchet, key generation, IDB persistence, safety numbers
+- **`context/AuthContext.js`** — global auth state; exposes `e2eeReady` + `initE2EE(password)` for E2EE lifecycle; login calls `initE2EE` with the plaintext password to generate or restore the identity bundle
 - **`components/`** — Layout, Navbar, AutocompleteDropdown, CustomDropdown, PeriodRangeSlider, NotificationToast, ErrorBoundary; sub-folders under `components/profile/` and `components/settings/`
 - Styled with **Tailwind CSS v4**
 

@@ -23,15 +23,17 @@
     "cypress:run": "cypress run"
   },
   "dependencies": {
+    "@noble/ciphers": "^0.5.3",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
     "@tailwindcss/postcss": "^4.1.16",
+    "hash-wasm": "^4.11.0",
     "next": "^16.2.4",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "swr": "^2.4.1",
-    "tailwindcss": "^4.1.16",
-    "tweetnacl": "^1.0.3",
-    "tweetnacl-util": "^0.15.1"
+    "tailwindcss": "^4.1.16"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

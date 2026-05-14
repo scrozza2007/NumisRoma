@@ -28,6 +28,7 @@ const contactRoutes = require('./routes/contact');
 const sessionRoutes = require('./routes/sessions');
 const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
+const e2eeRoutes = require('./routes/e2ee');
 const healthRoutes = require('./routes/health');
 const cacheRoutes = require('./routes/cache');
 const logger = require('./utils/logger');
@@ -228,6 +229,7 @@ apiV1.use('/users', userRoutes);
 apiV1.use('/sessions', sessionRoutes);
 apiV1.use('/messages', messageRoutes);
 apiV1.use('/notifications', notificationRoutes);
+apiV1.use('/e2ee', e2eeRoutes);
 apiV1.use('/cache', cacheRoutes);
 apiV1.get('/csrf-token', csrfTokenHandler);
 

@@ -8,7 +8,19 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
       "Bash(curl -s http://localhost:4000/health)",
       "Bash(docker build *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in {**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}.items\\(\\) if 'noble' in k or 'sodium' in k or 'nacl' in k or 'argon' in k or 'crypto' in k}, indent=2\\)\\)\")",
+      "Bash(node -e \"require\\('@noble/curves'\\); console.log\\('noble curves ok'\\)\")",
+      "Bash(node -e \"require\\('@noble/hashes'\\); console.log\\('noble hashes ok'\\)\")",
+      "Bash(node -e \"require\\('argon2-browser'\\); console.log\\('argon2 ok'\\)\")",
+      "Bash(node -e \"require\\('./src/index.js'\\)\")",
+      "Bash(kill %1)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"require\\('hash-wasm'\\)\")",
+      "Bash(node -e \"const {x25519} = require\\('@noble/curves/ed25519'\\); console.log\\(typeof x25519.getPublicKey\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(git -C /Users/samuelefenu/Documents/GitHub/numisroma diff HEAD -- backend/src/routes/e2ee.js)",
+      "Bash(git -C /Users/samuelefenu/Documents/GitHub/numisroma status)"
     ]
   }
 }

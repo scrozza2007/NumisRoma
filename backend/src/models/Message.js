@@ -11,23 +11,26 @@ const MessageSchema = new Schema({
     ref: 'User',
     required: true
   },
+  // Signal Protocol v2 encrypted payload — opaque to the server.
+  // Format: { v:2, header:{dh_pub,n,pn}, ciphertext:b64, x3dh?:{...} }
+  encryptedPayload: {
+    type: String,
+    maxlength: [12000, 'Encrypted payload too large']
+  },
+  // Plaintext content — only used for the plaintext fallback path
+  // when the recipient has not yet registered E2EE keys.
   content: {
     type: String,
     trim: true,
     maxlength: [8000, 'Message content cannot exceed 8000 characters']
   },
-  // Present when isEncrypted is true — base64-encoded 24-byte NaCl nonce.
-  nonce: {
-    type: String,
-    default: null
-  },
   isEncrypted: {
     type: Boolean,
-    default: false
+    default: true
   },
   messageType: {
     type: String,
-    enum: ['text', 'image'],
+    enum: ['text', 'image', 'file'],
     default: 'text'
   },
   imageUrl: {
@@ -50,13 +53,12 @@ const MessageSchema = new Schema({
   }
 }, { timestamps: true });
 
-// Indexes to optimize common query paths:
-//  - list messages in a conversation (chronological)
-//  - count/load messages a user sent (profile delete, reports)
-//  - mark-as-read / unread-count filters that include `isDeleted` and
-//    `sender` alongside the conversation id
 MessageSchema.index({ conversation: 1, createdAt: -1 });
 MessageSchema.index({ sender: 1 });
 MessageSchema.index({ conversation: 1, sender: 1, isDeleted: 1 });
+MessageSchema.index(
+  { conversation: 1, 'readBy.user': 1, sender: 1 },
+  { partialFilterExpression: { isDeleted: false } }
+);
 
 module.exports = model('Message', MessageSchema);
