@@ -101,7 +101,9 @@ export const AuthProvider = ({ children }) => {
     if (userData.avatar && typeof userData.avatar === 'string') {
       sanitized.avatar = String(userData.avatar).slice(0, 500);
     }
-    
+
+    sanitized.hasPassword = Boolean(userData.hasPassword);
+
     // Ensure at least _id or id exists
     if (!sanitized._id && !sanitized.id) {
       return null;

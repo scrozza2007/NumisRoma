@@ -77,11 +77,12 @@ router.post(
 );
 
 // Delete account route
+// Password is optional for OAuth-only accounts (they have no local password)
 router.post(
   '/delete-account',
   authMiddleware,
   [
-    body('password').notEmpty().withMessage('Password is required')
+    body('password').optional().isString()
   ],
   deleteAccount
 );
@@ -186,11 +187,16 @@ router.post('/check-email', authMiddleware, async (req, res) => {
 // Protected route: returns all user data (without password)
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const [user, passwordCheck] = await Promise.all([
+      User.findById(req.user.userId).select('-password'),
+      User.findById(req.user.userId).select('password').lean()
+    ]);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+    const userData = user.toObject();
+    userData.hasPassword = Boolean(passwordCheck?.password);
+    res.json(userData);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -216,6 +222,10 @@ router.post('/verify-password', authMiddleware, async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) {
       return dual(404, 'User not found');
+    }
+
+    if (!user.password) {
+      return dual(400, 'Your account uses social sign-in and has no local password');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);

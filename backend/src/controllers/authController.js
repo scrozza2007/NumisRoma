@@ -385,10 +385,16 @@ exports.changePassword = async (req, res) => {
       });
     }
 
-    // Fetch only the current hash so verification doesn't load the whole doc.
     const user = await User.findById(userId).select('password').lean();
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({
+        error: 'Your account uses social sign-in and has no local password. Set a password from your account settings.',
+        code: 'NO_LOCAL_PASSWORD'
+      });
     }
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);
@@ -615,9 +621,17 @@ exports.deleteAccount = async (req, res) => {
       return { notFound: true };
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return { invalidPassword: true };
+    // OAuth-only users have no local password — skip password verification.
+    // Users with a local password must always confirm it.
+    const hasLocalPassword = Boolean(user.password);
+    if (hasLocalPassword) {
+      if (!password) {
+        return { invalidPassword: true };
+      }
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return { invalidPassword: true };
+      }
     }
 
     const participatingConversations = await Conversation.find(

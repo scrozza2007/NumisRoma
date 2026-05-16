@@ -20,6 +20,9 @@ const { requestLogger, accessLogger, errorLogger, dbLogger } = require('./middle
 const { doubleCsrfProtection, csrfErrorHandler, csrfTokenHandler } = require('./middlewares/csrf');
 const { requestIdMiddleware } = require('./middlewares/requestId');
 const { requestTimeoutMiddleware } = require('./middlewares/requestTimeout');
+const passport = require('passport');
+const { initPassport } = require('./controllers/oauthController');
+const oauthRoutes = require('./routes/oauth');
 const authRoutes = require('./routes/auth');
 const coinRoutes = require('./routes/coins');
 const collectionRoutes = require('./routes/collections');
@@ -35,6 +38,9 @@ const logger = require('./utils/logger');
 
 // Fail-fast env validation — must run before anything reads these.
 validateEnv();
+
+// Register Passport OAuth strategies (only strategies with env vars present are activated)
+initPassport();
 
 const app = express();
 
@@ -134,6 +140,9 @@ app.use(express.urlencoded({ extended: true, limit: JSON_BODY_LIMIT }));
 // Must be mounted BEFORE any middleware that reads req.cookies.
 app.use(cookieParser());
 
+// Passport — stateless (session: false); used only for OAuth provider round-trips.
+app.use(passport.initialize());
+
 // CSRF protection (double-submit cookie). Internally skipped when the request
 // has no auth cookie (Authorization-header or anonymous clients), since those
 // flows are not CSRF-vulnerable. See middlewares/csrf.js.
@@ -222,6 +231,7 @@ const { Router } = require('express');
 const apiV1 = Router();
 
 apiV1.use('/auth', authLimiter, authRoutes);
+apiV1.use('/auth/oauth', authLimiter, oauthRoutes);
 apiV1.use('/contact', contactLimiter, contactRoutes);
 apiV1.use('/coins', coinRoutes);
 apiV1.use('/collections', collectionRoutes);

@@ -17,8 +17,17 @@ const UserSchema = new Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: false,
     minlength: [8, 'Password must be at least 8 characters']
+  },
+  // OAuth providers linked to this account.
+  // Each entry: { provider: 'google'|'apple'|'facebook', providerId: String }
+  oauthProviders: {
+    type: [{
+      provider: { type: String, enum: ['google', 'apple', 'facebook'], required: true },
+      providerId: { type: String, required: true }
+    }],
+    default: []
   },
   fullName: {
     type: String,
@@ -83,6 +92,7 @@ const UserSchema = new Schema({
 // Indexes for performance
 // Use separate unique indexes instead of compound - more efficient for MongoDB
 UserSchema.index({ username: 1 }, { unique: true });
+UserSchema.index({ 'oauthProviders.provider': 1, 'oauthProviders.providerId': 1 }, { sparse: true });
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ fullName: 'text' }); // Text index for search
 UserSchema.index({ createdAt: -1 }); // For sorting by registration date

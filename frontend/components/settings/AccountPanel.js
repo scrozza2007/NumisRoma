@@ -281,8 +281,8 @@ export default function AccountPanel({ onSuccess }) {
         </div>
       </div>
 
-      {/* Change Password */}
-      <div>
+      {/* Change Password — hidden for OAuth-only accounts */}
+      {user.hasPassword && <div>
         <SectionHeader title="Change Password" />
         {passwordErrors.general && (
           <div className="mb-4 p-3.5 rounded-md flex items-start gap-3 text-sm" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
@@ -355,7 +355,7 @@ export default function AccountPanel({ onSuccess }) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Account Actions */}
       <div>

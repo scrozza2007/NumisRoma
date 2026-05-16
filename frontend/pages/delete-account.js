@@ -62,7 +62,7 @@ const DeleteAccount = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!password) { setError('Password is required to delete your account.'); return; }
+    if (user.hasPassword && !password) { setError('Password is required to delete your account.'); return; }
     setIsSubmitting(true);
     setError('');
     try {
@@ -116,20 +116,28 @@ const DeleteAccount = () => {
               <p className="mt-1.5 font-sans text-xs text-text-muted">Your feedback helps us improve.</p>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Password</label>
-              <input
-                type="password" id="password" placeholder="Enter your current password"
-                value={password} onChange={e => setPassword(e.target.value)} required
-                className={`w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none transition-colors duration-150 text-text-primary focus:border-amber ${error ? 'border border-[#fecaca]' : 'border border-border'}`}
-              />
-              {error && (
-                <p className="mt-1.5 font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                  {error}
-                </p>
-              )}
-            </div>
+            {user.hasPassword && (
+              <div>
+                <label htmlFor="password" className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Password</label>
+                <input
+                  type="password" id="password" placeholder="Enter your current password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none transition-colors duration-150 text-text-primary focus:border-amber ${error ? 'border border-[#fecaca]' : 'border border-border'}`}
+                />
+                {error && (
+                  <p className="mt-1.5 font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    {error}
+                  </p>
+                )}
+              </div>
+            )}
+            {!user.hasPassword && error && (
+              <p className="font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {error}
+              </p>
+            )}
 
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -149,7 +157,7 @@ const DeleteAccount = () => {
                 Cancel
               </button>
               <button
-                type="submit" disabled={!password || !isConfirmed || isSubmitting}
+                type="submit" disabled={(user.hasPassword && !password) || !isConfirmed || isSubmitting}
                 className="flex-1 py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 rounded-md text-white transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: semantic.error.text }}
               >
