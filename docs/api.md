@@ -198,10 +198,42 @@ Content-Type: application/json
 
 The coin catalog is read-only for regular users. Admins can create entries.
 
+Coin IDs are string slugs (e.g. `ric_2_1(2)_dom_1`), not MongoDB ObjectIds.
+
+### Coin schema (key fields)
+
+```json
+{
+  "_id": "ric_2_1(2)_dom_1",
+  "title": { "en": "Denarius of Domitian" },
+  "authority": { "issuer": "domitian", "dynasty": "flavian" },
+  "classification": { "denomination": "denarius", "material": "silver", "mint": "rome" },
+  "coinage": { "date": { "from": 81, "to": 96 } },
+  "reference": { "system": "RIC", "series": "2", "number": 1, "suffix": "(2)" },
+  "references": [],
+  "descriptions": {
+    "obverse": { "legend": "...", "type": "...", "portrait": "..." },
+    "reverse": { "legend": "...", "type": "...", "portrait": "..." }
+  },
+  "images": [
+    {
+      "index": 0,
+      "layout": "split",
+      "license": "CC BY-SA 4.0",
+      "copyright_holder": "...",
+      "files": { "obverse": "https://...", "reverse": "https://..." }
+    }
+  ],
+  "subjects": ["victory", "eagle"]
+}
+```
+
+BC years are stored as negative integers in `coinage.date.from` / `.to`.
+
 ### List / search coins
 
 ```http
-GET /api/coins?emperor=Augustus&material=silver&period=Republic&startYear=-100&endYear=100&limit=20&page=1&search=denarius
+GET /api/coins?issuer=domitian&material=silver&denomination=denarius&mint=rome&startYear=-100&endYear=200&limit=20&page=1&search=denarius
 ```
 
 All query parameters are optional. BC years are negative integers.
@@ -214,8 +246,7 @@ Returns `{ coins: [...], total, page, pages }`.
 GET /api/coins/:id
 ```
 
-Public. Returns the full coin document. If the authenticated user has uploaded
-custom images for this coin, the response includes a `hasCustomImages` flag.
+`:id` is a string slug. Public endpoint. Returns the full coin document.
 
 ### Get random coins
 
@@ -374,8 +405,16 @@ POST /api/collections/:collectionId/coins
 Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "coin": "<coinId>" }
+{
+  "coin": "<coinSlugId>",
+  "weight": 3.2,
+  "diameter": 19.5,
+  "grade": "Very Fine (VF)",
+  "notes": "..."
+}
 ```
+
+`coin` is the string slug ID of the catalog coin (e.g. `ric_2_1(2)_dom_1`). All fields except `coin` are optional.
 
 ### Update coin metadata in a collection
 
@@ -384,8 +423,15 @@ PUT /api/collections/:collectionId/coins/:coinId
 Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "notes": "...", "acquisitionDate": "..." }
+{
+  "weight": 3.2,
+  "diameter": 19.5,
+  "grade": "Extremely Fine (EF)",
+  "notes": "..."
+}
 ```
+
+All fields optional; only provided fields are updated.
 
 ### Remove a coin from a collection
 

@@ -1,122 +1,117 @@
 const { Schema, model } = require('mongoose');
 
+const ReferenceSchema = new Schema({
+  system: { type: String },
+  series: { type: String },
+  number: { type: Number },
+  suffix: { type: String }
+}, { _id: false });
+
+const ImageFileSchema = new Schema({
+  obverse: { type: String },
+  reverse: { type: String },
+  unified: { type: String }
+}, { _id: false });
+
+const ImageSchema = new Schema({
+  index: { type: Number },
+  layout: { type: String, enum: ['split', 'unified'] },
+  license: { type: String },
+  source: { type: String },
+  copyright_holder: { type: String },
+  files: { type: ImageFileSchema }
+}, { _id: false });
+
 const CoinSchema = new Schema({
-  name: { 
-    type: String, 
-    required: true 
+  // String slug _id (e.g. "ric_9_thes_12a") — overrides default ObjectId
+  _id: { type: String },
+
+  reference: { type: ReferenceSchema },
+  references: { type: [ReferenceSchema], default: [] },
+
+  title: {
+    en: { type: String, required: true }
   },
+
+  coinage: {
+    date: {
+      from: { type: Number, index: true },
+      to:   { type: Number, index: true }
+    }
+  },
+
   authority: {
-    emperor: { type: String, required: true },
+    issuer:  { type: String },
     dynasty: { type: String }
   },
-  description: {
-    date_range: { type: String },
-    mint: { type: String },
-    denomination: { type: String },
-    material: { type: String },
-    notes: { type: String },
-    // Numeric year fields for efficient range queries (prevent ReDoS)
-    startYear: { type: Number, index: true },
-    endYear: { type: Number, index: true }
-  },
-  obverse: {
-    legend: { type: String },
-    type: { type: String },
-    portrait: { type: String },
-    deity: { type: String },
-    image: { type: String },
-    license: { type: String },
-    credits: { type: String }
-  },
-  reverse: {
-    legend: { type: String },
-    type: { type: String },
-    portrait: { type: String },
-    deity: { type: String },
-    mintmark: { type: String },
-    officinamark: { type: String },
-    image: { type: String },
-    license: { type: String },
-    credits: { type: String }
-  }
-}, { timestamps: true });
 
-/**
- * Pre-save hook to automatically populate numeric year fields
- * This ensures new coins have indexed year data for efficient queries
- */
-CoinSchema.pre('save', function(next) {
-  // Only process if date_range is present and year fields are not set
-  if (this.description?.date_range && 
-      (!this.description.startYear || !this.description.endYear)) {
-    
-    const dateRange = this.description.date_range.trim();
-    
-    // Match patterns like "27 BC - 14 AD" or "98-117 AD"
-    const rangeMatch = dateRange.match(/(\d+)\s*(BC|BCE|AD|CE)?\s*[-–]\s*(\d+)\s*(BC|BCE|AD|CE)?/i);
-    if (rangeMatch) {
-      const startNum = parseInt(rangeMatch[1]);
-      const startEra = (rangeMatch[2] || rangeMatch[4] || 'AD').toUpperCase();
-      const endNum = parseInt(rangeMatch[3]);
-      const endEra = (rangeMatch[4] || 'AD').toUpperCase();
-      
-      this.description.startYear = (startEra === 'BC' || startEra === 'BCE') ? -startNum : startNum;
-      this.description.endYear = (endEra === 'BC' || endEra === 'BCE') ? -endNum : endNum;
-    } else {
-      // Match single year like "235 CE" or "98 AD"
-      const singleMatch = dateRange.match(/(\d+)\s*(BC|BCE|AD|CE)?/i);
-      if (singleMatch) {
-        const year = parseInt(singleMatch[1]);
-        const era = (singleMatch[2] || 'AD').toUpperCase();
-        const numYear = (era === 'BC' || era === 'BCE') ? -year : year;
-        
-        this.description.startYear = numYear;
-        this.description.endYear = numYear;
-      }
+  classification: {
+    denomination: { type: String },
+    material:     { type: String },
+    mint:         { type: String }
+  },
+
+  descriptions: {
+    obverse: {
+      legend:  { type: String },
+      type:    { type: String },
+      portrait: { type: String }
+    },
+    reverse: {
+      legend:  { type: String },
+      type:    { type: String },
+      portrait: { type: String }
     }
-  }
-  
-  next();
+  },
+
+  subjects: { type: [String], default: [] },
+
+  images: { type: [ImageSchema], default: [] },
+
+  source_ocre_url: { type: String },
+
+  created_at: { type: Date },
+  updated_at: { type: Date }
+}, {
+  // Don't auto-generate timestamps — the source data carries created_at/updated_at.
+  timestamps: false
 });
 
-// Performance indexes for search and filtering
-CoinSchema.index({ name: 1 }); // For name searches
-CoinSchema.index({ 'authority.emperor': 1 }); // For emperor filter
-CoinSchema.index({ 'authority.dynasty': 1 }); // For dynasty filter
-CoinSchema.index({ 'description.material': 1 }); // For material filter
-CoinSchema.index({ 'description.denomination': 1 }); // For denomination filter
-CoinSchema.index({ 'description.mint': 1 }); // For mint filter
-CoinSchema.index({ 'description.date_range': 1 }); // For date range filter
-CoinSchema.index({ 'obverse.deity': 1 }); // For deity searches
-CoinSchema.index({ 'reverse.deity': 1 }); // For deity searches
+// Filtering indexes
+CoinSchema.index({ 'authority.issuer': 1 });
+CoinSchema.index({ 'authority.dynasty': 1 });
+CoinSchema.index({ 'classification.material': 1 });
+CoinSchema.index({ 'classification.denomination': 1 });
+CoinSchema.index({ 'classification.mint': 1 });
+CoinSchema.index({ 'coinage.date.from': 1, 'coinage.date.to': 1 });
 
-// Compound indexes for common search combinations
-CoinSchema.index({ 'authority.emperor': 1, 'description.material': 1 }); // Emperor + material
-CoinSchema.index({ 'authority.dynasty': 1, 'description.date_range': 1 }); // Dynasty + period
-CoinSchema.index({ 'description.material': 1, 'description.denomination': 1 }); // Material + denomination
-// Compound index for year range overlap queries (startYear <= end AND endYear >= start)
-CoinSchema.index({ 'description.startYear': 1, 'description.endYear': 1 });
+// Compound indexes for common filter combinations
+CoinSchema.index({ 'authority.issuer': 1, 'classification.material': 1 });
+CoinSchema.index({ 'authority.dynasty': 1, 'coinage.date.from': 1 });
+CoinSchema.index({ 'classification.material': 1, 'classification.denomination': 1 });
 
-// Text index for full-text search across multiple fields
+// Full-text search
 CoinSchema.index({
-  name: 'text',
-  'obverse.legend': 'text',
-  'reverse.legend': 'text',
-  'authority.emperor': 'text',
+  'title.en': 'text',
+  'descriptions.obverse.legend': 'text',
+  'descriptions.reverse.legend': 'text',
+  'authority.issuer': 'text',
   'authority.dynasty': 'text',
-  'description.mint': 'text',
-  'obverse.type': 'text',
-  'reverse.type': 'text'
+  'classification.mint': 'text',
+  'descriptions.obverse.type': 'text',
+  'descriptions.reverse.type': 'text',
+  'subjects': 'text'
 }, {
   weights: {
-    name: 10,
-    'authority.emperor': 8,
+    'title.en': 10,
+    'authority.issuer': 8,
     'authority.dynasty': 6,
-    'obverse.legend': 4,
-    'reverse.legend': 4,
-    'description.mint': 3,
-    'obverse.type': 2,
-    'reverse.type': 2
+    'descriptions.obverse.legend': 4,
+    'descriptions.reverse.legend': 4,
+    'classification.mint': 3,
+    'descriptions.obverse.type': 2,
+    'descriptions.reverse.type': 2,
+    'subjects': 1
   },
   name: 'coin_text_index'
 });

@@ -41,7 +41,7 @@ router.get('/', searchLimiter, cacheMiddleware(CACHE_CONFIG.SEARCH_RESULTS), get
 router.get('/random', getRandomCoins);
 router.get('/filter-options', filterOptionsLimiter, cacheMiddleware(CACHE_CONFIG.FILTER_OPTIONS), getFilterOptions);
 router.get('/date-ranges', cacheMiddleware(CACHE_CONFIG.FILTER_OPTIONS), getDateRanges);
-router.get('/:id', validateObjectId('id'), optionalAuthMiddleware, getCoinById);
+router.get('/:id', validateObjectId('id', { allowString: true }), optionalAuthMiddleware, getCoinById);
 // Catalog creation is admin-only: regular users must never be able to seed
 // coins into the reference catalog. Protected by auth + role-check.
 router.post('/', authMiddleware, adminMiddleware, createCoin);

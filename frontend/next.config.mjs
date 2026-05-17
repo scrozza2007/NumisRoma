@@ -7,9 +7,6 @@ try {
   apiHost = undefined;
 }
 
-const baseDomains = ['localhost', 'numismatics.org', 'gallica.bnf.fr','finds.org.uk','ikmk.smb.museum','media.britishmuseum.org','exploratorium.galloromeinsmuseum.be','numid.uni-mainz.de','www.ikmk.at','archaeologie.uni-muenster.de','www.kenom.de'];
-const domains = apiHost && !baseDomains.includes(apiHost) ? [...baseDomains, apiHost] : baseDomains;
-
 const nextConfig = {
   reactStrictMode: true,
   devIndicators: false,
@@ -17,7 +14,11 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: apiUrl
   },
   images: {
-    domains,
+    remotePatterns: [
+      { protocol: 'https', hostname: 'cdn.numisroma.com' },
+      ...(apiHost ? [{ protocol: 'http', hostname: apiHost }, { protocol: 'https', hostname: apiHost }] : []),
+      { protocol: 'http', hostname: 'localhost' },
+    ],
     unoptimized: true
   }
 };

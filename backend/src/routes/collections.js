@@ -222,16 +222,18 @@ router.post(
   validateObjectId('collectionId'),
   authMiddleware,
   [
-    body('coin').notEmpty().withMessage('Coin ID is required').isMongoId().withMessage('Invalid coin ID')
+    body('coin').notEmpty().withMessage('Coin ID is required')
+      .isString().withMessage('Invalid coin ID')
+      .isLength({ max: 200 }).withMessage('Invalid coin ID')
   ],
   addCoinToCollection
 );
 
 // Update the user-supplied metadata of a coin inside a collection
-router.put('/:collectionId/coins/:coinId', validateObjectId('collectionId'), validateObjectId('coinId'), authMiddleware, updateCoinInCollection);
+router.put('/:collectionId/coins/:coinId', validateObjectId('collectionId'), validateObjectId('coinId', { allowString: true }), authMiddleware, updateCoinInCollection);
 
 // Remove a coin from a collection
-router.delete('/:collectionId/coins/:coinId', validateObjectId('collectionId'), validateObjectId('coinId'), authMiddleware, removeCoinFromCollection);
+router.delete('/:collectionId/coins/:coinId', validateObjectId('collectionId'), validateObjectId('coinId', { allowString: true }), authMiddleware, removeCoinFromCollection);
 
 // Batch fetch custom images for all entries in a collection — single query
 // instead of N per-entry requests, preventing rate-limit exhaustion.

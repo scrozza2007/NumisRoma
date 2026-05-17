@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"http://localhost:4000/api/coins/ric_9_thes_12a\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"http://localhost:4000/api/coins?limit=2\")",
+      "Bash(curl -s \"http://localhost:4000/api/coins/ric_2_1\\(2\\)_dom_1\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('_id:', d.get\\('_id'\\)\\); print\\('images count:', len\\(d.get\\('images',[]\\)\\)\\);  [print\\('image', i['index'], i['layout'], list\\(i['files'].keys\\(\\)\\)\\) for i in d.get\\('images',[]\\)]\")",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -X POST \"http://localhost:4000/api/collections/TEST_ID/coins\" -H \"Content-Type: application/json\" -d '{\"coin\":\"ric_2_1\\(2\\)_dom_1\"}')",
+      "Bash(node -e \"const { default: Image } = require\\('/Users/samuelefenu/Documents/GitHub/numisroma/frontend/node_modules/next/image'\\); console.log\\('ok'\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['version']\\)\")"
+    ]
+  }
+}

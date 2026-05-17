@@ -28,9 +28,7 @@ const OAuthCallback = () => {
       return;
     }
 
-    // OAuth users have no local password — pass null so E2EE is deferred
-    // until the user sets a passphrase or we add a prompt for it.
-    login(token, null, null).then(() => {
+    login(token, null).then(() => {
       if (isNew === '1') {
         router.replace('/welcome');
       } else {

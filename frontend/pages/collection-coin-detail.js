@@ -1,11 +1,31 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
+
+const fmt = (str) => {
+  if (!str) return str;
+  return String(str).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
+const buildSpecimens = (images = [], customImages = {}) => {
+  const specs = images.map((img, idx) => {
+    const num = idx + 1;
+    if (img.layout === 'split') {
+      return { label: `Specimen ${num}`, meta: img, obverse: img.files?.obverse || null, reverse: img.files?.reverse || null, unified: null };
+    }
+    return { label: `Specimen ${num}`, meta: img, obverse: null, reverse: null, unified: img.files?.unified || null };
+  }).filter(s => s.obverse || s.reverse || s.unified);
+
+  // Prepend a custom-image specimen if any custom images exist
+  if (customImages.obverse || customImages.reverse) {
+    specs.unshift({ label: 'Your Image', meta: {}, obverse: customImages.obverse || null, reverse: customImages.reverse || null, unified: null, isCustom: true });
+  }
+  return specs;
+};
 
 const CollectionCoinDetail = () => {
   const router = useRouter();
@@ -15,10 +35,17 @@ const CollectionCoinDetail = () => {
   const [coin, setCoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeImage, setActiveImage] = useState('obverse');
-  const [isZoomed, setIsZoomed] = useState(false);
   const [collectionData, setCollectionData] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
+  const zoomContainerRef = useRef(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const dragOffset = useRef({ x: 0, y: 0 });
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -41,13 +68,37 @@ const CollectionCoinDetail = () => {
   const [imageResetLoading, setImageResetLoading] = useState(false);
 
   const [customImages, setCustomImages] = useState({ obverse: null, reverse: null });
-  const [customImagesLoaded, setCustomImagesLoaded] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login?message=You must be logged in to access collection features');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    document.body.style.overflow = zoomed || showEditModal || showDeleteModal || showImageEditModal ? 'hidden' : '';
+    if (!zoomed) { setZoomScale(1); setZoomOffset({ x: 0, y: 0 }); }
+    return () => { document.body.style.overflow = ''; };
+  }, [zoomed, showEditModal, showDeleteModal, showImageEditModal]);
+
+  const handleZoomIn  = () => setZoomScale(s => Math.min(s + 0.5, 4));
+  const handleZoomOut = () => setZoomScale(s => { const n = Math.max(s - 0.5, 1); if (n === 1) setZoomOffset({ x: 0, y: 0 }); return n; });
+  const handleZoomReset = () => { setZoomScale(1); setZoomOffset({ x: 0, y: 0 }); };
+
+  const onMouseDown = (e) => {
+    if (zoomScale <= 1) return;
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y };
+  };
+  const onMouseMove = (e) => {
+    if (!isDragging.current) return;
+    const x = e.clientX - dragStart.current.x;
+    const y = e.clientY - dragStart.current.y;
+    dragOffset.current = { x, y };
+    setZoomOffset({ x, y });
+  };
+  const onMouseUp = () => { isDragging.current = false; };
+  const onWheelZoom = (e) => { e.preventDefault(); if (e.deltaY < 0) handleZoomIn(); else handleZoomOut(); };
 
   const fetchCoinDetails = useCallback(async () => {
     setLoading(true);
@@ -83,8 +134,6 @@ const CollectionCoinDetail = () => {
       }
     } catch {
       setCustomImages({ obverse: null, reverse: null });
-    } finally {
-      setCustomImagesLoaded(true);
     }
   }, [entryId]);
 
@@ -143,11 +192,6 @@ const CollectionCoinDetail = () => {
     }
   };
 
-  const handleImageClick = (side) => {
-    const hasCustomImage = side === 'obverse' ? customImages.obverse : customImages.reverse;
-    if (hasCustomImage) { setActiveImage(side); setIsZoomed(true); }
-  };
-
   const handleImageChange = (file, type) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -161,11 +205,6 @@ const CollectionCoinDetail = () => {
       else { setSelectedReverseImage(file); setReversePreview(e.target.result); }
     };
     reader.readAsDataURL(file);
-  };
-
-  const removeImage = (type) => {
-    if (type === 'obverse') { setSelectedObverseImage(null); setObversePreview(null); }
-    else { setSelectedReverseImage(null); setReversePreview(null); }
   };
 
   const handleImageUpload = async () => {
@@ -206,6 +245,9 @@ const CollectionCoinDetail = () => {
     }
   };
 
+  const specimens = coin ? buildSpecimens(coin.images || [], customImages) : [];
+  const active = specimens[activeIdx] || null;
+
   const hasValidData = (data) => data && data !== '' && data !== 'N/A' && data !== 'n/a' && data !== null && data !== undefined;
 
   const renderField = (label, value) => {
@@ -245,8 +287,8 @@ const CollectionCoinDetail = () => {
   return (
     <div className="min-h-screen bg-canvas">
       <Head>
-        <title>{coin.name} — NumisRoma</title>
-        <meta name="description" content={`Detailed view of ${coin.name} in your collection`} />
+        <title>{coin.title?.en} — NumisRoma</title>
+        <meta name="description" content={`Detailed view of ${coin.title?.en} in your collection`} />
       </Head>
 
       {notification.show && (
@@ -273,7 +315,7 @@ const CollectionCoinDetail = () => {
               </>
             )}
             <span>/</span>
-            <span className="text-text-primary">{coin.name}</span>
+            <span className="text-text-primary">{coin.title?.en}</span>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -311,40 +353,139 @@ const CollectionCoinDetail = () => {
 
         {/* Main card */}
         <div className="p-6 mb-6 bg-card border border-border rounded-md">
-          <h1 className="font-display font-semibold text-3xl mb-3 text-text-primary">{coin.name}</h1>
+          <h1 className="font-display font-semibold text-3xl mb-3 text-text-primary">{coin.title?.en}</h1>
           {collectionData && (
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="font-sans text-xs px-2 py-0.5 rounded bg-amber-bg text-amber border border-amber-light">
                 {collectionData.name}
               </span>
-              {hasValidData(coin.description?.date_range) && (
+              {(() => {
+                const d = coin.coinage?.date;
+                if (!d?.from) return null;
+                const fmtY = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
+                const label = d.to && d.to !== d.from ? `${fmtY(d.from)} – ${fmtY(d.to)}` : fmtY(d.from);
+                return (
+                  <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
+                    {label}
+                  </span>
+                );
+              })()}
+              {hasValidData(coin.classification?.material) && (
                 <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                  {coin.description.date_range}
+                  {coin.classification.material}
                 </span>
               )}
-              {hasValidData(coin.description?.material) && (
+              {hasValidData(coin.classification?.denomination) && (
                 <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                  {coin.description.material}
-                </span>
-              )}
-              {hasValidData(coin.description?.denomination) && (
-                <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                  {coin.description.denomination}
+                  {coin.classification.denomination}
                 </span>
               )}
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Images */}
-          <div>
-            <div className="p-5 bg-card border border-border rounded-md">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display font-semibold text-xl text-text-primary">Coin Images</h2>
+        {/* ── Gallery ── */}
+        {specimens.length > 0 && (
+          <div className="bg-card border border-border rounded-md overflow-hidden mb-6">
+            {/* Main viewer */}
+            {(() => {
+              const sp = specimens[activeIdx] || specimens[0];
+              return (
+                <div className="group relative cursor-zoom-in" style={{ backgroundColor: '#f5ede0' }}
+                  onClick={() => setZoomed(true)}>
+                  {sp.unified ? (
+                    <div className="flex items-center justify-center" style={{ backgroundColor: '#f5ede0', minHeight: 260 }}>
+                      <img src={sp.unified} alt={sp.label}
+                        className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
+                        style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                        onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2" style={{ backgroundColor: '#f5ede0' }}>
+                      {sp.obverse && (
+                        <div className="flex items-center justify-center" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260, backgroundColor: '#f5ede0' }}>
+                          <img src={sp.obverse} alt="Obverse"
+                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
+                            style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                            onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+                        </div>
+                      )}
+                      {sp.reverse && (
+                        <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#f5ede0' }}>
+                          <img src={sp.reverse} alt="Reverse"
+                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
+                            style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                            onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Zoom hint */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-between px-4">
+                    <div />
+                    <span className="font-sans text-xs px-3 py-1.5 rounded-full" style={{ color: '#fdf8f0', backgroundColor: 'rgba(46,40,32,0.55)' }}>Click to zoom</span>
+                    <div />
+                  </div>
+                  {specimens.length > 1 && (
+                    <>
+                      <button className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100"
+                        style={{ backgroundColor: '#fefcf8', border: '1px solid #e8e0d0', color: '#5a5040' }}
+                        onClick={e => { e.stopPropagation(); setActiveIdx(i => (i - 1 + specimens.length) % specimens.length); }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                      </button>
+                      <button className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100"
+                        style={{ backgroundColor: '#fefcf8', border: '1px solid #e8e0d0', color: '#5a5040' }}
+                        onClick={e => { e.stopPropagation(); setActiveIdx(i => (i + 1) % specimens.length); }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Filmstrip + metadata bar */}
+            <div className="border-t flex items-stretch" style={{ borderColor: '#e8e0d0' }}>
+              {specimens.length > 1 && (
+                <div className="flex gap-0 overflow-x-auto shrink-0" style={{ borderRight: '1px solid #e8e0d0' }}>
+                  {specimens.map((sp, i) => {
+                    const thumb = sp.obverse || sp.unified || sp.reverse;
+                    return (
+                      <button key={i} onClick={() => setActiveIdx(i)}
+                        className="relative shrink-0 transition-opacity"
+                        style={{ width: 72, height: 72, backgroundColor: '#f5ede0', borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
+                        {thumb && (
+                          <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5"
+                            onError={e => { e.currentTarget.style.display = 'none'; }} />
+                        )}
+                        {sp.isCustom && (
+                          <span className="absolute bottom-1 left-0 right-0 text-center font-sans" style={{ fontSize: 8, color: '#b8843a' }}>Custom</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex-1 flex items-center justify-between gap-4 px-4 py-3">
+                <div className="flex items-center gap-4 flex-wrap">
+                  {(() => {
+                    const sp = specimens[activeIdx] || specimens[0];
+                    return (
+                      <>
+                        <span className="font-sans text-xs font-medium" style={{ color: '#9a8e80' }}>{sp?.label}</span>
+                        {sp?.meta?.copyright_holder && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>© {sp.meta.copyright_holder}</span>}
+                        {sp?.meta?.license && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>{sp.meta.license}</span>}
+                        {specimens.length > 1 && (
+                          <span className="font-sans text-xs tabular-nums ml-auto" style={{ color: '#9a8e80' }}>{activeIdx + 1} / {specimens.length}</span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
                 <button
                   onClick={() => setShowImageEditModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
+                  className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150 shrink-0"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -352,111 +493,86 @@ const CollectionCoinDetail = () => {
                   Edit Images
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* No-image placeholder when catalog has no images */}
+        {specimens.length === 0 && (
+          <div className="bg-card border border-border rounded-md mb-6 p-8 flex flex-col items-center justify-center gap-3" style={{ minHeight: 200 }}>
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9a8e80' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p className="font-sans text-sm text-text-muted">No catalog images</p>
+            <button
+              onClick={() => setShowImageEditModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
+            >
+              Upload Your Own
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {(weight || diameter || grade || notes) && (
+            <div className="p-5 bg-card border border-border rounded-md">
+              <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Your Details</h2>
               <div className="grid grid-cols-2 gap-3">
-                {['obverse', 'reverse'].map(side => (
-                  <div
-                    key={side}
-                    className="group relative aspect-square overflow-hidden flex items-center justify-center cursor-pointer rounded bg-surface-alt border border-border"
-                    onClick={() => handleImageClick(side)}
-                  >
-                    {customImages[side] ? (
-                      <img
-                        src={customImages[side]} alt={`${side} - ${coin.name}`}
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-center p-4 text-text-muted">
-                        <svg className="w-10 h-10 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="font-sans text-xs">Upload your own image</p>
-                      </div>
-                    )}
-                    {customImages[side] && (
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-[rgba(46,40,32,0.4)]">
-                        <span className="font-sans text-xs font-medium text-white">Click to zoom</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {renderField('Weight', weight ? `${weight} g` : null)}
+                {renderField('Diameter', diameter ? `${diameter} mm` : null)}
+                {renderField('Grade', grade)}
+                {renderField('Notes', notes)}
               </div>
-              <p className="mt-3 font-sans text-xs text-center text-text-muted">Click images to view larger</p>
+            </div>
+          )}
+
+          <div className="p-5 bg-card border border-border rounded-md">
+            <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Authority</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {renderField('Issuer',  fmt(coin.authority?.issuer))}
+              {renderField('Dynasty', fmt(coin.authority?.dynasty))}
+              {(() => {
+                const d = coin.coinage?.date;
+                if (!d?.from) return null;
+                const fmtY = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
+                const label = d.to && d.to !== d.from ? `${fmtY(d.from)} – ${fmtY(d.to)}` : fmtY(d.from);
+                return renderField('Period', label);
+              })()}
             </div>
           </div>
 
-          {/* Right column */}
-          <div className="space-y-4">
-            {(weight || diameter || grade || notes) && (
-              <div className="p-5 bg-card border border-border rounded-md">
-                <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Your Collection Details</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {renderField('Weight', weight ? `${weight} g` : null)}
-                  {renderField('Diameter', diameter ? `${diameter} mm` : null)}
-                  {renderField('Grade', grade)}
-                  {renderField('Personal Notes', notes)}
+          <div className="p-5 bg-card border border-border rounded-md">
+            <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Classification</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {renderField('Denomination', fmt(coin.classification?.denomination))}
+              {renderField('Material',     fmt(coin.classification?.material))}
+              {renderField('Mint',         fmt(coin.classification?.mint))}
+            </div>
+          </div>
+
+          {['obverse', 'reverse'].map(side => {
+            const desc = coin.descriptions?.[side];
+            if (!desc) return null;
+            return (
+              <div key={side} className="p-5 bg-card border border-border rounded-md">
+                <h2 className="font-display font-semibold text-xl mb-4 text-text-primary capitalize">{side}</h2>
+                <div className="space-y-2">
+                  {renderField('Legend',  desc?.legend)}
+                  {renderField('Type',    desc?.type)}
+                  {renderField('Portrait', fmt(desc?.portrait))}
                 </div>
               </div>
-            )}
-
-            <div className="p-5 bg-card border border-border rounded-md">
-              <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Imperial Information</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {renderField('Emperor', coin.authority?.emperor)}
-                {renderField('Dynasty', coin.authority?.dynasty)}
-                {renderField('Period', coin.description?.date_range)}
-                {renderField('Mint', coin.description?.mint)}
-                {Object.entries(coin.authority || {})
-                  .filter(([key, value]) => !['emperor','dynasty'].includes(key) && hasValidData(value) && typeof value !== 'object')
-                  .map(([key, value]) => renderField(key.replace(/_/g,' ').replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()).trim(), value))}
-              </div>
-            </div>
-
-            <div className="p-5 bg-card border border-border rounded-md">
-              <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Physical Characteristics</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {renderField('Denomination', coin.description?.denomination)}
-                {renderField('Material', coin.description?.material)}
-                {renderField('Weight', coin.description?.weight)}
-                {renderField('Diameter', coin.description?.diameter)}
-                {renderField('Axis', coin.description?.axis)}
-                {renderField('Edge', coin.description?.edge)}
-                {renderField('Shape', coin.description?.shape)}
-                {Object.entries(coin.description || {})
-                  .filter(([key, value]) => !['date_range','mint','denomination','material','weight','diameter','axis','edge','shape','notes'].includes(key) && hasValidData(value) && typeof value !== 'object')
-                  .map(([key, value]) => renderField(key.replace(/_/g,' ').replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()).trim(), value))}
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
-        {/* Obverse/Reverse details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          {[
-            { title: 'Obverse Details', data: coin.obverse, coreFields: ['legend','type','portrait','deity'], extraExclude: ['legend','type','portrait','deity','image','license','credits'] },
-            { title: 'Reverse Details', data: coin.reverse, coreFields: ['legend','type','portrait','deity','mintmark','officinamark'], extraExclude: ['legend','type','portrait','deity','mintmark','officinamark','image','license','credits'] },
-          ].map(({ title, data, coreFields, extraExclude }) => (
-            <div key={title} className="p-5 bg-card border border-border rounded-md">
-              <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">{title}</h2>
-              <div className="space-y-2">
-                {coreFields.map(f => renderField(f.charAt(0).toUpperCase() + f.slice(1), data?.[f]))}
-                {Object.entries(data || {})
-                  .filter(([key, value]) => !extraExclude.includes(key) && hasValidData(value) && typeof value !== 'object')
-                  .map(([key, value]) => renderField(key.replace(/_/g,' ').replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()).trim(), value))}
-                {renderField('Image Credits', data?.credits)}
-                {renderField('Image License', data?.license)}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Additional info */}
-        {Object.keys(coin).some(key => !['_id','name','description','authority','obverse','reverse','__v'].includes(key) && hasValidData(coin[key]) && typeof coin[key] !== 'object') && (
-          <div className="p-5 mt-6 bg-card border border-border rounded-md">
-            <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Additional Information</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {Object.entries(coin)
-                .filter(([key, value]) => !['_id','name','description','authority','obverse','reverse','__v'].includes(key) && hasValidData(value) && typeof coin[key] !== 'object')
-                .map(([key, value]) => renderField(key.replace(/_/g,' ').replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase()).trim(), value))}
+        {coin.subjects?.length > 0 && (
+          <div className="p-5 bg-card border border-border rounded-md mb-6">
+            <h2 className="font-display font-semibold text-xl mb-3 text-text-primary">Subjects</h2>
+            <div className="flex flex-wrap gap-2">
+              {coin.subjects.map(s => (
+                <span key={s} className="font-sans text-xs px-2.5 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{fmt(s)}</span>
+              ))}
             </div>
           </div>
         )}
@@ -519,7 +635,7 @@ const CollectionCoinDetail = () => {
           <div className="w-full max-w-md p-6 bg-card border border-border rounded-md">
             <h2 className="font-display font-semibold text-xl mb-3 text-text-primary">Remove from Collection</h2>
             <p className="font-sans text-sm mb-6 text-text-secondary">
-              Are you sure you want to remove &quot;{coin.name}&quot; from your collection? This action cannot be undone.
+              Are you sure you want to remove &quot;{coin.title?.en}&quot; from your collection? This action cannot be undone.
             </p>
             <div className="flex gap-3">
               <button
@@ -634,29 +750,109 @@ const CollectionCoinDetail = () => {
       )}
 
       {/* Zoom Modal */}
-      {isZoomed && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(46,40,32,0.9)]"
-          onClick={() => setIsZoomed(false)}
-        >
-          <div className="relative w-full max-w-2xl bg-card border border-border rounded-md p-4" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setIsZoomed(false)}
-              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-surface-alt text-text-secondary hover:bg-border transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <Image
-              src={activeImage === 'obverse' ? (customImages.obverse || '/images/coin-placeholder.svg') : (customImages.reverse || '/images/coin-placeholder.svg')}
-              alt={`${activeImage} - ${coin.name}`}
-              width={800} height={800}
-              className="w-full h-auto object-contain"
-              style={{ maxHeight: '80vh' }}
-              priority
-            />
+      {zoomed && active && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#faf4ea' }} onClick={() => setZoomed(false)}>
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b"
+            style={{ backgroundColor: '#fefcf8', borderColor: '#e8e0d0' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              {specimens.length > 1 && (
+                <>
+                  <button onClick={() => { setActiveIdx(i => (i - 1 + specimens.length) % specimens.length); handleZoomReset(); }}
+                    className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
+                    style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                  </button>
+                  <button onClick={() => { setActiveIdx(i => (i + 1) % specimens.length); handleZoomReset(); }}
+                    className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
+                    style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                  <span className="font-sans text-xs ml-1" style={{ color: '#9a8e80' }}>{activeIdx + 1} / {specimens.length}</span>
+                </>
+              )}
+              <span className="font-sans text-xs ml-2" style={{ color: '#5a5040' }}>{active.label}</span>
+            </div>
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+              <button onClick={handleZoomOut} disabled={zoomScale <= 1}
+                className="w-8 h-8 flex items-center justify-center rounded border disabled:opacity-30 transition-colors"
+                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"/></svg>
+              </button>
+              <button onClick={handleZoomReset}
+                className="font-sans text-xs min-w-[3rem] text-center tabular-nums px-2 py-1 rounded border transition-colors"
+                style={{ borderColor: '#e8e0d0', color: '#b8843a', backgroundColor: '#fdf8f0' }}>
+                {Math.round(zoomScale * 100)}%
+              </button>
+              <button onClick={handleZoomIn} disabled={zoomScale >= 4}
+                className="w-8 h-8 flex items-center justify-center rounded border disabled:opacity-30 transition-colors"
+                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+              </button>
+              <div className="w-px h-5 mx-1" style={{ backgroundColor: '#e8e0d0' }} />
+              <button onClick={() => setZoomed(false)}
+                className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
+                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
           </div>
+
+          {/* Image area */}
+          <div
+            ref={zoomContainerRef}
+            className="flex-1 overflow-hidden flex items-center justify-center"
+            style={{ cursor: zoomScale > 1 ? 'grab' : 'default', backgroundColor: '#f5ede0' }}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onWheel={onWheelZoom}
+          >
+            <div style={{
+              transform: `scale(${zoomScale}) translate(${zoomOffset.x / zoomScale}px, ${zoomOffset.y / zoomScale}px)`,
+              transformOrigin: 'center center',
+              transition: isDragging.current ? 'none' : 'transform 0.15s ease-out',
+              userSelect: 'none',
+            }} className="w-full flex items-center justify-center">
+              {active.unified ? (
+                <img src={active.unified} alt={active.label}
+                  className="max-h-[80vh] max-w-full object-contain pointer-events-none"
+                  style={{ backgroundColor: '#f5ede0' }}
+                  draggable={false}
+                  onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+              ) : (
+                <div className="flex gap-8 items-center justify-center px-8">
+                  {active.obverse && (
+                    <img src={active.obverse} alt="Obverse"
+                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
+                      style={{ backgroundColor: '#f5ede0' }}
+                      draggable={false}
+                      onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+                  )}
+                  {active.reverse && (
+                    <img src={active.reverse} alt="Reverse"
+                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
+                      style={{ backgroundColor: '#f5ede0' }}
+                      draggable={false}
+                      onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom license bar */}
+          {(active.meta?.copyright_holder || active.meta?.license) && (
+            <div className="shrink-0 px-5 py-2.5 flex flex-wrap gap-x-5 border-t"
+              style={{ backgroundColor: '#fefcf8', borderColor: '#e8e0d0' }}
+              onClick={e => e.stopPropagation()}>
+              {active.meta.copyright_holder && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>© {active.meta.copyright_holder}</span>}
+              {active.meta.license && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>{active.meta.license}</span>}
+            </div>
+          )}
         </div>
       )}
     </div>

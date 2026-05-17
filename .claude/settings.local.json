@@ -20,7 +20,20 @@
       "Bash(node -e \"const {x25519} = require\\('@noble/curves/ed25519'\\); console.log\\(typeof x25519.getPublicKey\\)\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
       "Bash(git -C /Users/samuelefenu/Documents/GitHub/numisroma diff HEAD -- backend/src/routes/e2ee.js)",
-      "Bash(git -C /Users/samuelefenu/Documents/GitHub/numisroma status)"
+      "Bash(git -C /Users/samuelefenu/Documents/GitHub/numisroma status)",
+      "Bash(node -e \"require\\('passport'\\); require\\('passport-google-oauth20'\\); require\\('passport-apple'\\); require\\('passport-facebook'\\); console.log\\('OK'\\)\")",
+      "Bash(node --check src/index.js)",
+      "Bash(node --check src/controllers/oauthController.js)",
+      "Bash(node --check src/routes/oauth.js)",
+      "Bash(node --check src/models/User.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/frontend/pages/auth/callback.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/frontend/pages/login.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/frontend/pages/register.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/frontend/components/settings/AccountPanel.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/frontend/pages/delete-account.js)",
+      "Bash(node --check /Users/samuelefenu/Documents/GitHub/numisroma/backend/src/routes/auth.js)",
+      "Bash(git add *)",
+      "Bash(grep -E \"\\\\.\\(js|jsx|tsx\\)$\")"
     ]
   }
 }

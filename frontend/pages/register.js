@@ -88,7 +88,7 @@ const Register = () => {
         }
         throw new Error(data.message || 'Registration failed');
       }
-      if (data.token && data.user) { await login(data.token, data.user, formData.password); router.push('/welcome'); }
+      if (data.token && data.user) { await login(data.token, data.user); router.push('/welcome'); }
       else { setErrors({ form: 'Registration successful but missing login data. Please log in manually.' }); setIsLoading(false); }
     } catch (err) {
       if (err.message && typeof err.message === 'object') setErrors({ [err.message.field]: err.message.message });

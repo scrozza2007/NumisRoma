@@ -8,16 +8,15 @@
  *   HKDF-SHA-256        KDF_RK (root key ratchet) and X3DH master secret
  *   XChaCha20-Poly1305  AEAD per-message encryption
  *   BLAKE2b             safety numbers
- *   Argon2id            password-based private key wrapping
  *
- * Storage model (no plaintext ever leaves the device):
- *   IndexedDB / "keys"     — identity bundle (private keys, wrapped server copy)
+ * Key storage model — private keys are device-bound and never leave the client:
+ *   IndexedDB / "keys"     — identity bundle (private keys only, no server backup)
  *   IndexedDB / "ratchet"  — per-conversation Double Ratchet state
  *   IndexedDB / "messages" — decrypted plaintext, keyed by message ID
  *
- * The "messages" store is the source of truth for the UI. Messages are
- * decrypted exactly once on receipt and written there. The server stores only
- * opaque ciphertext and is never consulted for plaintext again.
+ * The server stores only public key material (identity keys, pre-keys).
+ * The "messages" store is the source of truth for the UI — messages are
+ * decrypted exactly once on receipt and cached there.
  */
 
 import { x25519, ed25519 } from '@noble/curves/ed25519';
@@ -26,7 +25,6 @@ import { hkdf } from '@noble/hashes/hkdf';
 import { sha256 } from '@noble/hashes/sha256';
 import { hmac } from '@noble/hashes/hmac';
 import { blake2b } from '@noble/hashes/blake2b';
-import { argon2id } from 'hash-wasm';
 
 // ── Encoding ─────────────────────────────────────────────────────────────────
 
@@ -124,53 +122,6 @@ export async function getMessagePlaintext(msgId) {
   return entry ? entry.plaintext : null;
 }
 
-export async function hasMessagePlaintext(msgId) {
-  return (await idbGet('messages', msgId)) !== null;
-}
-
-// ── Argon2id password-based key derivation ────────────────────────────────────
-
-const ARGON2_TIME        = 3;
-const ARGON2_MEM         = 65536; // 64 MiB
-const ARGON2_PARALLELISM = 1;
-const ARGON2_OUT_LEN     = 32;
-
-async function deriveWrappingKey(password, salt) {
-  const keyBytes = await argon2id({
-    password,
-    salt,
-    iterations:   ARGON2_TIME,
-    memorySize:   ARGON2_MEM,
-    parallelism:  ARGON2_PARALLELISM,
-    hashLength:   ARGON2_OUT_LEN,
-    outputType:   'binary',
-  });
-  return crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-}
-
-async function wrapKeyBundle(plainBytes, password) {
-  const salt = randomBytes(16);
-  const iv   = randomBytes(12);
-  const wk   = await deriveWrappingKey(password, salt);
-  const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wk, plainBytes);
-  return JSON.stringify({
-    alg:  'argon2id-aes256gcm',
-    salt: bytesToB64(salt),
-    iv:   bytesToB64(iv),
-    ct:   bytesToB64(new Uint8Array(ct)),
-  });
-}
-
-async function unwrapKeyBundle(blob, password) {
-  const { salt, iv, ct } = JSON.parse(blob);
-  const wk = await deriveWrappingKey(password, b64ToBytes(salt));
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: b64ToBytes(iv) },
-    wk,
-    b64ToBytes(ct),
-  );
-  return new Uint8Array(plain);
-}
 
 // ── Key generation ────────────────────────────────────────────────────────────
 
@@ -188,16 +139,15 @@ export function generateEd25519Keypair() {
 
 const BUNDLE_IDB_KEY = 'identity_bundle_v2';
 
-/**
- * Generate a complete identity bundle (first login on any device).
- * Writes to IDB and returns { publicBundle, encryptedKeyBundle, identityPublicKey }.
- */
-export async function generateIdentityBundle(password) {
+// Generate a complete identity bundle for this device.
+// Private keys are written to IndexedDB and never leave the device.
+// Returns { publicBundle, identityPublicKey } — public parts only, safe to send to the server.
+export async function generateIdentityBundle() {
   const ikSign = generateEd25519Keypair();
   const ikDh   = generateX25519Keypair();
 
-  const spkId = 1;
-  const spk   = generateX25519Keypair();
+  const spkId  = 1;
+  const spk    = generateX25519Keypair();
   const spkSig = ed25519.sign(spk.pub, ikSign.priv);
 
   const otpks = [];
@@ -206,34 +156,22 @@ export async function generateIdentityBundle(password) {
     otpks.push({ keyId: i + 1, pub: kp.pub, priv: kp.priv });
   }
 
-  // Private key material — encrypted for server backup
-  const km = JSON.stringify({
-    ikSignPriv: bytesToB64(ikSign.priv),
-    ikDhPriv:   bytesToB64(ikDh.priv),
-    spkPriv:    bytesToB64(spk.priv),
-    spkId,
-    otpkPrivs:  otpks.map(k => ({ keyId: k.keyId, priv: bytesToB64(k.priv) })),
-  });
-
-  const encryptedKeyBundle = await wrapKeyBundle(enc(km), password);
-
   await idbPut('keys', BUNDLE_IDB_KEY, {
-    ikSignPriv:         bytesToB64(ikSign.priv),
-    ikSignPub:          bytesToB64(ikSign.pub),
-    ikDhPriv:           bytesToB64(ikDh.priv),
-    ikDhPub:            bytesToB64(ikDh.pub),
-    spkPriv:            bytesToB64(spk.priv),
-    spkPub:             bytesToB64(spk.pub),
-    spkSig:             bytesToB64(spkSig),
+    ikSignPriv: bytesToB64(ikSign.priv),
+    ikSignPub:  bytesToB64(ikSign.pub),
+    ikDhPriv:   bytesToB64(ikDh.priv),
+    ikDhPub:    bytesToB64(ikDh.pub),
+    spkPriv:    bytesToB64(spk.priv),
+    spkPub:     bytesToB64(spk.pub),
+    spkSig:     bytesToB64(spkSig),
     spkId,
-    otpks:              otpks.map(k => ({ keyId: k.keyId, priv: bytesToB64(k.priv), pub: bytesToB64(k.pub) })),
-    encryptedKeyBundle,
+    otpks:      otpks.map(k => ({ keyId: k.keyId, priv: bytesToB64(k.priv), pub: bytesToB64(k.pub) })),
   });
 
   return {
     publicBundle: {
-      identityPublicKey:    bytesToB64(ikSign.pub),
-      identityDhPublicKey:  bytesToB64(ikDh.pub),
+      identityPublicKey:   bytesToB64(ikSign.pub),
+      identityDhPublicKey: bytesToB64(ikDh.pub),
       signedPreKey: {
         keyId:     spkId,
         publicKey: bytesToB64(spk.pub),
@@ -241,51 +179,8 @@ export async function generateIdentityBundle(password) {
       },
       oneTimePreKeys: otpks.map(k => ({ keyId: k.keyId, publicKey: bytesToB64(k.pub) })),
     },
-    encryptedKeyBundle,
     identityPublicKey: bytesToB64(ikSign.pub),
   };
-}
-
-/**
- * Restore bundle from IDB (same device) or from server blob + password (new device).
- */
-export async function restoreIdentityBundle(password, serverBlob) {
-  const stored = await idbGet('keys', BUNDLE_IDB_KEY);
-  if (stored) return stored; // raw b64 strings — callers access fields directly
-
-  if (!serverBlob || !password) return null;
-
-  try {
-    const plain = await unwrapKeyBundle(serverBlob, password);
-    const km    = JSON.parse(dec(plain));
-
-    const ikSignPriv = b64ToBytes(km.ikSignPriv);
-    const ikDhPriv   = b64ToBytes(km.ikDhPriv);
-    const spkPriv    = b64ToBytes(km.spkPriv);
-
-    const bundle = {
-      ikSignPriv:         km.ikSignPriv,
-      ikSignPub:          bytesToB64(ed25519.getPublicKey(ikSignPriv)),
-      ikDhPriv:           km.ikDhPriv,
-      ikDhPub:            bytesToB64(x25519.getPublicKey(ikDhPriv)),
-      spkPriv:            km.spkPriv,
-      spkPub:             bytesToB64(x25519.getPublicKey(spkPriv)),
-      spkId:              km.spkId,
-      // spkSig not stored in the server blob — will be missing on new-device restore
-      // (acceptable: the sig is only needed for outgoing registration, not decryption)
-      otpks:              km.otpkPrivs.map(k => ({
-        keyId: k.keyId,
-        priv:  k.priv,
-        pub:   bytesToB64(x25519.getPublicKey(b64ToBytes(k.priv))),
-      })),
-      encryptedKeyBundle: serverBlob,
-    };
-
-    await idbPut('keys', BUNDLE_IDB_KEY, bundle);
-    return bundle;
-  } catch {
-    return null;
-  }
 }
 
 export async function getIdentityBundle() {
@@ -298,16 +193,6 @@ export async function hasStoredBundle() {
 
 export async function clearStoredBundle() {
   await idbDelete('keys', BUNDLE_IDB_KEY);
-}
-
-export async function relockBundle(oldPassword, newPassword) {
-  const stored = await idbGet('keys', BUNDLE_IDB_KEY);
-  if (!stored) throw new Error('No stored bundle');
-  const plain  = await unwrapKeyBundle(stored.encryptedKeyBundle, oldPassword);
-  const newBlob = await wrapKeyBundle(plain, newPassword);
-  stored.encryptedKeyBundle = newBlob;
-  await idbPut('keys', BUNDLE_IDB_KEY, stored);
-  return newBlob;
 }
 
 export async function replenishOTPKs(count = 50) {

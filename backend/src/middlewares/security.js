@@ -113,7 +113,8 @@ const failOpen = (limiter) => (req, res, next) => {
   }
 };
 
-// General rate limiting
+// General rate limiting — skipped entirely in development, and for E2EE routes
+// (which have their own dedicated limiter).
 const generalLimiter = failOpen(rateLimit({
   windowMs: RATE_LIMITS.GENERAL.windowMs,
   max: RATE_LIMITS.GENERAL.max,
@@ -123,6 +124,10 @@ const generalLimiter = failOpen(rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) =>
+    process.env.NODE_ENV !== 'production' ||
+    req.originalUrl.includes('/api/e2ee') ||
+    req.originalUrl.includes('/api/v1/e2ee'),
   store: buildRedisStore('general')
 }));
 
@@ -136,7 +141,8 @@ const authLimiter = failOpen(rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
+  skipSuccessfulRequests: true,
+  skip: (req) => process.env.NODE_ENV !== 'production',
   store: buildRedisStore('auth')
 }));
 
@@ -166,12 +172,27 @@ const searchLimiter = failOpen(rateLimit({
   store: buildRedisStore('search')
 }));
 
+// E2EE key management — auth-gated, separate pool so key ops don't eat general quota
+const e2eeLimiter = failOpen(rateLimit({
+  windowMs: RATE_LIMITS.E2EE.windowMs,
+  max: RATE_LIMITS.E2EE.max,
+  message: {
+    error: 'Too many key management requests, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  store: buildRedisStore('e2ee')
+}));
+
 module.exports = {
   securityHeaders,
   generalLimiter,
   authLimiter,
   contactLimiter,
   searchLimiter,
+  e2eeLimiter,
   failOpen,
   buildRedisStore
 };

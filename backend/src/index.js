@@ -14,7 +14,7 @@ const path = require('path');
 
 const { validateEnv } = require('./config/validateEnv');
 const { metricsMiddleware, client: metricsClient } = require('./utils/metrics');
-const { securityHeaders, generalLimiter, authLimiter, contactLimiter } = require('./middlewares/security');
+const { securityHeaders, generalLimiter, authLimiter, contactLimiter, e2eeLimiter } = require('./middlewares/security');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const { requestLogger, accessLogger, errorLogger, dbLogger } = require('./middlewares/logger');
 const { doubleCsrfProtection, csrfErrorHandler, csrfTokenHandler } = require('./middlewares/csrf');
@@ -239,7 +239,7 @@ apiV1.use('/users', userRoutes);
 apiV1.use('/sessions', sessionRoutes);
 apiV1.use('/messages', messageRoutes);
 apiV1.use('/notifications', notificationRoutes);
-apiV1.use('/e2ee', e2eeRoutes);
+apiV1.use('/e2ee', e2eeLimiter, e2eeRoutes);
 apiV1.use('/cache', cacheRoutes);
 apiV1.get('/csrf-token', csrfTokenHandler);
 

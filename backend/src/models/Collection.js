@@ -33,7 +33,7 @@ const CollectionSchema = new Schema({
   coins: [
     {
       coin: {
-        type: Schema.Types.ObjectId,
+        type: String,
         ref: 'Coin',
         required: true
       },

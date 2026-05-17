@@ -47,7 +47,7 @@ const Login = () => {
       });
       const data = await res.json();
       if (res.ok) {
-        if (data.token) { login(data.token, data.user || data, password); router.push('/'); }
+        if (data.token) { login(data.token, data.user || data); router.push('/'); }
         else setErrors({ server: 'Invalid response from server' });
       } else {
         setErrors({ server: data.msg || 'Invalid credentials' });

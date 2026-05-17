@@ -2,6 +2,7 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const DeviceIdentity = require('../models/DeviceIdentity');
 const logger = require('../utils/logger');
 const { PAGINATION } = require('../config/constants');
 const { createNotification } = require('./notificationController');
@@ -171,7 +172,16 @@ const sendMessage = async (req, res) => {
       return res.status(201).json(message);
     }
 
-    // Plaintext fallback — used only when recipient has no E2EE keys registered
+    // Plaintext path — only allowed when the sender has NOT registered E2EE keys.
+    // If they have keys, the client must encrypt; reject plaintext to prevent data leaks.
+    const senderHasE2EE = await DeviceIdentity.exists({ userId });
+    if (senderHasE2EE) {
+      return res.status(400).json({
+        message: 'Encrypted messaging required. Use encryptedPayload.',
+        code: 'E2EE_REQUIRED',
+      });
+    }
+
     if (messageType !== 'text' && messageType !== 'image') {
       return res.status(400).json({ message: 'Invalid messageType' });
     }

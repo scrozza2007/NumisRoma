@@ -2,7 +2,6 @@ import React, { useEffect, useState, useContext, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
@@ -249,30 +248,41 @@ const CollectionDetailPage = () => {
                   href={`/collection-coin-detail?id=${coinEntry.coin._id}&collectionId=${id}&entryId=${coinEntry._id}${coinEntry.weight ? `&weight=${encodeURIComponent(coinEntry.weight)}` : ''}${coinEntry.diameter ? `&diameter=${encodeURIComponent(coinEntry.diameter)}` : ''}${coinEntry.grade ? `&grade=${encodeURIComponent(coinEntry.grade)}` : ''}${coinEntry.notes ? `&notes=${encodeURIComponent(coinEntry.notes)}` : ''}`}
                   className="flex flex-col overflow-hidden rounded-md bg-card border border-border hover:border-amber transition-colors duration-200"
                 >
-                  <div className="aspect-square flex items-center justify-center p-4 bg-surface">
-                    {customImages[coinEntry._id]?.obverse ? (
-                      <img
-                        src={customImages[coinEntry._id].obverse}
-                        alt={`${coinEntry.coin.name} - Obverse`}
-                        className="w-full h-full object-contain"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center text-text-muted">
-                        <svg className="w-10 h-10 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="font-sans text-xs">No image</p>
-                      </div>
-                    )}
+                  <div className="aspect-square relative overflow-hidden" style={{ backgroundColor: '#f5ede0' }}>
+                    {(() => {
+                      const customSrc = customImages[coinEntry._id]?.obverse;
+                      const catalogSrc = coinEntry.coin.images?.[0]?.files?.obverse || coinEntry.coin.images?.[0]?.files?.unified;
+                      const src = customSrc || catalogSrc;
+                      return src ? (
+                        <img
+                          src={src}
+                          alt={coinEntry.coin.title?.en || coinEntry.coin.name}
+                          className="w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
+                          loading="lazy"
+                          onError={e => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center" style={{ color: '#9a8e80' }}>
+                          <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="font-sans text-xs">No image</p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="p-4 flex flex-col gap-1">
-                    <h3 className="font-display font-semibold text-base line-clamp-2 text-text-primary">{coinEntry.coin.name}</h3>
-                    {coinEntry.coin.authority?.emperor && (
-                      <p className="font-sans text-xs text-text-secondary">{coinEntry.coin.authority.emperor}</p>
+                    <h3 className="font-display font-semibold text-base line-clamp-2 text-text-primary">{coinEntry.coin.title?.en || coinEntry.coin.name}</h3>
+                    {coinEntry.coin.authority?.issuer && (
+                      <p className="font-sans text-xs text-text-secondary">{coinEntry.coin.authority.issuer}</p>
                     )}
                     <p className="font-sans text-xs text-text-muted">
-                      {typeof coinEntry.coin.description === 'string' ? coinEntry.coin.description : coinEntry.coin.description?.date_range || 'Period not specified'}
+                      {(() => {
+                        const d = coinEntry.coin.coinage?.date;
+                        if (!d?.from) return 'Period not specified';
+                        const fmt = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
+                        return d.to && d.to !== d.from ? `${fmt(d.from)} – ${fmt(d.to)}` : fmt(d.from);
+                      })()}
                     </p>
                     {coinEntry.notes && (
                       <p className="font-sans text-xs mt-1 pt-2 text-text-muted border-t border-border">

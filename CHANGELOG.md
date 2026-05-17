@@ -8,6 +8,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **New coin schema** — `Coin` model migrated to string-slug `_id` (e.g. `ric_2_1(2)_dom_1`) with structured fields: `title.en`, `authority.{issuer,dynasty}`, `classification.{denomination,material,mint}`, `coinage.date.{from,to}`, `reference` / `references[]`, `descriptions.{obverse,reverse}`, `images[]`, `subjects[]`.
+- **Multi-specimen gallery** — `coin-detail` and `collection-coin-detail` pages now show a unified gallery: large main viewer with obverse+reverse side-by-side (split layout) or full-width (unified layout), horizontal filmstrip thumbnails, and prev/next nav arrows.
+- **Full-screen zoom modal** — warm-palette full-screen viewer with zoom in/out/reset buttons, scroll-wheel zoom, drag-to-pan, and per-specimen navigation. Replaces the old basic zoom overlay.
+- **Sand background hard-forced** — all coin image containers use `backgroundColor: '#f5ede0'` directly on both wrapper and `<img>` elements to eliminate white letterboxing on transparent PNGs.
+- **Custom-image specimen** — in `collection-coin-detail`, user-uploaded images are prepended as a "Your Image" specimen in the gallery filmstrip alongside catalog specimens.
+- **`fmt()` text helper** — replaces underscores with spaces and title-cases all coin metadata fields displayed in the UI.
+- **`validateObjectId` `allowString` option** — `enhancedValidation.js` accepts `{ allowString: true }` to pass string slug IDs through route-level validation without requiring a MongoDB ObjectId format.
+
+### Changed
+- **`Collection.coins[].coin`** — type changed from `ObjectId` to `String` to hold coin slug IDs.
+- **Add-coin route validation** — `POST /api/collections/:id/coins` body `coin` field now validated as a non-empty string (≤200 chars) instead of `isMongoId()`.
+- **Collection populate selects** — all `populate` calls updated to use new Coin schema field paths (`title`, `authority.issuer`, `authority.dynasty`, `classification.*`, `coinage.date`, `images`).
+- **`addCoinToCollection`** — response now includes the populated coin document (chained `.populate()` on `findOneAndUpdate`).
+- **`GET /api/coins/:id`** — route now uses `validateObjectId('id', { allowString: true })` to accept string slug IDs.
+- **Browse card images** — switched from `next/image` to plain `<img>` with `style={{ backgroundColor: '#f5ede0' }}` for reliable background color.
+- **`fetchCollections` in `coin-detail`** — correctly destructures `{ collections }` from the paginated response instead of assigning the entire response object.
+- **Weight/diameter submission** — `handleAddToCollection` converts string input values to `parseFloat` before sending to the API (backend requires numeric types).
+
+### Fixed
+- **Add to Collection broken** — three compounding bugs fixed: `fetchCollections` setting the wrong value (whole paginated object vs array), `isMongoId()` rejecting slug IDs, and weight/diameter sent as strings instead of numbers.
+- **Obverse/Reverse labels removed** — `<span>` overlays inside the gallery split-view and zoom modal were removed.
+
+---
+
+### Added (E2EE — previous entry)
 - **End-to-end encrypted messaging** — Signal Protocol (X3DH + Double Ratchet) replaces all previous messaging encryption. The server stores only opaque ciphertext and has no access to plaintext at any point.
 - **X3DH key exchange** — initial session establishment using Extended Triple Diffie-Hellman; identity keys, signed pre-keys, and one-time pre-keys uploaded to the server as public material only.
 - **Double Ratchet** — per-message forward secrecy; chain keys ratcheted via HMAC-SHA-256 (KDF_CK); root key ratcheted via HKDF-SHA-256 (KDF_RK) on every DH step.

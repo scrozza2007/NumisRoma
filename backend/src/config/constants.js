@@ -20,6 +20,12 @@ const RATE_LIMITS = {
   CONTACT: {
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 5
+  },
+  // E2EE key management — auth-gated, low-frequency legitimate operations.
+  // Exempt from the general limiter; uses its own generous window.
+  E2EE: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 50
   }
 };
 

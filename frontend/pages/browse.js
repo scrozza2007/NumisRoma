@@ -7,6 +7,16 @@ import AutocompleteDropdown from '../components/AutocompleteDropdown';
 import PeriodRangeSlider from '../components/PeriodRangeSlider';
 import Image from 'next/image';
 
+// Returns the best image URL from the new images[] array.
+// Prefers split layout obverse, falls back to unified, then null.
+const getPrimaryImage = (coin) => {
+  if (!coin.images || coin.images.length === 0) return null;
+  const first = coin.images[0];
+  if (first?.files?.obverse) return first.files.obverse;
+  if (first?.files?.unified) return first.files.unified;
+  return null;
+};
+
 const Browse = () => {
   const router = useRouter();
   const [coins, setCoins] = useState([]);
@@ -16,11 +26,13 @@ const Browse = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
-    keyword: '', material: '', emperor: '', dynasty: '',
-    denomination: '', mint: '', date_range: '', portrait: '', deity: '',
-    startYear: undefined, endYear: undefined, sortBy: 'name', order: 'asc'
+    keyword: '', material: '', issuer: '', dynasty: '',
+    denomination: '', mint: '', portrait: '', subject: '',
+    startYear: undefined, endYear: undefined, sortBy: 'title', order: 'asc'
   });
-  const [filterOptions, setFilterOptions] = useState({ materials: [], emperors: [], dynasties: [], denominations: [], mints: [], deities: [] });
+  const [filterOptions, setFilterOptions] = useState({
+    materials: [], issuers: [], dynasties: [], denominations: [], mints: [], portraits: []
+  });
   const [periodRange, setPeriodRange] = useState({ minYear: -31, maxYear: 491 });
   const isFirstLoadRef = useRef(true);
 
@@ -43,14 +55,15 @@ const Browse = () => {
     setError(null);
     try {
       let url = `${process.env.NEXT_PUBLIC_API_URL}/api/coins?page=${page}&limit=12`;
+      const skipKeys = new Set(['sortBy', 'order']);
       Object.keys(filterParams).forEach(key => {
-        if (filterParams[key] && key !== 'sortBy' && key !== 'order') {
-          const value = key === 'material' ? filterParams[key].trim() : filterParams[key];
-          url += `&${key}=${encodeURIComponent(value)}`;
+        if (filterParams[key] !== undefined && filterParams[key] !== '' && !skipKeys.has(key)) {
+          url += `&${key}=${encodeURIComponent(filterParams[key])}`;
         }
       });
       if (filterParams.sortBy) url += `&sortBy=${encodeURIComponent(filterParams.sortBy)}`;
-      if (filterParams.order) url += `&order=${encodeURIComponent(filterParams.order)}`;
+      if (filterParams.order)  url += `&order=${encodeURIComponent(filterParams.order)}`;
+
       const res = await fetch(url);
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -84,8 +97,8 @@ const Browse = () => {
     const loadSavedFilters = async () => {
       try {
         const lastVisitedPage = localStorage.getItem('lastVisitedPage');
-        const savedFilters = localStorage.getItem('coinFilters');
-        const savedPage = localStorage.getItem('coinCurrentPage');
+        const savedFilters    = localStorage.getItem('coinFilters');
+        const savedPage       = localStorage.getItem('coinCurrentPage');
         if (lastVisitedPage === 'coin-detail' && savedFilters) {
           const parsedFilters = JSON.parse(savedFilters);
           setFilters(parsedFilters);
@@ -144,7 +157,11 @@ const Browse = () => {
   };
 
   const handleFilterReset = () => {
-    const reset = { keyword: '', material: '', emperor: '', dynasty: '', denomination: '', mint: '', date_range: '', portrait: '', deity: '', startYear: undefined, endYear: undefined, sortBy: 'name', order: 'asc' };
+    const reset = {
+      keyword: '', material: '', issuer: '', dynasty: '',
+      denomination: '', mint: '', portrait: '', subject: '',
+      startYear: undefined, endYear: undefined, sortBy: 'title', order: 'asc'
+    };
     setFilters(reset);
     setCurrentPage(1);
     localStorage.removeItem('coinFilters');
@@ -176,7 +193,7 @@ const Browse = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar filters */}
           <div className="lg:col-span-1">
-            {/* Mobile toggle — hidden on desktop */}
+            {/* Mobile toggle */}
             <button
               onClick={() => setFiltersOpen(v => !v)}
               className="lg:hidden w-full flex items-center justify-between px-4 py-3 mb-3 font-sans text-sm font-semibold bg-card border border-border rounded-md text-text-secondary hover:border-amber transition-colors duration-150"
@@ -196,102 +213,113 @@ const Browse = () => {
             </button>
 
             <div className={`bg-card border border-border rounded-md overflow-hidden lg:block ${filtersOpen ? 'block' : 'hidden'}`}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-display font-semibold text-xl text-text-primary">Filters</h2>
-                <button
-                  onClick={handleFilterReset}
-                  className="font-sans text-xs text-text-muted hover:text-amber transition-colors duration-150 flex items-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset all
-                </button>
-              </div>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-display font-semibold text-xl text-text-primary">Filters</h2>
+                  <button
+                    onClick={handleFilterReset}
+                    className="font-sans text-xs text-text-muted hover:text-amber transition-colors duration-150 flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset all
+                  </button>
+                </div>
 
-              <form onSubmit={handleFilterSubmit} className="space-y-5">
-                {/* Keyword */}
-                <div>
-                  <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Keyword</label>
-                  <div className="relative">
+                <form onSubmit={handleFilterSubmit} className="space-y-5">
+                  {/* Keyword */}
+                  <div>
+                    <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Keyword</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={filters.keyword}
+                        onChange={(e) => handleFilterChange('keyword', e.target.value)}
+                        placeholder="Search all fields…"
+                        className="w-full font-sans text-sm bg-card text-text-primary border border-border rounded px-3 py-2 pl-9 outline-none focus:border-amber transition-colors"
+                      />
+                      <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <p className="font-sans text-xs mt-1 text-text-muted">Title, issuer, dynasty, mint, legend…</p>
+                  </div>
+
+                  <AutocompleteDropdown value={filters.material}     onChange={v => handleFilterChange('material', v)}     options={filterOptions.materials}     label="Material"      placeholder="Type material…" />
+                  <AutocompleteDropdown value={filters.issuer}       onChange={v => handleFilterChange('issuer', v)}       options={filterOptions.issuers}       label="Issuer"        placeholder="Type issuer…" />
+                  <AutocompleteDropdown value={filters.dynasty}      onChange={v => handleFilterChange('dynasty', v)}      options={filterOptions.dynasties}     label="Dynasty"       placeholder="Type dynasty…" />
+
+                  <div className="border-t border-border pt-5">
+                    <PeriodRangeSlider
+                      startYear={filters.startYear}
+                      endYear={filters.endYear}
+                      onRangeChange={handlePeriodRangeChange}
+                      minYear={periodRange.minYear}
+                      maxYear={periodRange.maxYear}
+                      label="Period Range"
+                    />
+                  </div>
+
+                  <AutocompleteDropdown value={filters.denomination} onChange={v => handleFilterChange('denomination', v)} options={filterOptions.denominations} label="Denomination"  placeholder="Type denomination…" />
+                  <AutocompleteDropdown value={filters.mint}         onChange={v => handleFilterChange('mint', v)}         options={filterOptions.mints}         label="Mint"          placeholder="Type mint…" />
+                  <AutocompleteDropdown value={filters.portrait}     onChange={v => handleFilterChange('portrait', v)}     options={filterOptions.portraits}     label="Portrait"      placeholder="Type portrait…" />
+
+                  <div>
+                    <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Subject</label>
                     <input
                       type="text"
-                      value={filters.keyword}
-                      onChange={(e) => handleFilterChange('keyword', e.target.value)}
-                      placeholder="Search all fields…"
-                      className="w-full font-sans text-sm bg-card text-text-primary border border-border rounded px-3 py-2 pl-9 outline-none focus:border-amber transition-colors"
+                      value={filters.subject}
+                      onChange={(e) => handleFilterChange('subject', e.target.value)}
+                      placeholder="e.g. victory, eagle…"
+                      className="w-full font-sans text-sm bg-card text-text-primary border border-border rounded px-3 py-2 outline-none focus:border-amber transition-colors"
                     />
-                    <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </div>
+
+                  {/* Sort */}
+                  <div className="border-t border-border pt-5 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Sort by</label>
+                      <CustomDropdown
+                        value={filters.sortBy}
+                        onChange={v => handleSortChange('sortBy', v)}
+                        options={[
+                          { value: 'title',         label: 'Title' },
+                          { value: 'issuer',        label: 'Issuer' },
+                          { value: 'dynasty',       label: 'Dynasty' },
+                          { value: 'chronological', label: 'Chronological' },
+                          { value: 'denomination',  label: 'Denomination' },
+                          { value: 'mint',          label: 'Mint' },
+                          { value: 'material',      label: 'Material' },
+                        ]}
+                        placeholder="Sort by"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Order</label>
+                      <CustomDropdown
+                        value={filters.order}
+                        onChange={v => handleSortChange('order', v)}
+                        options={[
+                          { value: 'asc',  label: 'A → Z' },
+                          { value: 'desc', label: 'Z → A' },
+                        ]}
+                        placeholder="Order"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 bg-amber text-[#fdf8f0] hover:bg-amber-hover rounded transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                     </svg>
-                  </div>
-                  <p className="font-sans text-xs mt-1 text-text-muted">Name, emperor, dynasty, mint, material, deity…</p>
-                </div>
-
-                <AutocompleteDropdown value={filters.material}     onChange={v => handleFilterChange('material', v)}     options={filterOptions.materials}     label="Material"      placeholder="Type material…" />
-                <AutocompleteDropdown value={filters.emperor}      onChange={v => handleFilterChange('emperor', v)}      options={filterOptions.emperors}      label="Emperor"       placeholder="Type emperor…" />
-                <AutocompleteDropdown value={filters.dynasty}      onChange={v => handleFilterChange('dynasty', v)}      options={filterOptions.dynasties}     label="Dynasty"       placeholder="Type dynasty…" />
-
-                <div className="border-t border-border pt-5">
-                  <PeriodRangeSlider
-                    startYear={filters.startYear}
-                    endYear={filters.endYear}
-                    onRangeChange={handlePeriodRangeChange}
-                    minYear={periodRange.minYear}
-                    maxYear={periodRange.maxYear}
-                    label="Period Range"
-                  />
-                </div>
-
-                <AutocompleteDropdown value={filters.denomination} onChange={v => handleFilterChange('denomination', v)} options={filterOptions.denominations} label="Denomination"  placeholder="Type denomination…" />
-                <AutocompleteDropdown value={filters.mint}         onChange={v => handleFilterChange('mint', v)}         options={filterOptions.mints}         label="Mint"          placeholder="Type mint…" />
-                <AutocompleteDropdown value={filters.deity}        onChange={v => handleFilterChange('deity', v)}        options={filterOptions.deities}       label="Deity"         placeholder="Type deity…" />
-
-                {/* Sort */}
-                <div className="border-t border-border pt-5 grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Sort by</label>
-                    <CustomDropdown
-                      value={filters.sortBy}
-                      onChange={v => handleSortChange('sortBy', v)}
-                      options={[
-                        { value: 'name',          label: 'Name' },
-                        { value: 'emperor',       label: 'Emperor' },
-                        { value: 'dynasty',       label: 'Dynasty' },
-                        { value: 'chronological', label: 'Chronological' },
-                        { value: 'denomination',  label: 'Denomination' },
-                        { value: 'mint',          label: 'Mint' },
-                        { value: 'material',      label: 'Material' },
-                      ]}
-                      placeholder="Sort by"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Order</label>
-                    <CustomDropdown
-                      value={filters.order}
-                      onChange={v => handleSortChange('order', v)}
-                      options={[
-                        { value: 'asc',  label: 'A → Z' },
-                        { value: 'desc', label: 'Z → A' },
-                      ]}
-                      placeholder="Order"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 bg-amber text-[#fdf8f0] hover:bg-amber-hover rounded transition-colors duration-200"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
-                  Apply Filters
-                </button>
-              </form>
-            </div>
+                    Apply Filters
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
 
@@ -316,27 +344,44 @@ const Browse = () => {
             ) : (
               <>
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {coins.map((coin) => (
-                    <Link
-                      key={coin._id}
-                      href={`/coin-detail?id=${coin._id}`}
-                      className="group rounded-md overflow-hidden border border-border bg-card hover:shadow-md transition-shadow duration-200 flex flex-col"
-                    >
-                      <div className="aspect-square relative bg-surface">
-                        <Image
-                          src={coin.obverse?.image || '/images/coin-placeholder.svg'}
-                          alt={coin.name}
-                          fill
-                          className="object-contain p-4 mix-blend-multiply"
-                        />
-                      </div>
-                      <div className="p-4 flex flex-col flex-1 border-t border-border">
-                        <p className="font-sans text-xs font-medium uppercase tracking-wide mb-1 text-text-muted">{coin.authority?.emperor}</p>
-                        <h3 className="font-display font-semibold text-base leading-tight mb-1 line-clamp-2 flex-1 text-text-primary">{coin.name}</h3>
-                        <p className="font-sans text-xs text-text-muted">{coin.description?.date_range}</p>
-                      </div>
-                    </Link>
-                  ))}
+                  {coins.map((coin) => {
+                    const imgSrc = getPrimaryImage(coin) || '/images/coin-placeholder.svg';
+                    const dateFrom = coin.coinage?.date?.from;
+                    const dateTo   = coin.coinage?.date?.to;
+                    const period = dateFrom != null
+                      ? (dateTo != null && dateTo !== dateFrom
+                          ? `${Math.abs(dateFrom)}${dateFrom < 0 ? ' BC' : ' AD'} – ${Math.abs(dateTo)}${dateTo < 0 ? ' BC' : ' AD'}`
+                          : `${Math.abs(dateFrom)}${dateFrom < 0 ? ' BC' : ' AD'}`)
+                      : null;
+
+                    return (
+                      <Link
+                        key={coin._id}
+                        href={`/coin-detail?id=${coin._id}`}
+                        className="group rounded-md overflow-hidden border border-border bg-card hover:shadow-md transition-shadow duration-200 flex flex-col"
+                      >
+                        <div className="aspect-square overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#f5ede0' }}>
+                          <img
+                            src={imgSrc}
+                            alt={coin.title?.en || 'Coin'}
+                            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                            onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
+                          />
+                        </div>
+                        <div className="p-4 flex flex-col flex-1 border-t border-border">
+                          <p className="font-sans text-xs font-medium uppercase tracking-wide mb-1 text-text-muted">
+                            {coin.authority?.issuer}
+                          </p>
+                          <h3 className="font-display font-semibold text-base leading-tight mb-1 line-clamp-2 flex-1 text-text-primary">
+                            {coin.title?.en}
+                          </h3>
+                          {period && (
+                            <p className="font-sans text-xs text-text-muted">{period}</p>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
 
                 {/* Pagination */}

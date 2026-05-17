@@ -3,8 +3,6 @@ import { useRouter } from 'next/router';
 import { getCsrfHeader, invalidateCsrfToken, ensureCsrfToken } from '../utils/csrf';
 import {
   generateIdentityBundle,
-  restoreIdentityBundle,
-  relockBundle,
   clearStoredBundle,
   hasStoredBundle,
   replenishOTPKs,
@@ -146,7 +144,7 @@ export const AuthProvider = ({ children }) => {
           setUser(sanitizedUser);
           setToken(userData.token || true); // truthy sentinel; real token stays in-memory only
           localStorage.setItem('user', JSON.stringify(sanitizedUser));
-          initE2EE(null).catch(() => {});
+          initE2EE().catch(() => {});
           logState('After setting user data');
         } else {
           console.warn('Invalid user data from API');
@@ -202,101 +200,63 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorage);
   }, [user]);
 
-  // Initialise the Signal Protocol identity bundle.
-  // Called after every successful login with the plaintext password.
-  // No raw key bytes ever touch Web Storage — all material lives in IndexedDB.
-  const initE2EE = useCallback(async (password) => {
+  // Initialise the Signal Protocol identity bundle — no password needed.
+  // Keys live in IndexedDB only and never leave the device.
+  // Called after every login (password or OAuth) and on page reload.
+  const initE2EE = useCallback(async () => {
     try {
-      let bundle = null;
+      // 1. Load existing local bundle (same device, same browser).
+      let bundle = await getIdentityBundle();
 
-      // 1. Try to restore local bundle from IndexedDB (same device, no password needed).
-      if (await hasStoredBundle()) {
-        bundle = await restoreIdentityBundle(null, null);
+      // Old bundles (pre-refactor) may be missing spkSig — clear and regenerate.
+      if (bundle && !bundle.spkSig) {
+        await clearStoredBundle();
+        bundle = null;
       }
 
-      // 2. If we have a local bundle but no password, mark ready and verify server
-      //    registration in the background (handles page reloads, SSE re-auths).
-      if (bundle && !password) {
+      if (!bundle) {
+        // 2. First use on this device — generate keys locally, then register public parts.
+        const result = await generateIdentityBundle();
+        await _registerBundle(result.publicBundle, result.identityPublicKey);
         setE2eeReady(true);
-        _ensureServerRegistered(bundle).catch(() => {});
         return;
       }
 
-      // 3. If we have a password, always ensure the server record is up-to-date.
-      if (password) {
-        if (!bundle) {
-          // 3a. Try restoring from server blob (new device).
-          invalidateCsrfToken();
-          await ensureCsrfToken();
-          const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/e2ee/identity/me`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.registered && data.encryptedKeyBundle) {
-              bundle = await restoreIdentityBundle(password, data.encryptedKeyBundle);
-            }
-          }
-        }
-
-        if (!bundle) {
-          // 3b. First ever login on any device — generate a brand new bundle.
-          const result = await generateIdentityBundle(password);
-          bundle = await restoreIdentityBundle(null, null); // read it back from IDB
-          await _registerBundle(result.publicBundle, result.encryptedKeyBundle, result.identityPublicKey);
-          setE2eeReady(true);
-          return;
-        }
-
-        // Bundle exists locally — make sure server registration is current.
-        await _ensureServerRegistered(bundle);
-        setE2eeReady(true);
-      }
+      // 3. Bundle exists locally — ensure server registration is current, then mark ready.
+      // Mark ready immediately so the UI is not blocked; registration happens in background.
+      setE2eeReady(true);
+      _ensureServerRegistered(bundle).catch((err) => {
+        console.error('E2EE server registration failed:', err.message);
+      });
     } catch (err) {
-      console.warn('E2EE init failed — messages will not be encrypted', err);
+      console.error('E2EE init failed:', err.message);
+      setE2eeReady(false);
     }
   }, []);
 
-  // Upload/re-upload the identity bundle to the server if not yet registered.
   const _ensureServerRegistered = async (bundle) => {
     try {
-      invalidateCsrfToken();
-      await ensureCsrfToken();
       const check = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/e2ee/identity/me`);
       if (check.ok) {
         const data = await check.json();
         if (data.registered) {
           _replenishIfNeeded().catch(() => {});
-          return; // already registered
+          return;
         }
       }
-      // Not registered — upload now.
-      const stored = await getIdentityBundle();
-      if (!stored) return;
-
-      // Old bundles (pre-fix) are missing encryptedKeyBundle or spkSig.
-      // They cannot be registered without a password — clear them so the user
-      // regenerates a proper bundle on next login.
-      if (!stored.encryptedKeyBundle || !stored.spkSig) {
-        await clearStoredBundle();
-        setE2eeReady(false);
-        return;
-      }
-
       await _registerBundle(
         {
-          identityDhPublicKey: stored.ikDhPub,
-          signedPreKey: { keyId: stored.spkId, publicKey: stored.spkPub, signature: stored.spkSig },
-          oneTimePreKeys: stored.otpks.map(k => ({ keyId: k.keyId, publicKey: k.pub })),
+          identityDhPublicKey: bundle.ikDhPub,
+          signedPreKey: { keyId: bundle.spkId, publicKey: bundle.spkPub, signature: bundle.spkSig },
+          oneTimePreKeys: bundle.otpks.map(k => ({ keyId: k.keyId, publicKey: k.pub })),
         },
-        stored.encryptedKeyBundle,
-        stored.ikSignPub
+        bundle.ikSignPub,
       );
     } catch { /* non-fatal */ }
   };
 
-  const _registerBundle = async (publicBundle, encryptedKeyBundle, identityPublicKey) => {
-    invalidateCsrfToken();
-    await ensureCsrfToken();
-    await authFetch(
+  const _registerBundle = async (publicBundle, identityPublicKey) => {
+    const res = await authFetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/e2ee/identity`,
       {
         method: 'POST',
@@ -304,13 +264,16 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({
           identityPublicKey,
           identityDhPublicKey: publicBundle.identityDhPublicKey,
-          encryptedKeyBundle,
           signedPreKey: publicBundle.signedPreKey,
           oneTimePreKeys: publicBundle.oneTimePreKeys,
         }),
       }
     );
-    _replenishCheckedRef.current = false; // allow replenish check after fresh registration
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(`E2EE registration failed ${res.status}: ${detail.message ?? JSON.stringify(detail)}`);
+    }
+    _replenishCheckedRef.current = false;
     _replenishIfNeeded().catch(() => {});
   };
 
@@ -340,7 +303,7 @@ export const AuthProvider = ({ children }) => {
     } catch { /* non-fatal */ }
   };
 
-  const login = async (newToken, userData, password) => {
+  const login = async (newToken, userData) => {
     if (!newToken) return;
 
     setToken(newToken); // memory only — never persisted to localStorage
@@ -363,7 +326,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Initialise E2EE keypair in the background — non-blocking.
-    if (password) initE2EE(password).catch(() => {});
+    initE2EE().catch(() => {});
   };
 
   // Function to check if a response indicates session was terminated
@@ -578,38 +541,6 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-      // Re-wrap the identity bundle under the new password and re-upload the blob
-      // so any new device restore also uses the new password.
-      if (await hasStoredBundle()) {
-        try {
-          const newBlob = await relockBundle(currentPassword, newPassword);
-          const bundle = await getIdentityBundle();
-          if (newBlob && bundle) {
-            await authFetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/e2ee/identity`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  identityPublicKey: bundle.ikSignPub,
-                  identityDhPublicKey: bundle.ikDhPub,
-                  encryptedKeyBundle: newBlob,
-                  signedPreKey: {
-                    keyId: bundle.spkId,
-                    publicKey: bundle.spkPub,
-                    // Signature was stored in IndexedDB on generation — re-send existing
-                    signature: bundle.spkSig ?? '',
-                  },
-                  oneTimePreKeys: [],
-                }),
-              }
-            );
-          }
-        } catch {
-          // Non-fatal — E2EE restore on new device may require re-registration.
-        }
-      }
-
       return {
         success: true,
         message: data.message
@@ -811,7 +742,7 @@ export const AuthProvider = ({ children }) => {
       resetSessionTermination,
       // E2EE — Signal Protocol
       e2eeReady,           // true once identity bundle is ready for this session
-      initE2EE,            // call with plaintext password to unlock/generate identity bundle
+      initE2EE,            // call after login to generate or load the device identity bundle
       computeSafetyNumber, // (myIKPub, theirIKPub) => "123456 789012 …"
     }}>
       {children}

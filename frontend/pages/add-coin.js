@@ -9,25 +9,31 @@ import { semantic } from '../utils/tokens';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-const getCoinDescription = (coin) => {
-  if (!coin) return 'Period not specified';
-  if (typeof coin.description === 'string') return coin.description;
-  if (coin.description && typeof coin.description === 'object') return coin.description.date_range || 'Period not specified';
-  return 'Period not specified';
+// Returns a human-readable period string from coinage.date.{from,to}
+const formatCoinPeriod = (coin) => {
+  const date = coin?.coinage?.date;
+  if (!date) return 'Period not specified';
+  const fmt = (y) => (y < 0 ? `${Math.abs(y)} BC` : `${y} AD`);
+  if (date.from == null) return 'Period not specified';
+  if (date.to == null || date.to === date.from) return fmt(date.from);
+  return `${fmt(date.from)} – ${fmt(date.to)}`;
+};
+
+// Returns the primary image src from the new images[] array
+const getPrimaryImageSrc = (coin) => {
+  if (!coin?.images?.length) return null;
+  const first = coin.images[0];
+  return first?.files?.obverse || first?.files?.unified || null;
 };
 
 const sanitizeCoin = (coin) => {
   if (!coin || typeof coin !== 'object') return null;
   return {
     ...coin,
-    name: typeof coin.name === 'string' ? coin.name : 'Name not available',
-    description: getCoinDescription(coin),
-    authority: coin.authority && typeof coin.authority === 'object' ? {
-      emperor: typeof coin.authority.emperor === 'string' ? coin.authority.emperor : '',
-      dynasty: typeof coin.authority.dynasty === 'string' ? coin.authority.dynasty : ''
-    } : {},
-    obverse: coin.obverse && typeof coin.obverse === 'object' ? coin.obverse : {},
-    reverse: coin.reverse && typeof coin.reverse === 'object' ? coin.reverse : {}
+    _title: typeof coin.title?.en === 'string' ? coin.title.en : 'Name not available',
+    _issuer: typeof coin.authority?.issuer === 'string' ? coin.authority.issuer : '',
+    _period: formatCoinPeriod(coin),
+    _imgSrc: getPrimaryImageSrc(coin)
   };
 };
 
@@ -81,7 +87,7 @@ const AddCoinToCollectionPage = () => {
       const res = await fetch(`${API_URL}/api/coins?keyword=${encodeURIComponent(term.trim())}&limit=50`);
       if (!res.ok) throw new Error('Search error');
       const data = await res.json();
-      setCoins((data.results || []).filter(coin => coin && coin._id && typeof coin.name === 'string'));
+      setCoins((data.results || []).filter(coin => coin && coin._id && coin.title?.en));
     } catch {
       setCoins([]);
     } finally {
@@ -168,12 +174,7 @@ const AddCoinToCollectionPage = () => {
     setObversePreview(null); setReversePreview(null);
   };
 
-  const getSafeDescription = (coin) => {
-    if (!coin) return 'Period not specified';
-    if (typeof coin.description === 'string') return coin.description;
-    if (coin.description && typeof coin.description === 'object') return coin.description.date_range || 'Period not specified';
-    return 'Period not specified';
-  };
+  const getSafeDescription = (coin) => coin?._period || 'Period not specified';
 
   const handleImageChange = (e, side) => {
     const file = e.target.files[0];
@@ -323,16 +324,17 @@ const AddCoinToCollectionPage = () => {
                         onClick={() => handleCoinSelect(safeCoin)}
                         className={`flex items-center gap-3 p-3 cursor-pointer transition-colors duration-100 border-b border-border ${isSelected ? 'bg-amber-bg border-l-[3px] border-l-amber' : 'hover:bg-surface-alt border-l-[3px] border-l-transparent'}`}
                       >
-                        <div className="w-14 h-14 overflow-hidden shrink-0 rounded bg-canvas">
+                        <div className="w-14 h-14 overflow-hidden shrink-0 rounded" style={{ backgroundColor: '#f5ede0' }}>
                           <Image
-                            src={safeCoin.obverse?.image || '/images/coin-placeholder.svg'}
-                            alt={safeCoin.name} width={56} height={56}
-                            className="w-full h-full object-cover"
+                            src={safeCoin._imgSrc || '/images/coin-placeholder.svg'}
+                            alt={safeCoin._title} width={56} height={56}
+                            className="w-full h-full object-contain p-1"
+                            unoptimized={!!safeCoin._imgSrc}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-sans text-sm font-medium truncate text-text-primary">{safeCoin.name}</p>
-                          <p className="font-sans text-xs text-text-secondary">{safeCoin.authority?.emperor || 'Unknown Emperor'}</p>
+                          <p className="font-sans text-sm font-medium truncate text-text-primary">{safeCoin._title}</p>
+                          <p className="font-sans text-xs text-text-secondary">{safeCoin._issuer || 'Unknown Issuer'}</p>
                           <p className="font-sans text-xs text-text-muted">{getSafeDescription(safeCoin)}</p>
                         </div>
                         {isSelected && (
@@ -376,16 +378,17 @@ const AddCoinToCollectionPage = () => {
               <div className="p-5">
                 {/* Preview */}
                 <div className="flex items-center gap-3 p-3 mb-5 rounded bg-surface-alt border border-border">
-                  <div className="w-16 h-16 overflow-hidden shrink-0 rounded bg-canvas">
+                  <div className="w-16 h-16 overflow-hidden shrink-0 rounded" style={{ backgroundColor: '#f5ede0' }}>
                     <Image
-                      src={selectedCoin.obverse?.image || '/images/coin-placeholder.svg'}
-                      alt={selectedCoin.name} width={64} height={64}
-                      className="w-full h-full object-cover"
+                      src={selectedCoin._imgSrc || '/images/coin-placeholder.svg'}
+                      alt={selectedCoin._title} width={64} height={64}
+                      className="w-full h-full object-contain p-1"
+                      unoptimized={!!selectedCoin._imgSrc}
                     />
                   </div>
                   <div>
-                    <p className="font-sans font-semibold text-sm text-text-primary">{selectedCoin.name}</p>
-                    <p className="font-sans text-xs text-text-secondary">{selectedCoin.authority?.emperor || 'Unknown Emperor'}</p>
+                    <p className="font-sans font-semibold text-sm text-text-primary">{selectedCoin._title}</p>
+                    <p className="font-sans text-xs text-text-secondary">{selectedCoin._issuer || 'Unknown Issuer'}</p>
                     <p className="font-sans text-xs text-text-muted">{getSafeDescription(selectedCoin)}</p>
                   </div>
                 </div>

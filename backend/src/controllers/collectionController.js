@@ -83,7 +83,7 @@ exports.getMyCollections = async (req, res) => {
     const collections = await Collection.find({ user: req.user.userId })
       .populate({
         path: 'coins.coin',
-        select: 'name obverse.image reverse.image authority.emperor description.denomination description.material'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
       })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -119,7 +119,7 @@ exports.getPublicCollections = async (req, res) => {
     const collections = await Collection.find({ isPublic: true })
       .populate({
         path: 'coins.coin',
-        select: 'name obverse.image reverse.image authority.emperor description.denomination description.material'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
       })
       .populate('user', 'username avatar')
       .sort({ createdAt: -1 })
@@ -169,7 +169,7 @@ exports.getUserCollections = async (req, res) => {
       Collection.find(filter)
         .populate({
           path: 'coins.coin',
-          select: 'name obverse.image reverse.image authority.emperor description.denomination description.material'
+          select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
         })
         .populate('user', 'username avatar')
         .sort({ createdAt: -1 })
@@ -204,7 +204,7 @@ exports.getCollectionById = async (req, res) => {
     const collection = await Collection.findById(collectionId)
       .populate({
         path: 'coins.coin',
-        select: 'name obverse.image reverse.image authority.emperor description.denomination description.material description.date_range'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
       })
       .populate('user', 'username avatar');
 
@@ -370,7 +370,10 @@ exports.addCoinToCollection = async (req, res) => {
         }
       },
       { new: true }
-    );
+    ).populate({
+      path: 'coins.coin',
+      select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+    });
 
     if (!updated) {
       return ErrorResponse.notFound(res, 'Collection not found');

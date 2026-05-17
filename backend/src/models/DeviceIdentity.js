@@ -1,10 +1,7 @@
 const { Schema, model } = require('mongoose');
 
 // Per-user device identity. One record per user (single-device model for now).
-// Replaces User.publicKey and User.encryptedPrivateKey.
-//
-// The server stores only public keys and the encrypted private key blob.
-// The blob is wrapped with Argon2id+AES-GCM on the client — server cannot decrypt.
+// The server stores only public keys — private keys are device-bound (IndexedDB only).
 const DeviceIdentitySchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
@@ -24,11 +21,11 @@ const DeviceIdentitySchema = new Schema({
     required: true,
     maxlength: 64
   },
-  // Argon2id+AES-GCM encrypted blob of all private keys. Opaque to the server.
-  // Format: JSON { alg, salt, iv, ct } — all base64
+  // Deprecated — private keys are device-bound and no longer backed up to the server.
+  // Field retained so existing documents remain valid; ignored on read/write.
   encryptedKeyBundle: {
     type: String,
-    required: true,
+    required: false,
     maxlength: 65536
   },
   // Incremented on intentional key rotation (e.g. device change).

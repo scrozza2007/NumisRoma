@@ -53,12 +53,25 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 /**
- * Validate MongoDB ObjectId
+ * Validate a MongoDB ObjectId parameter.
+ * Pass { allowString: true } to also accept non-ObjectId string IDs
+ * (used for coin slug IDs like "ric_9_thes_12a").
  */
-const validateObjectId = (paramName = 'id') => {
+const validateObjectId = (paramName = 'id', { allowString = false } = {}) => {
   return (req, res, next) => {
     const id = req.params[paramName];
-    
+
+    if (allowString) {
+      // Accept any non-empty string that doesn't look like a path traversal
+      if (!id || typeof id !== 'string' || id.length > 200 || /[\/\\]/.test(id)) {
+        return res.status(400).json({
+          error: 'Invalid ID format',
+          message: `Parameter '${paramName}' is invalid`
+        });
+      }
+      return next();
+    }
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       logger.api.error('Invalid ObjectId', {
         paramName,
@@ -66,13 +79,13 @@ const validateObjectId = (paramName = 'id') => {
         url: req.originalUrl,
         userId: req.user?.userId || null
       });
-      
+
       return res.status(400).json({
         error: 'Invalid ID format',
         message: `Parameter '${paramName}' must be a valid MongoDB ObjectId`
       });
     }
-    
+
     next();
   };
 };

@@ -1,9 +1,9 @@
 /**
  * E2EE Key Management Controller — Signal Protocol
  *
- * The server stores only PUBLIC key material and encrypted key blobs.
- * It cannot decrypt any messages or private keys. The encrypted blob
- * (encryptedKeyBundle) is wrapped with Argon2id+AES-GCM on the client.
+ * The server stores only PUBLIC key material (identity keys, signed pre-keys,
+ * one-time pre-keys). Private keys are generated on the client and never leave
+ * the device — they live in IndexedDB only.
  */
 const DeviceIdentity = require('../models/DeviceIdentity');
 const PreKeyBundle = require('../models/PreKeyBundle');
@@ -24,25 +24,18 @@ function isValidB64Key(s, expectedBytes) {
 const registerIdentity = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { identityPublicKey, identityDhPublicKey, encryptedKeyBundle, signedPreKey, oneTimePreKeys } = req.body;
+    const { identityPublicKey, identityDhPublicKey, signedPreKey, oneTimePreKeys } = req.body;
 
-    // Validate Ed25519 pub key (32 bytes → 44 b64 chars)
     if (!isValidB64Key(identityPublicKey, 32)) {
       return res.status(400).json({ message: 'Invalid identityPublicKey' });
     }
-    // Validate X25519 pub key (32 bytes → 44 b64 chars)
     if (!isValidB64Key(identityDhPublicKey, 32)) {
       return res.status(400).json({ message: 'Invalid identityDhPublicKey' });
-    }
-    // Argon2id blob with 100 OTPKs can reach ~20 KB
-    if (typeof encryptedKeyBundle !== 'string' || encryptedKeyBundle.length < 50 || encryptedKeyBundle.length > 65536) {
-      return res.status(400).json({ message: 'Invalid encryptedKeyBundle', detail: `length ${encryptedKeyBundle?.length}` });
     }
     if (!signedPreKey || !isValidB64Key(signedPreKey.publicKey, 32)) {
       return res.status(400).json({ message: 'Invalid signedPreKey.publicKey' });
     }
-    // Signature may be empty string during re-registration from IDB (spkSig missing on old bundles)
-    if (signedPreKey.signature && signedPreKey.signature.length > 0 && !isValidB64Key(signedPreKey.signature, 64)) {
+    if (!isValidB64Key(signedPreKey.signature, 64)) {
       return res.status(400).json({ message: 'Invalid signedPreKey.signature' });
     }
     if (!Array.isArray(oneTimePreKeys) || oneTimePreKeys.length < 1) {
@@ -55,17 +48,9 @@ const registerIdentity = async (req, res) => {
     }
 
     const existing = await DeviceIdentity.findOne({ userId });
-    let keyVersion = 1;
-
-    if (existing) {
-      // Key rotation: only allow if identityPublicKey changed (intentional rotation)
-      // Bump keyVersion so clients can show "safety number changed" warning
-      if (existing.identityPublicKey !== identityPublicKey) {
-        keyVersion = existing.keyVersion + 1;
-      } else {
-        keyVersion = existing.keyVersion;
-      }
-    }
+    const keyVersion = existing
+      ? (existing.identityPublicKey !== identityPublicKey ? existing.keyVersion + 1 : existing.keyVersion)
+      : 1;
 
     await DeviceIdentity.findOneAndUpdate(
       { userId },
@@ -73,7 +58,6 @@ const registerIdentity = async (req, res) => {
         userId,
         identityPublicKey,
         identityDhPublicKey,
-        encryptedKeyBundle,
         keyVersion,
         registeredAt: existing ? existing.registeredAt : new Date(),
       },
@@ -112,7 +96,6 @@ const getMyIdentity = async (req, res) => {
       registered: true,
       identityPublicKey: identity.identityPublicKey,
       identityDhPublicKey: identity.identityDhPublicKey,
-      encryptedKeyBundle: identity.encryptedKeyBundle,
       keyVersion: identity.keyVersion,
     });
   } catch (err) {

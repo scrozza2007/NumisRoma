@@ -12,10 +12,10 @@ import {
   decryptMessage,
   storeMessagePlaintext,
   getMessagePlaintext,
-  hasMessagePlaintext,
   computeSafetyNumber,
   getIdentityBundle,
 } from '../utils/e2ee';
+
 
 const COMMON_EMOJIS = [
   '😊','😂','❤️','👍','🎉','🙏','👋','🔥',
@@ -208,36 +208,29 @@ const Messages = () => {
 
   // ── Send message ────────────────────────────────────────────────────────────
 
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-    const plaintext  = newMessage.trim();
-    const convId     = selectedConversation._id;
-    const otherUser  = getOtherUser(selectedConversation);
-
-    let payload;
-    if (e2eeReady) {
-      try {
-        const { encryptedPayload } = await encryptMessage(
-          convId,
-          plaintext,
-          String(otherUser._id),
-          (uid) => getPreKeyBundle(uid),
-        );
-        payload = { encryptedPayload };
-      } catch {
-        // Recipient has no pre-key bundle yet — fall back to plaintext
-        payload = { content: plaintext, messageType: 'text' };
-      }
-    } else {
-      payload = { content: plaintext, messageType: 'text' };
+  const _doSendEncrypted = async (plaintext, convId, otherUser) => {
+    let encryptedPayload;
+    try {
+      ({ encryptedPayload } = await encryptMessage(
+        convId,
+        plaintext,
+        String(otherUser._id),
+        (uid) => getPreKeyBundle(uid),
+      ));
+    } catch (err) {
+      // Encryption failed — never fall back to plaintext.
+      const reason = err?.message?.includes('no pre-key bundle') || err?.message?.includes('Recipient has no')
+        ? 'This contact has not set up encryption yet. Ask them to open the app and try again.'
+        : 'Encryption failed. Please reload and try again.';
+      addNotification(reason, 'error');
+      return;
     }
 
     try {
-      const serverMsg = await apiClient.post(`/api/messages/${convId}`, payload);
+      const serverMsg = await apiClient.post(`/api/messages/${convId}`, { encryptedPayload });
 
-      // If we encrypted, store plaintext in IDB now (keyed by server-assigned message ID)
-      // so processMessage can serve it back without ever trying to decrypt own messages.
-      if (payload.encryptedPayload && serverMsg._id) {
+      // Store plaintext in IDB keyed by server message ID so own messages render correctly.
+      if (serverMsg._id) {
         await storeMessagePlaintext(
           String(serverMsg._id),
           plaintext,
@@ -254,6 +247,18 @@ const Messages = () => {
     } catch {
       addNotification('Error sending message', 'error');
     }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation) return;
+    if (!e2eeReady) {
+      addNotification('Encryption is initializing — please try again in a moment.', 'error');
+      return;
+    }
+    const plaintext = newMessage.trim();
+    const convId    = selectedConversation._id;
+    const otherUser = getOtherUser(selectedConversation);
+    await _doSendEncrypted(plaintext, convId, otherUser);
   };
 
   // ── Auth guard ──────────────────────────────────────────────────────────────

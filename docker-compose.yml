@@ -18,7 +18,7 @@ services:
       # authSource=admin because the root user lives in the admin DB.
       - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}:${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}@mongodb:27017/numisroma?authSource=admin
       - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
+      - NODE_ENV=${NODE_ENV:-development}
       - PORT=4000
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - TRUST_PROXY=1
