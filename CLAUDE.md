@@ -106,7 +106,7 @@ Standard Express MVC layout:
 
 **Private profiles**: `User.isPrivate` (default `false`). Following a private user creates a `Follow` with `status: 'pending'`. Accept/decline routes update the status and clean up the notification. Both `GET /api/messages/conversations/:id` and `GET /api/users/:id/chat` gate messaging behind an accepted follow check when the target is private.
 
-**Coin schema**: `description.startYear` / `description.endYear` are numeric indexed fields derived from the human-readable `date_range` string via a pre-save hook — these power efficient year-range queries. BC years are stored as negative numbers.
+**Coin schema**: `coinage.date.from` / `coinage.date.to` are numeric indexed fields. BC years are stored as negative numbers; these power efficient year-range overlap queries (`$lte end`, `$gte start`).
 
 **Uploads**: Images are handled by multer + sharp (resize/optimise to WebP, max 1920×1080, 5 MB input). When `AWS_S3_BUCKET` is set, processed images are stored in S3; otherwise they land under `src/uploads/` and are served as static files from `/uploads`. Upload paths are not access-controlled.
 
@@ -125,6 +125,7 @@ Next.js **Pages Router** (not App Router). Key patterns:
 - **`utils/apiClient.js`** — central fetch wrapper; attaches `credentials: 'include'`, CSRF token on mutating requests; throws `ApiError` with `.status`, `.details`, `.code`; auto-retries once on `CSRF_INVALID` 403
 - **`utils/csrf.js`** — CSRF token fetch-once / cache / invalidate helpers consumed by `apiClient.js`
 - **`utils/e2ee.js`** — complete Signal Protocol implementation: X3DH, Double Ratchet, key generation, IDB persistence, safety numbers
+- **`utils/formatters.js`** — centralized display formatters; raw DB values (underscores, lowercase codes, abbreviated references) must never be rendered directly — import named functions here (`fmt`, `fmtPeriod`, `fmtReference`, `fmtSource`, `fmtSeries`, `fmtSubjects`, `hasVal`). `AutocompleteDropdown` accepts plain strings or `{ label, value }` objects — use `{ label, value }` when the displayed text differs from the API query value (e.g. formatted issuer names vs raw DB strings).
 - **`context/AuthContext.js`** — global auth state; exposes `e2eeReady` + `initE2EE(password)` for E2EE lifecycle; login calls `initE2EE` with the plaintext password to generate or restore the identity bundle
 - **`components/`** — Layout, Navbar, AutocompleteDropdown, CustomDropdown, PeriodRangeSlider, NotificationToast, ErrorBoundary; sub-folders under `components/profile/` and `components/settings/`
 - Styled with **Tailwind CSS v4**

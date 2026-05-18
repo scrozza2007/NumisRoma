@@ -5,11 +5,7 @@ import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
-
-const fmt = (str) => {
-  if (!str) return str;
-  return String(str).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-};
+import { fmt, fmtPeriod } from '../utils/formatters';
 
 const buildSpecimens = (images = [], customImages = {}) => {
   const specs = images.map((img, idx) => {
@@ -359,25 +355,19 @@ const CollectionCoinDetail = () => {
               <span className="font-sans text-xs px-2 py-0.5 rounded bg-amber-bg text-amber border border-amber-light">
                 {collectionData.name}
               </span>
-              {(() => {
-                const d = coin.coinage?.date;
-                if (!d?.from) return null;
-                const fmtY = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
-                const label = d.to && d.to !== d.from ? `${fmtY(d.from)} – ${fmtY(d.to)}` : fmtY(d.from);
-                return (
-                  <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                    {label}
-                  </span>
-                );
-              })()}
+              {fmtPeriod(coin.coinage?.date) && (
+                <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
+                  {fmtPeriod(coin.coinage.date)}
+                </span>
+              )}
               {hasValidData(coin.classification?.material) && (
                 <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                  {coin.classification.material}
+                  {fmt(coin.classification.material)}
                 </span>
               )}
               {hasValidData(coin.classification?.denomination) && (
                 <span className="font-sans text-xs px-2 py-0.5 rounded bg-surface-alt text-text-secondary border border-border">
-                  {coin.classification.denomination}
+                  {fmt(coin.classification.denomination)}
                 </span>
               )}
             </div>
@@ -391,30 +381,30 @@ const CollectionCoinDetail = () => {
             {(() => {
               const sp = specimens[activeIdx] || specimens[0];
               return (
-                <div className="group relative cursor-zoom-in" style={{ backgroundColor: '#f5ede0' }}
+                <div className="group relative cursor-zoom-in" style={{ backgroundColor: '#faf4ea' }}
                   onClick={() => setZoomed(true)}>
                   {sp.unified ? (
-                    <div className="flex items-center justify-center" style={{ backgroundColor: '#f5ede0', minHeight: 260 }}>
+                    <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#faf4ea' }}>
                       <img src={sp.unified} alt={sp.label}
                         className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                        style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                        style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
                         onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2" style={{ backgroundColor: '#f5ede0' }}>
+                    <div className="grid grid-cols-2" style={{ backgroundColor: '#faf4ea' }}>
                       {sp.obverse && (
-                        <div className="flex items-center justify-center" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260, backgroundColor: '#f5ede0' }}>
+                        <div className="flex items-center justify-center" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260, backgroundColor: '#faf4ea' }}>
                           <img src={sp.obverse} alt="Obverse"
                             className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                            style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                            style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         </div>
                       )}
                       {sp.reverse && (
-                        <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#f5ede0' }}>
+                        <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#faf4ea' }}>
                           <img src={sp.reverse} alt="Reverse"
                             className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                            style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                            style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         </div>
                       )}
@@ -453,9 +443,10 @@ const CollectionCoinDetail = () => {
                     return (
                       <button key={i} onClick={() => setActiveIdx(i)}
                         className="relative shrink-0 transition-opacity"
-                        style={{ width: 72, height: 72, backgroundColor: '#f5ede0', borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
+                        style={{ width: 72, height: 72, backgroundColor: '#faf4ea', borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
                         {thumb && (
                           <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5"
+                            style={{ mixBlendMode: 'multiply' }}
                             onError={e => { e.currentTarget.style.display = 'none'; }} />
                         )}
                         {sp.isCustom && (
@@ -531,13 +522,7 @@ const CollectionCoinDetail = () => {
             <div className="grid grid-cols-2 gap-3">
               {renderField('Issuer',  fmt(coin.authority?.issuer))}
               {renderField('Dynasty', fmt(coin.authority?.dynasty))}
-              {(() => {
-                const d = coin.coinage?.date;
-                if (!d?.from) return null;
-                const fmtY = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
-                const label = d.to && d.to !== d.from ? `${fmtY(d.from)} – ${fmtY(d.to)}` : fmtY(d.from);
-                return renderField('Period', label);
-              })()}
+              {renderField('Period', fmtPeriod(coin.coinage?.date))}
             </div>
           </div>
 
@@ -803,7 +788,7 @@ const CollectionCoinDetail = () => {
           <div
             ref={zoomContainerRef}
             className="flex-1 overflow-hidden flex items-center justify-center"
-            style={{ cursor: zoomScale > 1 ? 'grab' : 'default', backgroundColor: '#f5ede0' }}
+            style={{ cursor: zoomScale > 1 ? 'grab' : 'default', backgroundColor: '#faf4ea' }}
             onClick={e => e.stopPropagation()}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
@@ -816,26 +801,27 @@ const CollectionCoinDetail = () => {
               transformOrigin: 'center center',
               transition: isDragging.current ? 'none' : 'transform 0.15s ease-out',
               userSelect: 'none',
+              backgroundColor: '#faf4ea',
             }} className="w-full flex items-center justify-center">
               {active.unified ? (
                 <img src={active.unified} alt={active.label}
                   className="max-h-[80vh] max-w-full object-contain pointer-events-none"
-                  style={{ backgroundColor: '#f5ede0' }}
+                  style={{ mixBlendMode: 'multiply' }}
                   draggable={false}
                   onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
               ) : (
-                <div className="flex gap-8 items-center justify-center px-8">
+                <div className="flex gap-8 items-center justify-center px-8" style={{ backgroundColor: '#faf4ea' }}>
                   {active.obverse && (
                     <img src={active.obverse} alt="Obverse"
                       className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                      style={{ backgroundColor: '#f5ede0' }}
+                      style={{ mixBlendMode: 'multiply' }}
                       draggable={false}
                       onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                   )}
                   {active.reverse && (
                     <img src={active.reverse} alt="Reverse"
                       className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                      style={{ backgroundColor: '#f5ede0' }}
+                      style={{ mixBlendMode: 'multiply' }}
                       draggable={false}
                       onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                   )}

@@ -5,30 +5,7 @@ import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
-
-const formatYear = (y) => {
-  if (y == null) return null;
-  return y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
-};
-
-const formatPeriod = (date) => {
-  if (!date) return null;
-  const from = formatYear(date.from);
-  const to   = formatYear(date.to);
-  if (!from) return null;
-  if (!to || to === from) return from;
-  return `${from} – ${to}`;
-};
-
-const hasVal = (v) => v != null && v !== '' && v !== 'N/A';
-
-// Replace underscores with spaces and title-case each word
-const fmt = (str) => {
-  if (!str) return str;
-  return String(str)
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-};
+import { fmt, fmtPeriod, fmtReference, fmtSource, hasVal } from '../utils/formatters';
 
 // Build a list of specimens: each has { label, meta, obverse?, reverse?, unified? }
 // Split images keep obverse + reverse together per specimen.
@@ -230,7 +207,7 @@ const CoinDetail = () => {
             <div className="bg-card border border-border rounded-md p-6 sm:p-8 mb-6">
               <h1 className="font-display font-semibold text-3xl sm:text-4xl mb-3 text-text-primary">{coin.title?.en}</h1>
               <div className="flex flex-wrap gap-2">
-                {hasVal(formatPeriod(coin.coinage?.date)) && <span className="font-sans text-xs px-3 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{formatPeriod(coin.coinage.date)}</span>}
+                {hasVal(fmtPeriod(coin.coinage?.date)) && <span className="font-sans text-xs px-3 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{fmtPeriod(coin.coinage.date)}</span>}
                 {hasVal(coin.classification?.material)    && <span className="font-sans text-xs px-3 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{fmt(coin.classification.material)}</span>}
                 {hasVal(coin.classification?.denomination) && <span className="font-sans text-xs px-3 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{fmt(coin.classification.denomination)}</span>}
                 {hasVal(coin.classification?.mint)         && <span className="font-sans text-xs px-3 py-1 rounded-full bg-surface-alt border border-border text-text-secondary">{fmt(coin.classification.mint)}</span>}
@@ -244,30 +221,30 @@ const CoinDetail = () => {
                 {(() => {
                   const sp = specimens[activeIdx] || specimens[0];
                   return (
-                    <div className="group relative cursor-zoom-in" style={{ backgroundColor: '#f5ede0' }}
+                    <div className="group relative cursor-zoom-in bg-surface"
                       onClick={() => setZoomed(true)}>
                       {sp.unified ? (
-                        <div className="flex items-center justify-center" style={{ backgroundColor: '#f5ede0', minHeight: 260 }}>
+                        <div className="flex items-center justify-center bg-surface" style={{ minHeight: 260 }}>
                           <img src={sp.unified} alt={sp.label}
-                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                            style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02] mix-blend-multiply"
+                            style={{ maxHeight: 420 }}
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2" style={{ backgroundColor: '#f5ede0' }}>
+                        <div className="grid grid-cols-2 bg-surface">
                           {sp.obverse && (
-                            <div className="flex items-center justify-center" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260, backgroundColor: '#f5ede0' }}>
+                            <div className="flex items-center justify-center bg-surface" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260 }}>
                               <img src={sp.obverse} alt="Obverse"
-                                className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                                style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                                className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02] mix-blend-multiply"
+                                style={{ maxHeight: 420 }}
                                 onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                             </div>
                           )}
                           {sp.reverse && (
-                            <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#f5ede0' }}>
+                            <div className="flex items-center justify-center bg-surface" style={{ minHeight: 260 }}>
                               <img src={sp.reverse} alt="Reverse"
-                                className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                                style={{ maxHeight: 420, backgroundColor: '#f5ede0' }}
+                                className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02] mix-blend-multiply"
+                                style={{ maxHeight: 420 }}
                                 onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                             </div>
                           )}
@@ -306,10 +283,10 @@ const CoinDetail = () => {
                         const thumb = sp.obverse || sp.unified || sp.reverse;
                         return (
                           <button key={i} onClick={() => setActiveIdx(i)}
-                            className="relative shrink-0 transition-opacity"
-                            style={{ width: 72, height: 72, backgroundColor: '#f5ede0', borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
+                            className="relative shrink-0 transition-opacity bg-surface"
+                            style={{ width: 72, height: 72, borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
                             {thumb && (
-                              <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5"
+                              <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5 mix-blend-multiply"
                                 onError={e => { e.currentTarget.style.display = 'none'; }} />
                             )}
                           </button>
@@ -357,7 +334,7 @@ const CoinDetail = () => {
                     <Field label="Denomination" value={fmt(coin.classification?.denomination)} />
                     <Field label="Material"     value={fmt(coin.classification?.material)} />
                     <Field label="Mint"         value={fmt(coin.classification?.mint)} />
-                    <Field label="Period"       value={formatPeriod(coin.coinage?.date)} />
+                    <Field label="Period"       value={fmtPeriod(coin.coinage?.date)} />
                   </dl>
                 </div>
 
@@ -366,20 +343,14 @@ const CoinDetail = () => {
                   <div>
                     <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Reference</h2>
                     <dl className="grid grid-cols-2 gap-2">
-                      <Field label="System" value={coin.reference.system} />
-                      <Field label="Series" value={coin.reference.series} />
-                      <Field label="Number" value={
-                        coin.reference.number != null
-                          ? `${coin.reference.number}${coin.reference.suffix || ''}`
-                          : null
-                      } />
+                      <Field label="Citation" value={fmtReference(coin.reference)} />
                     </dl>
                     {coin.references?.length > 1 && (
                       <div className="mt-3 space-y-1">
                         <p className="font-sans text-xs font-medium text-amber">Additional references</p>
                         {coin.references.slice(1).map((ref, i) => (
                           <p key={i} className="font-sans text-xs text-text-secondary">
-                            {[ref.system, ref.series, ref.number != null ? `${ref.number}${ref.suffix || ''}` : null].filter(Boolean).join(' ')}
+                            {fmtReference(ref)}
                           </p>
                         ))}
                       </div>
@@ -552,8 +523,8 @@ const CoinDetail = () => {
                 {/* Image area */}
                 <div
                   ref={zoomContainerRef}
-                  className="flex-1 overflow-hidden flex items-center justify-center"
-                  style={{ cursor: zoomScale > 1 ? 'grab' : 'default', backgroundColor: '#f5ede0' }}
+                  className="flex-1 overflow-hidden flex items-center justify-center bg-surface"
+                  style={{ cursor: zoomScale > 1 ? 'grab' : 'default' }}
                   onClick={e => e.stopPropagation()}
                   onMouseDown={onMouseDown}
                   onMouseMove={onMouseMove}
@@ -566,26 +537,27 @@ const CoinDetail = () => {
                     transformOrigin: 'center center',
                     transition: isDragging.current ? 'none' : 'transform 0.15s ease-out',
                     userSelect: 'none',
+                    backgroundColor: '#faf4ea',
                   }} className="w-full flex items-center justify-center">
                     {active.unified ? (
                       <img src={active.unified} alt={active.label}
                         className="max-h-[80vh] max-w-full object-contain pointer-events-none"
-                        style={{ backgroundColor: '#f5ede0' }}
+                        style={{ mixBlendMode: 'multiply', backgroundColor: '#faf4ea' }}
                         draggable={false}
                         onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                     ) : (
-                      <div className="flex gap-8 items-center justify-center px-8">
+                      <div className="flex gap-8 items-center justify-center px-8" style={{ backgroundColor: '#faf4ea' }}>
                         {active.obverse && (
                           <img src={active.obverse} alt="Obverse"
                             className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                            style={{ backgroundColor: '#f5ede0' }}
+                            style={{ mixBlendMode: 'multiply', backgroundColor: '#faf4ea' }}
                             draggable={false}
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         )}
                         {active.reverse && (
                           <img src={active.reverse} alt="Reverse"
                             className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                            style={{ backgroundColor: '#f5ede0' }}
+                            style={{ mixBlendMode: 'multiply', backgroundColor: '#faf4ea' }}
                             draggable={false}
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         )}

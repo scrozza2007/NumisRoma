@@ -2,22 +2,12 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
+import { fmt, fmtPeriod } from '../utils/formatters';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-// Returns a human-readable period string from coinage.date.{from,to}
-const formatCoinPeriod = (coin) => {
-  const date = coin?.coinage?.date;
-  if (!date) return 'Period not specified';
-  const fmt = (y) => (y < 0 ? `${Math.abs(y)} BC` : `${y} AD`);
-  if (date.from == null) return 'Period not specified';
-  if (date.to == null || date.to === date.from) return fmt(date.from);
-  return `${fmt(date.from)} – ${fmt(date.to)}`;
-};
 
 // Returns the primary image src from the new images[] array
 const getPrimaryImageSrc = (coin) => {
@@ -31,8 +21,8 @@ const sanitizeCoin = (coin) => {
   return {
     ...coin,
     _title: typeof coin.title?.en === 'string' ? coin.title.en : 'Name not available',
-    _issuer: typeof coin.authority?.issuer === 'string' ? coin.authority.issuer : '',
-    _period: formatCoinPeriod(coin),
+    _issuer: fmt(coin.authority?.issuer) || '',
+    _period: fmtPeriod(coin.coinage?.date) || 'Period not specified',
     _imgSrc: getPrimaryImageSrc(coin)
   };
 };
@@ -324,12 +314,13 @@ const AddCoinToCollectionPage = () => {
                         onClick={() => handleCoinSelect(safeCoin)}
                         className={`flex items-center gap-3 p-3 cursor-pointer transition-colors duration-100 border-b border-border ${isSelected ? 'bg-amber-bg border-l-[3px] border-l-amber' : 'hover:bg-surface-alt border-l-[3px] border-l-transparent'}`}
                       >
-                        <div className="w-14 h-14 overflow-hidden shrink-0 rounded" style={{ backgroundColor: '#f5ede0' }}>
-                          <Image
+                        <div className="w-14 h-14 shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                          <img
                             src={safeCoin._imgSrc || '/images/coin-placeholder.svg'}
-                            alt={safeCoin._title} width={56} height={56}
+                            alt={safeCoin._title}
                             className="w-full h-full object-contain p-1"
-                            unoptimized={!!safeCoin._imgSrc}
+                            style={{ mixBlendMode: 'multiply' }}
+                            onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -378,12 +369,13 @@ const AddCoinToCollectionPage = () => {
               <div className="p-5">
                 {/* Preview */}
                 <div className="flex items-center gap-3 p-3 mb-5 rounded bg-surface-alt border border-border">
-                  <div className="w-16 h-16 overflow-hidden shrink-0 rounded" style={{ backgroundColor: '#f5ede0' }}>
-                    <Image
+                  <div className="w-16 h-16 shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                    <img
                       src={selectedCoin._imgSrc || '/images/coin-placeholder.svg'}
-                      alt={selectedCoin._title} width={64} height={64}
+                      alt={selectedCoin._title}
                       className="w-full h-full object-contain p-1"
-                      unoptimized={!!selectedCoin._imgSrc}
+                      style={{ mixBlendMode: 'multiply' }}
+                      onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
                     />
                   </div>
                   <div>

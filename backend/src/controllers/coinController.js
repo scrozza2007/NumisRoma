@@ -61,7 +61,10 @@ exports.getRandomCoins = async (req, res) => {
     const limit = Math.min(Math.max(requestedLimit, 1), QUERY_LIMITS.MAX_RANDOM_COINS);
 
     const total = await Coin.countDocuments();
-    const randomCoins = await Coin.aggregate([{ $sample: { size: limit } }]);
+    const randomCoins = await Coin.aggregate([
+      { $match: { 'images.0': { $exists: true } } },
+      { $sample: { size: limit } },
+    ]);
 
     res.json({ total, results: randomCoins });
   } catch (error) {
@@ -283,50 +286,45 @@ exports.getCoins = async (req, res) => {
     }
 
     let query = {};
-    let useTextSearch = false;
 
     if (keyword) {
-      const isSpecificQuery =
-        /\bRIC\b/i.test(keyword) ||
-        keyword.split(' ').length >= 3;
+      const safe = escapeRegex(keyword);
 
-      if (isSpecificQuery) {
-        const safe = escapeRegex(keyword);
-        if (/\bRIC\b/i.test(keyword)) {
-          if (/^RIC\s+\d+$/i.test(keyword.trim())) {
-            const num = keyword.match(/\d+$/)[0];
-            query['title.en'] = { $regex: `RIC.*\\b${num}\\b`, $options: 'i' };
-          } else {
-            query['title.en'] = { $regex: safe, $options: 'i' };
-          }
+      if (/\bRIC\b/i.test(keyword)) {
+        if (/^RIC\s+\d+$/i.test(keyword.trim())) {
+          const num = keyword.match(/\d+$/)[0];
+          query['title.en'] = { $regex: `RIC.*\\b${num}\\b`, $options: 'i' };
         } else {
-          query.$or = [
-            { 'title.en': { $regex: safe, $options: 'i' } },
-            { 'descriptions.obverse.legend': { $regex: safe, $options: 'i' } },
-            { 'descriptions.reverse.legend': { $regex: safe, $options: 'i' } },
-            { 'authority.issuer':            { $regex: safe, $options: 'i' } },
-            { 'classification.mint':         { $regex: safe, $options: 'i' } }
-          ];
+          query['title.en'] = { $regex: safe, $options: 'i' };
         }
       } else {
-        query.$text = { $search: keyword };
-        useTextSearch = true;
+        query.$or = [
+          { 'title.en':                        { $regex: safe, $options: 'i' } },
+          { 'descriptions.obverse.legend':     { $regex: safe, $options: 'i' } },
+          { 'descriptions.reverse.legend':     { $regex: safe, $options: 'i' } },
+          { 'descriptions.obverse.type':       { $regex: safe, $options: 'i' } },
+          { 'descriptions.reverse.type':       { $regex: safe, $options: 'i' } },
+          { 'authority.issuer':                { $regex: safe, $options: 'i' } },
+          { 'authority.dynasty':               { $regex: safe, $options: 'i' } },
+          { 'classification.mint':             { $regex: safe, $options: 'i' } },
+          { 'classification.material':         { $regex: safe, $options: 'i' } },
+          { 'classification.denomination':     { $regex: safe, $options: 'i' } },
+          { subjects:                          { $regex: safe, $options: 'i' } },
+        ];
       }
     }
 
     if (portrait) {
       const esc = escapeRegex(portrait);
-      const portraitFilter = {
-        $or: [
-          { 'descriptions.obverse.portrait': { $regex: esc, $options: 'i' } },
-          { 'descriptions.reverse.portrait': { $regex: esc, $options: 'i' } }
-        ]
-      };
-      if (keyword) {
-        query.$and = query.$and || [];
-        query.$and.push(portraitFilter);
-      } else {
-        query.$or = portraitFilter.$or;
+      query.$and = query.$and || [];
+      query.$and.push({ $or: [
+        { 'descriptions.obverse.portrait': { $regex: esc, $options: 'i' } },
+        { 'descriptions.reverse.portrait': { $regex: esc, $options: 'i' } }
+      ]});
+      // Move any top-level $or (from keyword) into $and so they don't conflict
+      if (query.$or) {
+        query.$and.push({ $or: query.$or });
+        delete query.$or;
       }
     }
 
@@ -389,7 +387,7 @@ exports.getCoins = async (req, res) => {
 
     switch (validatedSortBy) {
       case 'relevance':
-        sortOptions = useTextSearch ? { score: { $meta: 'textScore' } } : { 'title.en': sortOrder };
+        sortOptions = { 'title.en': sortOrder };
         break;
       case 'issuer':
         sortOptions['authority.issuer'] = sortOrder;
@@ -413,13 +411,8 @@ exports.getCoins = async (req, res) => {
         sortOptions['title.en'] = sortOrder;
     }
 
-    let mongoQuery = Coin.find(query);
-    if (useTextSearch) {
-      mongoQuery = mongoQuery.select({ score: { $meta: 'textScore' } });
-    }
-
     const [coins, total] = await Promise.all([
-      mongoQuery.skip(skip).limit(limit).sort(sortOptions).lean(),
+      Coin.find(query).skip(skip).limit(limit).sort(sortOptions).lean(),
       Coin.countDocuments(query)
     ]);
 

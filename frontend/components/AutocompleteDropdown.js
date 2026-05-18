@@ -1,5 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 
+// options may be plain strings or { label, value } objects.
+// When { label, value } is used, label is shown in the UI and value is passed to onChange.
+const normalise = (o) => typeof o === 'string' ? { label: o, value: o } : o;
+
 const AutocompleteDropdown = ({
   value,
   onChange,
@@ -9,32 +13,41 @@ const AutocompleteDropdown = ({
   emptyMessage = 'No options found'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(value || '');
+  const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
+  const normalisedOptions = useMemo(() => options.map(normalise), [options]);
+
+  // Derive display label for the current value
+  const displayLabel = useMemo(() => {
+    if (!value) return '';
+    const match = normalisedOptions.find(o => o.value === value);
+    return match ? match.label : value;
+  }, [value, normalisedOptions]);
+
+  // Keep input in sync with external value changes (e.g. clear button)
+  useEffect(() => { setSearchTerm(displayLabel); }, [displayLabel]);
+
   const filteredOptions = useMemo(() => {
-    const term = searchTerm.trim();
-    if (!term) return options;
-    const lower = term.toLowerCase();
-    return options
-      .filter(o => o.toLowerCase().includes(lower))
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return normalisedOptions;
+    return normalisedOptions
+      .filter(o => o.label.toLowerCase().includes(term))
       .sort((a, b) => {
-        const aL = a.toLowerCase(), bL = b.toLowerCase();
-        if (aL === lower && bL !== lower) return -1;
-        if (bL === lower && aL !== lower) return 1;
-        const aS = aL.startsWith(lower), bS = bL.startsWith(lower);
+        const aL = a.label.toLowerCase(), bL = b.label.toLowerCase();
+        if (aL === term && bL !== term) return -1;
+        if (bL === term && aL !== term) return 1;
+        const aS = aL.startsWith(term), bS = bL.startsWith(term);
         if (aS && !bS) return -1;
         if (bS && !aS) return 1;
         return aL.localeCompare(bL);
       });
-  }, [searchTerm, options]);
+  }, [searchTerm, normalisedOptions]);
 
   useEffect(() => { setHighlightedIndex(-1); }, [filteredOptions]);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setSearchTerm(value || ''); }, [value]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -52,9 +65,9 @@ const AutocompleteDropdown = ({
   };
 
   const handleOptionSelect = (option) => {
-    setSearchTerm(option);
+    setSearchTerm(option.label);
     setIsOpen(false);
-    onChange(option);
+    onChange(option.value);
     inputRef.current?.blur();
   };
 
@@ -88,7 +101,7 @@ const AutocompleteDropdown = ({
             borderRadius: 6,
           }}
         />
-        {searchTerm ? (
+        {value ? (
           <button
             onClick={() => { setSearchTerm(''); onChange(''); inputRef.current?.focus(); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity text-text-muted"
@@ -112,13 +125,13 @@ const AutocompleteDropdown = ({
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option, index) => (
               <div
-                key={option}
+                key={option.value}
                 onClick={() => handleOptionSelect(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 className="px-3 py-2 cursor-pointer font-sans text-sm text-text-secondary transition-colors duration-100 border-b border-border last:border-0"
                 style={{ backgroundColor: index === highlightedIndex ? '#f0e8d4' : 'transparent' }}
               >
-                {option}
+                {option.label}
               </div>
             ))
           ) : (

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
+import { fmt, fmtPeriod } from '../utils/formatters';
 
 const Home = () => {
   const { user } = useContext(AuthContext);
@@ -119,7 +120,7 @@ const Home = () => {
                         <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                           style={{ background: 'linear-gradient(to top, rgba(46,40,32,0.85), transparent)' }}
                         >
-                          <p className="font-sans text-xs font-medium truncate text-[#fdf8f0]">{coin.authority?.issuer}</p>
+                          <p className="font-sans text-xs font-medium truncate text-[#fdf8f0]">{fmt(coin.authority?.issuer)}</p>
                           <p className="font-sans text-xs truncate text-[#e8d8b0]">{coin.title?.en}</p>
                         </div>
                       </Link>
@@ -175,18 +176,13 @@ const Home = () => {
                     </div>
                     <div className="p-4 border-t border-border">
                       <p className="font-sans text-xs font-medium uppercase tracking-wide mb-1 text-text-muted">
-                        {coin.authority?.issuer}
+                        {fmt(coin.authority?.issuer)}
                       </p>
                       <h3 className="font-display font-semibold text-base leading-tight mb-1 line-clamp-2 text-text-primary">
                         {coin.title?.en || coin.name}
                       </h3>
                       <p className="font-sans text-xs text-text-muted">
-                        {(() => {
-                          const d = coin.coinage?.date;
-                          if (!d?.from) return null;
-                          const fmt = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
-                          return d.to && d.to !== d.from ? `${fmt(d.from)} – ${fmt(d.to)}` : fmt(d.from);
-                        })()}
+                        {fmtPeriod(coin.coinage?.date)}
                       </p>
                     </div>
                   </Link>

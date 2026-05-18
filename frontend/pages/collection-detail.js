@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
+import { fmt, fmtPeriod } from '../utils/formatters';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -248,7 +249,7 @@ const CollectionDetailPage = () => {
                   href={`/collection-coin-detail?id=${coinEntry.coin._id}&collectionId=${id}&entryId=${coinEntry._id}${coinEntry.weight ? `&weight=${encodeURIComponent(coinEntry.weight)}` : ''}${coinEntry.diameter ? `&diameter=${encodeURIComponent(coinEntry.diameter)}` : ''}${coinEntry.grade ? `&grade=${encodeURIComponent(coinEntry.grade)}` : ''}${coinEntry.notes ? `&notes=${encodeURIComponent(coinEntry.notes)}` : ''}`}
                   className="flex flex-col overflow-hidden rounded-md bg-card border border-border hover:border-amber transition-colors duration-200"
                 >
-                  <div className="aspect-square relative overflow-hidden" style={{ backgroundColor: '#f5ede0' }}>
+                  <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
                     {(() => {
                       const customSrc = customImages[coinEntry._id]?.obverse;
                       const catalogSrc = coinEntry.coin.images?.[0]?.files?.obverse || coinEntry.coin.images?.[0]?.files?.unified;
@@ -258,6 +259,7 @@ const CollectionDetailPage = () => {
                           src={src}
                           alt={coinEntry.coin.title?.en || coinEntry.coin.name}
                           className="w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
+                          style={{ mixBlendMode: 'multiply' }}
                           loading="lazy"
                           onError={e => { e.currentTarget.style.display = 'none'; }}
                         />
@@ -274,15 +276,10 @@ const CollectionDetailPage = () => {
                   <div className="p-4 flex flex-col gap-1">
                     <h3 className="font-display font-semibold text-base line-clamp-2 text-text-primary">{coinEntry.coin.title?.en || coinEntry.coin.name}</h3>
                     {coinEntry.coin.authority?.issuer && (
-                      <p className="font-sans text-xs text-text-secondary">{coinEntry.coin.authority.issuer}</p>
+                      <p className="font-sans text-xs text-text-secondary">{fmt(coinEntry.coin.authority.issuer)}</p>
                     )}
                     <p className="font-sans text-xs text-text-muted">
-                      {(() => {
-                        const d = coinEntry.coin.coinage?.date;
-                        if (!d?.from) return 'Period not specified';
-                        const fmt = y => y < 0 ? `${Math.abs(y)} BC` : `${y} AD`;
-                        return d.to && d.to !== d.from ? `${fmt(d.from)} – ${fmt(d.to)}` : fmt(d.from);
-                      })()}
+                      {fmtPeriod(coinEntry.coin.coinage?.date) || 'Period not specified'}
                     </p>
                     {coinEntry.notes && (
                       <p className="font-sans text-xs mt-1 pt-2 text-text-muted border-t border-border">

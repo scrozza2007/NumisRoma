@@ -6,6 +6,7 @@ import CustomDropdown from '../components/CustomDropdown';
 import AutocompleteDropdown from '../components/AutocompleteDropdown';
 import PeriodRangeSlider from '../components/PeriodRangeSlider';
 import Image from 'next/image';
+import { fmt, fmtPeriod } from '../utils/formatters';
 
 // Returns the best image URL from the new images[] array.
 // Prefers split layout obverse, falls back to unified, then null.
@@ -34,7 +35,8 @@ const Browse = () => {
     materials: [], issuers: [], dynasties: [], denominations: [], mints: [], portraits: []
   });
   const [periodRange, setPeriodRange] = useState({ minYear: -31, maxYear: 491 });
-  const isFirstLoadRef = useRef(true);
+  const isFirstLoadRef  = useRef(true);
+  const debounceRef     = useRef(null);
 
   const fetchFilterOptions = useCallback(async () => {
     try {
@@ -42,7 +44,18 @@ const Browse = () => {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/filter-options`),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins/date-ranges`)
       ]);
-      if (optionsRes.ok) setFilterOptions(await optionsRes.json());
+      if (optionsRes.ok) {
+        const raw = await optionsRes.json();
+        const toOptions = (arr) => (arr || []).map(v => ({ label: fmt(v), value: v }));
+        setFilterOptions({
+          materials:    toOptions(raw.materials),
+          issuers:      toOptions(raw.issuers),
+          dynasties:    toOptions(raw.dynasties),
+          denominations: toOptions(raw.denominations),
+          mints:        toOptions(raw.mints),
+          portraits:    toOptions(raw.portraits),
+        });
+      }
       if (dateRes.ok) {
         const d = await dateRes.json();
         setPeriodRange({ minYear: d.minYear, maxYear: d.maxYear });
@@ -117,43 +130,42 @@ const Browse = () => {
     loadSavedFilters();
   }, [fetchCoins]);
 
-  useEffect(() => {
-    if (!isFirstLoadRef.current) {
-      localStorage.setItem('coinCurrentPage', currentPage.toString());
-      fetchCoins(currentPage, filters);
-    }
-  }, [currentPage, fetchCoins]);
-
-  const [debouncedFilters, setDebouncedFilters] = useState(filters);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedFilters(filters), 50);
-    return () => clearTimeout(timer);
-  }, [filters]);
-  useEffect(() => {
-    if (!isFirstLoadRef.current) {
-      localStorage.setItem('coinFilters', JSON.stringify(debouncedFilters));
-      setCurrentPage(1);
-      fetchCoins(1, debouncedFilters);
-    }
-  }, [debouncedFilters, fetchCoins, filters]);
-
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      localStorage.setItem('coinCurrentPage', newPage.toString());
+      fetchCoins(newPage, filters);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const handleFilterChange = (name, value) => setFilters(prev => ({ ...prev, [name]: value }));
-  const handleSortChange   = (name, value) => setFilters(prev => ({ ...prev, [name]: value }));
-  const handlePeriodRangeChange = ({ startYear, endYear }) => setFilters(prev => ({ ...prev, startYear, endYear }));
+  const TEXT_FIELDS = new Set(['keyword', 'subject']);
 
-  const handleFilterSubmit = (e) => {
-    e.preventDefault();
-    localStorage.setItem('coinFilters', JSON.stringify(filters));
-    localStorage.setItem('coinCurrentPage', '1');
-    setCurrentPage(1);
-    fetchCoins(1, filters);
+  const applyFilters = useCallback((nextFilters, changedField) => {
+    if (isFirstLoadRef.current) return;
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      localStorage.setItem('coinFilters', JSON.stringify(nextFilters));
+      localStorage.setItem('coinCurrentPage', '1');
+      setCurrentPage(1);
+      fetchCoins(1, nextFilters);
+    }, TEXT_FIELDS.has(changedField) ? 350 : 0);
+  }, [fetchCoins]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFilterChange = (name, value) => {
+    const next = { ...filters, [name]: value };
+    setFilters(next);
+    applyFilters(next, name);
+  };
+  const handleSortChange = (name, value) => {
+    const next = { ...filters, [name]: value };
+    setFilters(next);
+    applyFilters(next, name);
+  };
+  const handlePeriodRangeChange = ({ startYear, endYear }) => {
+    const next = { ...filters, startYear, endYear };
+    setFilters(next);
+    applyFilters(next, 'period');
   };
 
   const handleFilterReset = () => {
@@ -227,7 +239,7 @@ const Browse = () => {
                   </button>
                 </div>
 
-                <form onSubmit={handleFilterSubmit} className="space-y-5">
+                <div className="space-y-5">
                   {/* Keyword */}
                   <div>
                     <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Keyword</label>
@@ -309,16 +321,7 @@ const Browse = () => {
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 bg-amber text-[#fdf8f0] hover:bg-amber-hover rounded transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Apply Filters
-                  </button>
-                </form>
+                </div>
               </div>
             </div>
           </div>
@@ -346,13 +349,7 @@ const Browse = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                   {coins.map((coin) => {
                     const imgSrc = getPrimaryImage(coin) || '/images/coin-placeholder.svg';
-                    const dateFrom = coin.coinage?.date?.from;
-                    const dateTo   = coin.coinage?.date?.to;
-                    const period = dateFrom != null
-                      ? (dateTo != null && dateTo !== dateFrom
-                          ? `${Math.abs(dateFrom)}${dateFrom < 0 ? ' BC' : ' AD'} – ${Math.abs(dateTo)}${dateTo < 0 ? ' BC' : ' AD'}`
-                          : `${Math.abs(dateFrom)}${dateFrom < 0 ? ' BC' : ' AD'}`)
-                      : null;
+                    const period = fmtPeriod(coin.coinage?.date);
 
                     return (
                       <Link
@@ -360,17 +357,17 @@ const Browse = () => {
                         href={`/coin-detail?id=${coin._id}`}
                         className="group rounded-md overflow-hidden border border-border bg-card hover:shadow-md transition-shadow duration-200 flex flex-col"
                       >
-                        <div className="aspect-square overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#f5ede0' }}>
+                        <div className="aspect-square overflow-hidden flex items-center justify-center bg-surface">
                           <img
                             src={imgSrc}
                             alt={coin.title?.en || 'Coin'}
-                            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+                            className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105 mix-blend-multiply"
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
                           />
                         </div>
                         <div className="p-4 flex flex-col flex-1 border-t border-border">
                           <p className="font-sans text-xs font-medium uppercase tracking-wide mb-1 text-text-muted">
-                            {coin.authority?.issuer}
+                            {fmt(coin.authority?.issuer)}
                           </p>
                           <h3 className="font-display font-semibold text-base leading-tight mb-1 line-clamp-2 flex-1 text-text-primary">
                             {coin.title?.en}
