@@ -98,6 +98,17 @@ const validateEnv = () => {
     errors.push(...adminProblems);
   }
 
+  // Resend API key — required for OTP + welcome emails.
+  if (!process.env.RESEND_API_KEY) {
+    if (isProd) {
+      errors.push('RESEND_API_KEY is required in production (email verification flow)');
+    } else {
+      warnings.push('RESEND_API_KEY is unset — email sending will fail; set it to test the registration flow');
+    }
+  } else if (!process.env.RESEND_API_KEY.startsWith('re_')) {
+    warnings.push('RESEND_API_KEY does not look like a valid Resend key (expected prefix: re_)');
+  }
+
   if (warnings.length > 0) {
     warnings.forEach(w => logger.warn(`[env] ${w}`));
   }

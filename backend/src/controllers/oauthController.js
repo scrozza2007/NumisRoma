@@ -5,6 +5,7 @@ const User = require('../models/User');
 const sessionController = require('./sessionController');
 const { setAuthCookie } = require('../utils/authCookie');
 const logger = require('../utils/logger');
+const { sendWelcomeEmail } = require('../utils/emailService');
 
 // ---------------------------------------------------------------------------
 // Shared find-or-create helper
@@ -106,6 +107,13 @@ const handleOAuthSuccess = async (req, res) => {
     await sessionController.createSession(user._id, token, req);
 
     setAuthCookie(res, token);
+
+    // Send welcome email for brand-new OAuth accounts — non-blocking
+    if (isNew && user.email && !user.email.includes('@oauth.numisroma')) {
+      sendWelcomeEmail({ to: user.email, username: user.username }).catch(err => {
+        logger.error('Welcome email failed for OAuth user (non-fatal)', { error: err.message });
+      });
+    }
 
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
     const params = new URLSearchParams({ token, isNew: isNew ? '1' : '0' });

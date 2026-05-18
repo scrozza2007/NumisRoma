@@ -1,4 +1,7 @@
+const crypto = require('crypto');
+const dns = require('dns').promises;
 const User = require('../models/User');
+const PendingRegistration = require('../models/PendingRegistration');
 const Collection = require('../models/Collection');
 const Follow = require('../models/Follow');
 const Session = require('../models/Session');
@@ -14,6 +17,9 @@ const { setAuthCookie, setRefreshCookie, clearAuthCookie, clearRefreshCookie } =
 const { extractToken } = require('../middlewares/authMiddleware');
 const { sanitizeString } = require('../middlewares/enhancedValidation');
 const logger = require('../utils/logger');
+const emailService = require('../utils/emailService');
+const { isDeliverableEmail } = require('../utils/emailValidator');
+const PasswordResetToken = require('../models/PasswordResetToken');
 
 // Common weak passwords blacklist (lowercased). Extend as needed.
 const COMMON_PASSWORDS = new Set([
@@ -104,6 +110,381 @@ const validatePasswordStrength = (password) => {
   }
 
   return { valid: true };
+};
+
+// RFC 2606 reserved / IANA example domains + common throwaway patterns
+const BLOCKED_EMAIL_DOMAINS = new Set([
+  'example.com', 'example.org', 'example.net',
+  'test.com', 'test.org', 'test.net',
+  'localhost', 'invalid', 'local',
+  'mailinator.com', 'guerrillamail.com', 'guerrillamail.net',
+  'guerrillamail.org', 'guerrillamail.biz', 'guerrillamail.de',
+  'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
+  'guerrillamail.info', 'spam4.me', 'trashmail.com', 'trashmail.me',
+  'trashmail.net', 'trashmail.org', 'trashmail.io', 'trashmail.at',
+  'trashmail.de', 'trashmail.me', 'dispostable.com', 'mailnull.com',
+  'spamgourmet.com', 'spamgourmet.net', 'spamgourmet.org',
+  'yopmail.com', 'yopmail.fr', 'cool.fr.nf', 'jetable.fr.nf',
+  'nospam.ze.tc', 'nomail.xl.cx', 'mega.zik.dj', 'speed.1s.fr',
+  'courriel.fr.nf', 'moncourrier.fr.nf', 'monemail.fr.nf',
+  'monmail.fr.nf', 'tempmail.com', 'temp-mail.org', 'tempr.email',
+  'discard.email', 'fakeinbox.com', 'mailnesia.com', 'maildrop.cc',
+  'spamfree24.org', 'throwam.com', 'throwam.net', 'throwaway.email',
+  'getnada.com', 'inboxbear.com', 'spambog.com', 'spambog.de',
+  'spambog.ru', 'einrot.com', 'drdrb.com', 'drdrb.net',
+  'filzmail.com', 'zetmail.com', 'mt2014.com', 'mt2015.com',
+  'spamthisplease.com', 'humaility.com', 'jetable.com', 'jetable.net',
+  'jetable.org', 'nomail.pw', 'owlpic.com'
+]);
+
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
+const OTP_MAX_SENDS_PER_HOUR = process.env.NODE_ENV === 'production' ? 5 : 20;
+const OTP_MAX_ATTEMPTS = process.env.NODE_ENV === 'production' ? 5 : 20;
+
+/**
+ * Step 1 — Validate email + username, send OTP.
+ * POST /api/auth/register/initiate
+ * Body: { username, email, password }
+ */
+exports.initiateRegistration = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors.array().map(e => ({ field: e.param, message: e.msg }))
+    });
+  }
+
+  const { username, email, password } = req.body;
+
+  const passwordValidation = validatePasswordStrength(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error, field: passwordValidation.field });
+  }
+
+  try {
+    // Username is public — safe to surface conflicts
+    const existingUsername = await User.findOne({ username }).select('_id').lean();
+    if (existingUsername) {
+      return res.status(409).json({ error: 'Username already taken', field: 'username' });
+    }
+
+    // Email conflict — same generic message as the original registerUser to
+    // avoid leaking whether an address is already registered
+    const existingEmail = await User.findOne({ email: email.toLowerCase() }).select('_id').lean();
+    if (existingEmail) {
+      return res.status(409).json({
+        error: 'An account with this email already exists',
+        field: 'email'
+      });
+    }
+
+    // Reject known fake/disposable/reserved domains before attempting delivery.
+    const emailDomain = email.split('@')[1].toLowerCase();
+    if (BLOCKED_EMAIL_DOMAINS.has(emailDomain)) {
+      return res.status(400).json({
+        error: 'Please use a real email address to register.',
+        field: 'email'
+      });
+    }
+
+    // Verify the domain has MX records — rejects typos and non-existent domains.
+    try {
+      const mxRecords = await dns.resolveMx(emailDomain);
+      if (!mxRecords || mxRecords.length === 0) {
+        return res.status(400).json({
+          error: 'This email address does not appear to be valid. Please use a real email.',
+          field: 'email'
+        });
+      }
+    } catch {
+      return res.status(400).json({
+        error: 'This email address does not appear to be valid. Please use a real email.',
+        field: 'email'
+      });
+    }
+
+    // Probe the mailbox via Abstract API — rejects non-existent addresses and
+    // disposable/throwaway providers before we attempt delivery via Resend.
+    const deliverable = await isDeliverableEmail(email);
+    if (!deliverable) {
+      return res.status(400).json({
+        error: 'This email address does not appear to be valid or cannot receive mail. Please use a real email.',
+        field: 'email'
+      });
+    }
+
+    const now = Date.now();
+
+    // Check per-hour send limit before upserting
+    const existing = await PendingRegistration.findOne({ email: email.toLowerCase() }).lean();
+    if (existing) {
+      const hourAgo = new Date(now - 60 * 60 * 1000);
+      if (existing.lastSentAt > hourAgo && existing.sendCount >= OTP_MAX_SENDS_PER_HOUR) {
+        return res.status(429).json({
+          error: 'Too many verification codes requested. Please try again in an hour.',
+          code: 'OTP_RATE_LIMITED'
+        });
+      }
+      // Enforce cooldown between resends
+      if (existing.lastSentAt && (now - existing.lastSentAt.getTime()) < OTP_RESEND_COOLDOWN_MS) {
+        const retryAfterSec = Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - existing.lastSentAt.getTime())) / 1000);
+        return res.status(429).json({
+          error: `Please wait ${retryAfterSec} seconds before requesting a new code.`,
+          code: 'OTP_COOLDOWN',
+          retryAfterSeconds: retryAfterSec
+        });
+      }
+    }
+
+    // Generate cryptographically secure 6-digit OTP
+    const otp = String(crypto.randomInt(100000, 999999));
+    const otpHash = PendingRegistration.hashOtp(otp);
+    const otpExpiresAt = new Date(now + OTP_TTL_MS);
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const newSendCount = existing ? (existing.sendCount >= OTP_MAX_SENDS_PER_HOUR ? 1 : existing.sendCount + 1) : 1;
+
+    await PendingRegistration.findOneAndUpdate(
+      { email: email.toLowerCase() },
+      {
+        $set: {
+          username,
+          passwordHash,
+          otpHash,
+          otpExpiresAt,
+          failedAttempts: 0,
+          used: false,
+          sendCount: newSendCount,
+          lastSentAt: new Date(now)
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    try {
+      await emailService.sendOtpEmail({ to: email, otp, expiryMinutes: 10 });
+    } catch (emailErr) {
+      logger.error('OTP email delivery failed', {
+        email,
+        error: emailErr.message,
+        resendError: emailErr.resendError
+      });
+      // Clean up the pending record so the user can retry
+      await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+      const detail = emailErr.resendError?.message || emailErr.message;
+      return res.status(502).json({
+        error: 'Failed to send verification email. Please try again.',
+        code: 'EMAIL_SEND_FAILED',
+        detail: process.env.NODE_ENV !== 'production' ? detail : undefined
+      });
+    }
+
+    return res.status(202).json({
+      message: 'Verification code sent. Please check your email.',
+      expiresInMinutes: 10
+    });
+  } catch (err) {
+    logger.error('Registration initiation error', { error: err.message });
+    return res.status(500).json({ error: 'Server error', message: 'An unexpected error occurred' });
+  }
+};
+
+/**
+ * Step 2 — Resend OTP (respects cooldown + per-hour cap).
+ * POST /api/auth/register/resend-otp
+ * Body: { email }
+ */
+exports.resendOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const pending = await PendingRegistration.findOne({ email: email.toLowerCase() });
+    if (!pending) {
+      // Don't reveal whether the email has a pending registration
+      return res.status(400).json({ error: 'No pending registration found. Please start over.' });
+    }
+
+    const now = Date.now();
+    const hourAgo = new Date(now - 60 * 60 * 1000);
+
+    if (pending.lastSentAt > hourAgo && pending.sendCount >= OTP_MAX_SENDS_PER_HOUR) {
+      return res.status(429).json({
+        error: 'Too many verification codes requested. Please try again in an hour.',
+        code: 'OTP_RATE_LIMITED'
+      });
+    }
+
+    if (pending.lastSentAt && (now - pending.lastSentAt.getTime()) < OTP_RESEND_COOLDOWN_MS) {
+      const retryAfterSec = Math.ceil((OTP_RESEND_COOLDOWN_MS - (now - pending.lastSentAt.getTime())) / 1000);
+      return res.status(429).json({
+        error: `Please wait ${retryAfterSec} seconds before requesting a new code.`,
+        code: 'OTP_COOLDOWN',
+        retryAfterSeconds: retryAfterSec
+      });
+    }
+
+    const otp = String(crypto.randomInt(100000, 999999));
+    const otpHash = PendingRegistration.hashOtp(otp);
+    const otpExpiresAt = new Date(now + OTP_TTL_MS);
+    const newSendCount = pending.sendCount >= OTP_MAX_SENDS_PER_HOUR ? 1 : pending.sendCount + 1;
+
+    await PendingRegistration.updateOne(
+      { email: email.toLowerCase() },
+      {
+        $set: {
+          otpHash,
+          otpExpiresAt,
+          failedAttempts: 0,
+          used: false,
+          sendCount: newSendCount,
+          lastSentAt: new Date(now)
+        }
+      }
+    );
+
+    try {
+      await emailService.sendOtpEmail({ to: email, otp, expiryMinutes: 10 });
+    } catch (emailErr) {
+      logger.error('OTP resend email delivery failed', { email, error: emailErr.message });
+      return res.status(502).json({
+        error: 'Failed to send verification email. Please try again.',
+        code: 'EMAIL_SEND_FAILED'
+      });
+    }
+
+    return res.status(202).json({
+      message: 'New verification code sent.',
+      expiresInMinutes: 10
+    });
+  } catch (err) {
+    logger.error('Resend OTP error', { error: err.message });
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * Step 3 — Verify OTP and create account.
+ * POST /api/auth/register/verify
+ * Body: { email, otp }
+ */
+exports.verifyOtpAndRegister = async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'Email and OTP are required' });
+  }
+
+  try {
+    const pending = await PendingRegistration.findOne({ email: email.toLowerCase() });
+
+    if (!pending) {
+      return res.status(400).json({
+        error: 'No pending registration found. Please start over.',
+        code: 'NO_PENDING'
+      });
+    }
+
+    if (pending.used) {
+      return res.status(400).json({ error: 'This code has already been used. Please start over.', code: 'OTP_USED' });
+    }
+
+    if (new Date() > pending.otpExpiresAt) {
+      await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+      return res.status(400).json({ error: 'Verification code has expired. Please start over.', code: 'OTP_EXPIRED' });
+    }
+
+    if (pending.failedAttempts >= OTP_MAX_ATTEMPTS) {
+      await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+      return res.status(400).json({
+        error: 'Too many failed attempts. Please start the registration over.',
+        code: 'OTP_MAX_ATTEMPTS'
+      });
+    }
+
+    const submittedHash = PendingRegistration.hashOtp(otp);
+    if (submittedHash !== pending.otpHash) {
+      await PendingRegistration.updateOne(
+        { email: email.toLowerCase() },
+        { $inc: { failedAttempts: 1 } }
+      );
+      const attemptsLeft = OTP_MAX_ATTEMPTS - (pending.failedAttempts + 1);
+      return res.status(400).json({
+        error: 'Invalid verification code.',
+        code: 'OTP_INVALID',
+        attemptsLeft: Math.max(0, attemptsLeft)
+      });
+    }
+
+    // Mark as used immediately to prevent replay
+    await PendingRegistration.updateOne({ email: email.toLowerCase() }, { $set: { used: true } });
+
+    // Guard against a race where another request registered the same email/username
+    const [takenEmail, takenUsername] = await Promise.all([
+      User.findOne({ email: email.toLowerCase() }).select('_id').lean(),
+      User.findOne({ username: pending.username }).select('_id').lean()
+    ]);
+
+    if (takenEmail) {
+      await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+      return res.status(409).json({ error: 'An account with this email already exists.', field: 'email' });
+    }
+    if (takenUsername) {
+      await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+      return res.status(409).json({ error: 'Username already taken.', field: 'username' });
+    }
+
+    const user = new User({
+      username: pending.username,
+      email: email.toLowerCase(),
+      password: pending.passwordHash
+    });
+
+    try {
+      await user.save();
+    } catch (err) {
+      if (err && err.code === 11000) {
+        logger.info('Race condition during OTP verify — duplicate key', { keyPattern: err.keyPattern });
+        await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+        return res.status(409).json({ error: 'Registration failed. Please try again.', code: 'CONFLICT' });
+      }
+      throw err;
+    }
+
+    // Clean up pending registration
+    await PendingRegistration.deleteOne({ email: email.toLowerCase() });
+
+    const payload = { userId: user._id };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    try {
+      await sessionController.createSession(user._id, token, req);
+    } catch (sessionError) {
+      logger.error('Session creation failed after OTP verification', { error: sessionError.message, userId: user._id });
+      await User.findByIdAndDelete(user._id);
+      return res.status(500).json({ error: 'Registration failed', message: 'Unable to create session. Please try again.' });
+    }
+
+    setAuthCookie(res, token);
+
+    // Send welcome email — non-blocking; failure doesn't roll back the registration
+    emailService.sendWelcomeEmail({ to: email, username: user.username }).catch(err => {
+      logger.error('Welcome email failed (non-fatal)', { email, error: err.message });
+    });
+
+    return res.status(201).json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    logger.error('OTP verification error', { error: err.message });
+    return res.status(500).json({ error: 'Server error', message: 'An unexpected error occurred' });
+  }
 };
 
 // Registration
@@ -970,5 +1351,135 @@ exports.revokeAllRefreshTokens = async (req, res) => {
       userId: req.user?.userId
     });
     return jsonError(res, 500, 'Server error');
+  }
+};
+
+const RESET_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const RESET_MAX_PER_HOUR = 3;
+
+/**
+ * POST /api/auth/forgot-password
+ * Body: { email }
+ * Always returns 200 to avoid leaking whether the email is registered.
+ */
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // Always respond with 200 regardless of whether the email exists
+  const genericOk = () => res.status(200).json({
+    message: 'If an account with that email exists, you will receive a password reset link shortly.'
+  });
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() }).select('_id username email password').lean();
+    if (!user) return genericOk();
+
+    // OAuth-only accounts have no local password — nothing to reset
+    if (!user.password) return genericOk();
+
+    // Rate-limit: max 3 reset emails per user per hour
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentCount = await PasswordResetToken.countDocuments({
+      userId: user._id,
+      createdAt: { $gte: hourAgo }
+    });
+    if (recentCount >= RESET_MAX_PER_HOUR) return genericOk();
+
+    // Invalidate any existing unused tokens for this user
+    await PasswordResetToken.deleteMany({ userId: user._id });
+
+    // Generate a cryptographically secure token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = PasswordResetToken.hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+
+    await PasswordResetToken.create({ userId: user._id, tokenHash, expiresAt });
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
+    const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+
+    try {
+      await emailService.sendPasswordResetEmail({ to: user.email, resetUrl, expiryMinutes: 15 });
+    } catch (emailErr) {
+      logger.error('Failed to send password reset email', { error: emailErr.message });
+      // Clean up the token so they can retry
+      await PasswordResetToken.deleteMany({ userId: user._id });
+      return res.status(502).json({
+        error: 'Failed to send reset email. Please try again.',
+        code: 'EMAIL_SEND_FAILED'
+      });
+    }
+
+    return genericOk();
+  } catch (err) {
+    logger.error('Forgot password error', { error: err.message });
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Body: { email, token, password }
+ */
+exports.resetPassword = async (req, res) => {
+  const { email, token, password } = req.body;
+  if (!email || !token || !password) {
+    return res.status(400).json({ error: 'Email, token, and new password are required' });
+  }
+
+  const passwordValidation = validatePasswordStrength(password);
+  if (!passwordValidation.valid) {
+    return res.status(400).json({ error: passwordValidation.error, field: passwordValidation.field });
+  }
+
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() }).select('_id password').lean();
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset link.', code: 'INVALID_TOKEN' });
+    }
+
+    const tokenHash = PasswordResetToken.hashToken(token);
+    const record = await PasswordResetToken.findOne({ userId: user._id, tokenHash });
+
+    if (!record) {
+      return res.status(400).json({ error: 'Invalid or expired reset link.', code: 'INVALID_TOKEN' });
+    }
+    if (record.used) {
+      return res.status(400).json({ error: 'This reset link has already been used.', code: 'TOKEN_USED' });
+    }
+    if (new Date() > record.expiresAt) {
+      await PasswordResetToken.deleteOne({ _id: record._id });
+      return res.status(400).json({ error: 'This reset link has expired. Please request a new one.', code: 'TOKEN_EXPIRED' });
+    }
+
+    // Prevent reuse of the current password
+    const isSame = await bcrypt.compare(password, user.password);
+    if (isSame) {
+      return res.status(400).json({
+        error: 'New password must be different from your current password.',
+        field: 'password'
+      });
+    }
+
+    const newHash = await bcrypt.hash(password, 10);
+
+    // Mark token as used and update password atomically
+    await Promise.all([
+      PasswordResetToken.updateOne({ _id: record._id }, { $set: { used: true } }),
+      User.updateOne({ _id: user._id }, { $set: { password: newHash, failedLoginAttempts: 0, lockoutUntil: null } })
+    ]);
+
+    // Invalidate all active sessions — password change is a security event
+    await Session.updateMany({ userId: user._id, isActive: true }, { $set: { isActive: false } });
+
+    logger.info('Password reset successfully', { userId: user._id });
+
+    return res.status(200).json({ message: 'Password reset successfully. You can now sign in.' });
+  } catch (err) {
+    logger.error('Reset password error', { error: err.message });
+    return res.status(500).json({ error: 'Server error' });
   }
 };

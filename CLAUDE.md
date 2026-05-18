@@ -69,6 +69,9 @@ Optional variables:
 - `AWS_S3_BUCKET` / `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — enables S3 image storage; falls back to local disk (`src/uploads/`) when unset
 - `ADMIN_API_KEY` — min 32 chars; required to access `/api/cache` admin endpoints
 - `TRUST_PROXY` — set to `1` behind a single LB/proxy; required in production for correct `req.ip` and rate-limit key derivation
+- `RESEND_API_KEY` — required for all transactional emails (OTP, welcome, password reset); errors in production, warns in dev
+- `RESEND_FROM_EMAIL` — sender address/name; must be a verified Resend domain (default: `NumisRoma <noreply@numisroma.com>`)
+- `ABSTRACT_EMAIL_API_KEY` — Abstract API Email Reputation key for mailbox validation before sending OTPs; fails open when unset
 
 Generate secrets: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`
 
@@ -87,16 +90,30 @@ Copy `frontend/.env.example`. Key variable:
 Standard Express MVC layout:
 - **`routes/`** — thin route files that apply rate limiting and wire controllers; includes `health.js` (liveness/readiness) and `cache.js` (admin cache-flush, requires `ADMIN_API_KEY`)
 - **`controllers/`** — business logic; one file per domain (auth, coins, collections, users, messages, sessions, contact, notifications, e2ee)
-- **`models/`** — Mongoose schemas (Coin, Collection, User, Session, Message, Conversation, Follow, Notification, Contact, CoinCustomImage, DeviceIdentity, PreKeyBundle)
+- **`models/`** — Mongoose schemas (Coin, Collection, User, Session, Message, Conversation, Follow, Notification, Contact, CoinCustomImage, DeviceIdentity, PreKeyBundle, PendingRegistration, PasswordResetToken)
 - **`utils/sseEmitter.js`** — singleton `EventEmitter` (max 1000 listeners) used by the notification SSE stream; keyed on `user:<userId>`
 - **`middlewares/`** — security (helmet/rate-limit), auth (JWT), CSRF, upload (multer/sharp), request ID, timeout, logging, error handler, `adminMiddleware.js` (API-key guard for admin routes), `enhancedValidation.js`
 - **`utils/cache.js`** — Redis-backed cache with automatic in-memory fallback; used via `cacheHelpers` (coins, collections, users, search, filters) and `cacheMiddleware` for HTTP routes
 - **`utils/metrics.js`** — Prometheus metrics via `prom-client`; exposed at `GET /metrics` (scrape endpoint)
 - **`utils/s3Storage.js`** — S3 upload/delete helpers; returns `null` when `AWS_S3_BUCKET` is unset so `upload.js` falls back to local disk
 - **`utils/ssrfProtection.js`** — blocks requests to private/reserved IPs to prevent SSRF
+- **`utils/emailService.js`** — Resend SDK wrapper; `sendOtpEmail`, `sendWelcomeEmail`, `sendPasswordResetEmail`; brand-matched HTML templates using Cormorant Garamond + Inter, amber palette
+- **`utils/emailValidator.js`** — pre-send mailbox check via Abstract API Email Reputation; rejects `UNDELIVERABLE`, disposable, and high-risk addresses; fails open on missing key or timeout
 - **`config/`** — `validateEnv.js`, `database.js`, `constants.js`, `sentry.js`
 
 **Authentication flow**: JWT issued as httpOnly cookie on login; access token (15 min) + refresh token (7 days, rotatable). The `authMiddleware` validates JWTs; `optionalAuthMiddleware` attaches the user when present but doesn't require it. Refresh tokens are stored hashed in the `Session` model and rotated on each use (max 5 sessions per user).
+
+**Email-verified registration**: Three-step flow replacing the old single-step `POST /api/auth/register`:
+1. `POST /api/auth/register/initiate` — validates fields, checks username/email availability, verifies domain MX records and mailbox deliverability (Abstract API), generates a cryptographically secure 6-digit OTP (SHA-256 hashed in `PendingRegistration`), sends via Resend. Rate-limited to 20 attempts/15 min per IP; OTP send counter (max 5/hr in prod) stored in MongoDB so it survives restarts.
+2. `POST /api/auth/register/resend-otp` — re-issues OTP with 60s cooldown, same per-hour cap.
+3. `POST /api/auth/register/verify` — validates OTP hash, max 5 failed attempts, marks used immediately on match, creates User, issues session + JWT, sends welcome email (non-blocking). `PendingRegistration` documents are TTL-deleted by MongoDB after 15 min past expiry.
+
+**Forgot / reset password**:
+- `POST /api/auth/forgot-password` — always returns 200 (no email enumeration); generates a 32-byte secure token (SHA-256 hashed in `PasswordResetToken`, 15 min TTL), sends reset link via Resend; max 3 emails/hr per user.
+- `POST /api/auth/reset-password` — validates token hash, rejects expired/used tokens, prevents reuse of current password, invalidates all sessions on success.
+- `PasswordResetToken` documents are TTL-deleted by MongoDB 1 hour after expiry.
+
+**OAuth**: Google sign-in via Passport (`oauthController.js`). Find-or-create with email merging. New OAuth accounts skip OTP (Google already verified the email) and receive a welcome email directly. Synthetic emails (`@oauth.numisroma`) used when provider omits email — welcome email is suppressed for these.
 
 **CSRF**: Double-submit cookie pattern via `csrf-csrf`. Clients fetch a token from `GET /api/csrf-token` and send it in the `X-CSRF-Token` header on mutating requests. The backend auto-skips CSRF for requests with no auth cookie (non-browser clients).
 

@@ -1,11 +1,28 @@
 const express = require('express');
 const { body } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const { registerUser, loginUser, logoutUser, changePassword, deleteAccount, changeUsername, updateProfile, checkSession, loginWithRefresh, refreshToken, revokeRefreshToken, revokeAllRefreshTokens } = require('../controllers/authController');
+const rateLimit = require('express-rate-limit');
+const { registerUser, loginUser, logoutUser, changePassword, deleteAccount, changeUsername, updateProfile, checkSession, loginWithRefresh, refreshToken, revokeRefreshToken, revokeAllRefreshTokens, initiateRegistration, resendOtp, verifyOtpAndRegister, forgotPassword, resetPassword } = require('../controllers/authController');
 const User = require('../models/User');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { sanitizeInput } = require('../middlewares/enhancedValidation');
 const logger = require('../utils/logger');
+
+// IP-based limiter on the initiate endpoint only — prevents a single IP from
+// hammering the validation checks. Intentionally generous because it fires on
+// every submit attempt, not just successful OTP sends (those are rate-limited
+// inside the controller by sendCount).
+const registrationAttemptLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.ip || 'unknown',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json({
+    error: 'Too many requests. Please wait a few minutes and try again.',
+    code: 'RATE_LIMITED'
+  })
+});
 
 const router = express.Router();
 
@@ -26,6 +43,55 @@ const validatePassword = (value) => {
   return true;
 };
 
+// ─── Email-verified registration flow ────────────────────────────────────────
+
+// Step 1: Validate fields, hash password, send OTP
+router.post(
+  '/register/initiate',
+  registrationAttemptLimiter,
+  sanitizeInput,
+  [
+    body('username')
+      .notEmpty().withMessage('Username is required')
+      .isLength({ min: 3, max: 20 }).withMessage('Username must be 3–20 characters')
+      .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username can only contain letters, numbers, and underscores'),
+    body('email')
+      .notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Invalid email format')
+      .normalizeEmail(),
+    body('password')
+      .notEmpty().withMessage('Password is required')
+      .custom(validatePassword)
+  ],
+  initiateRegistration
+);
+
+// Step 2a: Resend OTP (cooldown + per-hour cap enforced in the controller)
+router.post(
+  '/register/resend-otp',
+  registrationAttemptLimiter,
+  sanitizeInput,
+  [
+    body('email').notEmpty().withMessage('Email is required').isEmail().withMessage('Invalid email format').normalizeEmail()
+  ],
+  resendOtp
+);
+
+// Step 2b: Submit OTP → create account
+router.post(
+  '/register/verify',
+  sanitizeInput,
+  [
+    body('email').notEmpty().withMessage('Email is required').isEmail().normalizeEmail(),
+    body('otp')
+      .notEmpty().withMessage('OTP is required')
+      .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+      .isNumeric().withMessage('OTP must be numeric')
+  ],
+  verifyOtpAndRegister
+);
+
+// ─── Legacy single-step registration (kept for backwards compat) ─────────────
 // Registration route
 router.post(
   '/register',
@@ -201,6 +267,40 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// ─── Forgot / reset password ─────────────────────────────────────────────────
+
+// Max 5 forgot-password requests per IP per 15 min
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.ip || 'unknown',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(429).json({
+    error: 'Too many requests. Please wait a few minutes before trying again.',
+    code: 'RATE_LIMITED'
+  })
+});
+
+router.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  sanitizeInput,
+  [body('email').notEmpty().withMessage('Email is required').isEmail().toLowerCase()],
+  forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  sanitizeInput,
+  [
+    body('email').notEmpty().isEmail().toLowerCase(),
+    body('token').notEmpty().withMessage('Token is required'),
+    body('password').notEmpty().withMessage('Password is required').custom(validatePassword)
+  ],
+  resetPassword
+);
 
 // Logout route
 router.post('/logout', authMiddleware, logoutUser);
