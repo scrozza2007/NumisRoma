@@ -8,6 +8,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Google OAuth sign-in** — `GET /api/auth/google` via Passport.js. Find-or-create with email merging: if an account with the same email already exists it is linked to the OAuth identity. New OAuth accounts skip OTP (Google already verified the email) and receive a welcome email directly. Synthetic emails (`@oauth.numisroma`) are used when the provider omits email — welcome email suppressed for these.
+- **Email-verified registration** — three-step OTP flow replacing the old single-step `POST /api/auth/register`:
+  1. `POST /api/auth/register/initiate` — validates fields, checks availability, verifies mailbox via Abstract API, sends 6-digit OTP via Resend (SHA-256 hashed `PendingRegistration`, 15 min TTL). Rate-limited to 20/15 min per IP; max 5 sends/hr per email.
+  2. `POST /api/auth/register/resend-otp` — re-issues OTP with 60s cooldown.
+  3. `POST /api/auth/register/verify` — validates hash (max 5 attempts), creates user, issues session + JWT, sends welcome email.
+- **Forgot / reset password** — `POST /api/auth/forgot-password` always returns 200 (no enumeration); generates a 32-byte secure token (SHA-256 hashed, 15 min TTL), max 3 emails/hr per user. `POST /api/auth/reset-password` validates token, prevents password reuse, invalidates all sessions on success. Both token types are TTL-deleted by MongoDB.
+- **`PendingRegistration` model** — stores hashed OTP, expiry, send counter, and failed attempt count; TTL-indexed for automatic cleanup.
+- **`PasswordResetToken` model** — stores hashed reset token with `used` flag and TTL index.
+- **`emailService.js`** — Resend SDK wrapper with `sendOtpEmail`, `sendWelcomeEmail`, `sendPasswordResetEmail`; brand-matched HTML templates (Cormorant Garamond + Inter, amber palette).
+- **`emailValidator.js`** — pre-send mailbox check via Abstract API Email Reputation; rejects `UNDELIVERABLE`, disposable, and high-risk addresses; fails open on missing key or timeout.
+
+### Added
+- **Private Cloudflare R2 image storage** — collection thumbnails and coin custom images are now stored in a private R2 bucket and served exclusively through auth-gated backend proxy routes (`GET /api/collections/:id/image`, `GET /api/coins/entry/:entryId/images/obverse|reverse`). Direct bucket URLs are never exposed to clients. `Collection.imageKey` and `CoinCustomImage.obverseImageKey`/`reverseImageKey` store the R2 object keys for efficient lookup and deletion. Falls back to local disk + MongoDB binary when `AWS_S3_BUCKET` is unset.
+
+### Changed
+- **Image lifecycle** — deleting a collection cascades to delete its thumbnail and all coin custom images from R2. Removing a single coin from a collection deletes its R2 images. Replacing an image deletes the old R2 object before saving the new one.
+- **Collection thumbnails** — no longer stored as MongoDB binary blobs (`imageData`/`imageContentType`) in production; the proxy route streams directly from R2.
+- **Coin custom images** — no longer stored as MongoDB binary blobs; proxy routes stream from R2 via stored object keys.
+- **`collection-coin-detail`** — gallery no longer shows catalog images; only user-uploaded custom images are displayed. "Reset to Catalog Images" button renamed to "Remove Custom Images".
+- **`collection-detail`** — coin card thumbnails only show custom images; catalog image fallback removed.
+
+### Added
 - **New coin schema** — `Coin` model migrated to string-slug `_id` (e.g. `ric_2_1(2)_dom_1`) with structured fields: `title.en`, `authority.{issuer,dynasty}`, `classification.{denomination,material,mint}`, `coinage.date.{from,to}`, `reference` / `references[]`, `descriptions.{obverse,reverse}`, `images[]`, `subjects[]`.
 - **Multi-specimen gallery** — `coin-detail` and `collection-coin-detail` pages now show a unified gallery: large main viewer with obverse+reverse side-by-side (split layout) or full-width (unified layout), horizontal filmstrip thumbnails, and prev/next nav arrows.
 - **Full-screen zoom modal** — warm-palette full-screen viewer with zoom in/out/reset buttons, scroll-wheel zoom, drag-to-pan, and per-specimen navigation. Replaces the old basic zoom overlay.

@@ -16,7 +16,7 @@ const coinCustomImageSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  reverseImage: {
+  obverseImageKey: {
     type: String,
     default: null
   },
@@ -25,6 +25,14 @@ const coinCustomImageSchema = new mongoose.Schema({
   },
   obverseImageContentType: {
     type: String
+  },
+  reverseImage: {
+    type: String,
+    default: null
+  },
+  reverseImageKey: {
+    type: String,
+    default: null
   },
   reverseImageData: {
     type: Buffer

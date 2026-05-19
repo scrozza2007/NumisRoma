@@ -33,7 +33,7 @@
 ### Collections
 - 📂 Create unlimited public or private collections
 - ➕ Add coins with personal notes and custom obverse/reverse photos
-- 🖼️ Collection cover image upload (stored locally or on S3)
+- 🖼️ Collection cover image upload (stored in private Cloudflare R2; served via auth-gated proxy)
 - 🔒 Private collections are fully access-controlled (IDOR-protected)
 
 ### Community
@@ -45,6 +45,9 @@
 ### Auth & Security
 - 🔑 JWT-based auth via httpOnly cookies (access token 15 min, refresh token 7 days)
 - 🔄 Refresh token rotation with per-device session management (max 5 sessions)
+- 📧 Email-verified registration — OTP sent via Resend, mailbox validated via Abstract API
+- 🔑 Forgot / reset password flow with single-use tokens (15 min TTL)
+- 🌐 Google OAuth sign-in with find-or-create account merging
 - 🛡️ CSRF double-submit cookie protection on all mutating requests
 - 🚦 Rate limiting on all routes (Redis-backed, fail-open)
 - 🧱 Helmet security headers + SSRF protection on external URL inputs
@@ -146,6 +149,11 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `REDIS_URL` | optional | Redis-backed caching and rate limiting; falls back to in-memory |
 | `AWS_S3_BUCKET` | optional | S3 / Cloudflare R2 image storage; falls back to local disk |
 | `AWS_ENDPOINT` | optional | R2 only: `https://ACCOUNT_ID.r2.cloudflarestorage.com` |
+| `RESEND_API_KEY` | required | Transactional email (OTP, welcome, password reset) via Resend |
+| `RESEND_FROM_EMAIL` | optional | Sender address; must be a verified Resend domain |
+| `ABSTRACT_EMAIL_API_KEY` | optional | Mailbox deliverability check before sending OTPs; fails open when unset |
+| `GOOGLE_CLIENT_ID` | optional | Google OAuth app client ID |
+| `GOOGLE_CLIENT_SECRET` | optional | Google OAuth app client secret |
 | `SENTRY_DSN` | optional | Error tracking via Sentry |
 | `ADMIN_API_KEY` | optional | ≥ 32-char key to access cache-flush admin endpoints |
 
@@ -158,7 +166,12 @@ See `backend/.env.example` and `.env.example` for the full list.
 ## 🔌 API Endpoints
 
 ### Auth
-- `POST /api/auth/register` — Create account
+- `POST /api/auth/register/initiate` — Start email-verified registration (sends OTP)
+- `POST /api/auth/register/resend-otp` — Resend OTP
+- `POST /api/auth/register/verify` — Verify OTP and create account
+- `POST /api/auth/forgot-password` — Request password reset email
+- `POST /api/auth/reset-password` — Reset password with token
+- `GET /api/auth/google` — Initiate Google OAuth
 - `POST /api/auth/login` — Login (sets httpOnly cookie)
 - `POST /api/auth/logout` — Logout
 - `GET /api/auth/me` — Current user
@@ -208,7 +221,7 @@ See `backend/.env.example` and `.env.example` for the full list.
 | **Cache** | Redis (optional, in-memory fallback) |
 | **Auth** | JWT (httpOnly cookies), refresh token rotation |
 | **Image processing** | Multer + Sharp (WebP, max 1920×1080) |
-| **Image storage** | Local disk, AWS S3, or Cloudflare R2 |
+| **Image storage** | Private Cloudflare R2 (S3-compatible); local disk fallback for dev |
 | **Observability** | Sentry (errors), Prometheus `/metrics` |
 | **Containerization** | Docker + Docker Compose |
 

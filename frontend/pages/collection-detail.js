@@ -251,9 +251,7 @@ const CollectionDetailPage = () => {
                 >
                   <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
                     {(() => {
-                      const customSrc = customImages[coinEntry._id]?.obverse;
-                      const catalogSrc = coinEntry.coin.images?.[0]?.files?.obverse || coinEntry.coin.images?.[0]?.files?.unified;
-                      const src = customSrc || catalogSrc;
+                      const src = customImages[coinEntry._id]?.obverse;
                       return src ? (
                         <img
                           src={src}

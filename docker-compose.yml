@@ -31,6 +31,11 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY:?RESEND_API_KEY is required}
       - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-NumisRoma <noreply@numisroma.com>}
       - ABSTRACT_EMAIL_API_KEY=${ABSTRACT_EMAIL_API_KEY:-}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_ENDPOINT=${AWS_ENDPOINT:-}
     depends_on:
       mongodb:
         condition: service_healthy

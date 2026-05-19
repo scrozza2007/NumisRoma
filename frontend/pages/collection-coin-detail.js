@@ -228,7 +228,7 @@ const CollectionCoinDetail = () => {
     setImageResetLoading(true);
     try {
       await apiClient.delete(`/api/coins/entry/${entryId}/images`);
-      setNotification({ show: true, message: 'Images reset to catalog defaults successfully!', type: 'success' });
+      setNotification({ show: true, message: 'Custom images removed successfully!', type: 'success' });
       setShowImageEditModal(false);
       setSelectedObverseImage(null); setSelectedReverseImage(null);
       setObversePreview(null); setReversePreview(null);
@@ -241,7 +241,7 @@ const CollectionCoinDetail = () => {
     }
   };
 
-  const specimens = coin ? buildSpecimens(coin.images || [], customImages) : [];
+  const specimens = coin ? buildSpecimens([], customImages) : [];
   const active = specimens[activeIdx] || null;
 
   const hasValidData = (data) => data && data !== '' && data !== 'N/A' && data !== 'n/a' && data !== null && data !== undefined;
@@ -488,13 +488,13 @@ const CollectionCoinDetail = () => {
           </div>
         )}
 
-        {/* No-image placeholder when catalog has no images */}
+        {/* No-image placeholder when no custom images have been uploaded */}
         {specimens.length === 0 && (
           <div className="bg-card border border-border rounded-md mb-6 p-8 flex flex-col items-center justify-center gap-3" style={{ minHeight: 200 }}>
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9a8e80' }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <p className="font-sans text-sm text-text-muted">No catalog images</p>
+            <p className="font-sans text-sm text-text-muted">No images uploaded</p>
             <button
               onClick={() => setShowImageEditModal(true)}
               className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
@@ -711,7 +711,7 @@ const CollectionCoinDetail = () => {
                   onClick={handleImageReset} disabled={imageUploadLoading || imageResetLoading}
                   className="px-4 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong transition-colors duration-150 disabled:opacity-50"
                 >
-                  {imageResetLoading ? 'Resetting…' : 'Reset to Catalog Images'}
+                  {imageResetLoading ? 'Removing…' : 'Remove Custom Images'}
                 </button>
                 <div className="flex gap-3">
                   <button

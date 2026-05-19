@@ -19,6 +19,10 @@ const CollectionSchema = new Schema({
     type: String,
     maxlength: [2000, 'Image URL cannot exceed 2000 characters']
   },
+  imageKey: {
+    type: String,
+    maxlength: [500, 'Image key cannot exceed 500 characters']
+  },
   imageData: {
     type: Buffer
   },

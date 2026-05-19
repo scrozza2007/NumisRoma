@@ -27,10 +27,12 @@ programmatic clients that authenticate via the `Authorization` header).
 
 ## Auth endpoints — `/api/auth`
 
-### Register
+### Register (email-verified, 3-step)
+
+**Step 1 — Initiate**
 
 ```http
-POST /api/auth/register
+POST /api/auth/register/initiate
 Content-Type: application/json
 
 {
@@ -39,6 +41,62 @@ Content-Type: application/json
   "password": "string (≥8 chars, upper + digit + special)"
 }
 ```
+
+Validates fields, checks username/email availability, verifies mailbox deliverability via Abstract API, generates a 6-digit OTP (SHA-256 hashed in `PendingRegistration`, 15 min TTL), and sends it via Resend. Rate-limited to 20 attempts / 15 min per IP; max 5 OTP sends per hour per email.
+
+Returns `200` with `{ message }`. The `PendingRegistration` document is TTL-deleted by MongoDB after 15 min past expiry.
+
+**Step 2 — Resend OTP**
+
+```http
+POST /api/auth/register/resend-otp
+Content-Type: application/json
+
+{ "email": "string" }
+```
+
+Re-issues the OTP with a 60-second cooldown. Returns `429` if the per-hour cap is reached.
+
+**Step 3 — Verify**
+
+```http
+POST /api/auth/register/verify
+Content-Type: application/json
+
+{ "email": "string", "otp": "string (6 digits)" }
+```
+
+Validates the OTP hash (max 5 failed attempts), marks it used, creates the `User` document, issues a session + JWT cookie, and sends a welcome email (non-blocking). Returns `{ user }`.
+
+### Forgot password
+
+```http
+POST /api/auth/forgot-password
+Content-Type: application/json
+
+{ "email": "string" }
+```
+
+Always returns `200` (no email enumeration). Generates a 32-byte secure token (SHA-256 hashed in `PasswordResetToken`, 15 min TTL) and sends a reset-link email via Resend. Max 3 emails per hour per user.
+
+### Reset password
+
+```http
+POST /api/auth/reset-password
+Content-Type: application/json
+
+{ "token": "string", "password": "string (≥8 chars)" }
+```
+
+Validates the token hash, rejects expired or already-used tokens, prevents reuse of the current password, and invalidates all existing sessions on success.
+
+### Google OAuth
+
+```http
+GET /api/auth/google
+```
+
+Redirects to Google consent screen. On callback, finds or creates the user account (merging by email if an account already exists). New OAuth users skip OTP verification and receive a welcome email directly. Redirects to the frontend on completion.
 
 ### Login
 
@@ -286,43 +344,46 @@ Requires admin role. Accepts coin metadata plus optional obverse/reverse image f
 ### Upload custom coin images
 
 ```http
-POST /api/coins/:id/custom-images
+POST /api/coins/entry/:entryId/images
 Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
 
-Uploads per-user custom obverse/reverse images for a catalog coin. Images are
-processed by sharp and stored in the database.
+`:entryId` is the collection entry `_id` (unique per coin per collection). Fields: `obverse` (file), `reverse` (file). Images are processed by sharp (WebP, 600×600) and stored in private Cloudflare R2. Replaces any existing images for that entry.
 
 ### Get custom images metadata
 
 ```http
-GET /api/coins/:id/custom-images
+GET /api/coins/entry/:entryId/images
 Authorization: Bearer <token>
 ```
+
+Returns `{ obverseImage, reverseImage, updatedAt }` with proxy paths.
 
 ### Serve custom obverse image
 
 ```http
-GET /api/coins/:id/custom-images/obverse
+GET /api/coins/entry/:entryId/images/obverse
 Authorization: Bearer <token>
 ```
 
-Returns the raw image bytes with `Content-Type` and ETag headers.
+Auth-gated proxy — streams the image from R2. Returns 404 if no custom image has been uploaded.
 
 ### Serve custom reverse image
 
 ```http
-GET /api/coins/:id/custom-images/reverse
+GET /api/coins/entry/:entryId/images/reverse
 Authorization: Bearer <token>
 ```
 
 ### Delete custom images
 
 ```http
-DELETE /api/coins/:id/custom-images
+DELETE /api/coins/entry/:entryId/images
 Authorization: Bearer <token>
 ```
+
+Deletes both custom images from R2 and removes the `CoinCustomImage` record.
 
 ---
 
@@ -396,7 +457,7 @@ Authorization: Bearer <token>
 GET /api/collections/:collectionId/image
 ```
 
-Returns the collection cover image. Private collection images require owner auth.
+Auth-gated proxy — streams the cover image from private Cloudflare R2. Public collections are served to anyone; private collections return 404 unless the requester is the owner (IDOR-safe).
 
 ### Add a coin to a collection
 
@@ -844,7 +905,7 @@ Validation errors (400) include an `errors` array with per-field details.
 
 | Scope | Limit |
 |-------|-------|
-| General | 100 req / 15 min per IP |
+| General | 300 req / 15 min per IP |
 | Auth routes | 20 req / 15 min per IP |
 | Contact form | 5 req / hour per IP |
 | Search (`GET /api/coins`) | 30 req / min per IP |

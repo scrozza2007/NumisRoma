@@ -499,18 +499,36 @@ exports.updateCoinImages = async (req, res) => {
       customImages = new CoinCustomImage({ collectionEntryId: entryId, userId });
     }
 
-    if (req.processedImages.obverse && customImages.obverseImage) deleteImage(customImages.obverseImage);
-    if (req.processedImages.reverse && customImages.reverseImage) deleteImage(customImages.reverseImage);
-
     if (req.processedImages.obverse) {
-      customImages.obverseImageData        = req.processedImages.obverse.buffer;
-      customImages.obverseImageContentType = req.processedImages.obverse.contentType;
-      customImages.obverseImage            = `/api/coins/entry/${entryId}/images/obverse`;
+      if (customImages.obverseImageKey) deleteImage(customImages.obverseImageKey);
+      else if (customImages.obverseImage) deleteImage(customImages.obverseImage);
     }
     if (req.processedImages.reverse) {
-      customImages.reverseImageData        = req.processedImages.reverse.buffer;
-      customImages.reverseImageContentType = req.processedImages.reverse.contentType;
-      customImages.reverseImage            = `/api/coins/entry/${entryId}/images/reverse`;
+      if (customImages.reverseImageKey) deleteImage(customImages.reverseImageKey);
+      else if (customImages.reverseImage) deleteImage(customImages.reverseImage);
+    }
+
+    if (req.processedImages.obverse) {
+      if (req.processedImages.obverse.buffer) {
+        customImages.obverseImageData        = req.processedImages.obverse.buffer;
+        customImages.obverseImageContentType = req.processedImages.obverse.contentType;
+      } else {
+        customImages.obverseImageData        = undefined;
+        customImages.obverseImageContentType = undefined;
+      }
+      if (req.processedImages.obverse.key) customImages.obverseImageKey = req.processedImages.obverse.key;
+      customImages.obverseImage = `/api/coins/entry/${entryId}/images/obverse`;
+    }
+    if (req.processedImages.reverse) {
+      if (req.processedImages.reverse.buffer) {
+        customImages.reverseImageData        = req.processedImages.reverse.buffer;
+        customImages.reverseImageContentType = req.processedImages.reverse.contentType;
+      } else {
+        customImages.reverseImageData        = undefined;
+        customImages.reverseImageContentType = undefined;
+      }
+      if (req.processedImages.reverse.key) customImages.reverseImageKey = req.processedImages.reverse.key;
+      customImages.reverseImage = `/api/coins/entry/${entryId}/images/reverse`;
     }
 
     await customImages.save();
@@ -532,8 +550,10 @@ exports.resetCoinImages = async (req, res) => {
 
     const customImages = await CoinCustomImage.findOne({ collectionEntryId: entryId, userId });
     if (customImages) {
-      if (customImages.obverseImage) deleteImage(customImages.obverseImage);
-      if (customImages.reverseImage) deleteImage(customImages.reverseImage);
+      if (customImages.obverseImageKey) deleteImage(customImages.obverseImageKey);
+      else if (customImages.obverseImage) deleteImage(customImages.obverseImage);
+      if (customImages.reverseImageKey) deleteImage(customImages.reverseImageKey);
+      else if (customImages.reverseImage) deleteImage(customImages.reverseImage);
       await CoinCustomImage.deleteOne({ collectionEntryId: entryId, userId });
     }
 

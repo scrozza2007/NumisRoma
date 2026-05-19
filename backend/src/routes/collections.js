@@ -16,6 +16,7 @@ const {
 const authMiddleware = require('../middlewares/authMiddleware');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
 const { upload, processCollectionImage, deleteImage } = require('../middlewares/upload');
+const { isS3Enabled, streamFromS3, buildKey } = require('../utils/s3Storage');
 const { validateObjectId } = require('../middlewares/enhancedValidation');
 const logger = require('../utils/logger');
 
@@ -90,51 +91,48 @@ router.get('/:collectionId/image', validateObjectId('collectionId'), optionalAut
   try {
     const Collection = require('../models/Collection');
     const collection = await Collection.findById(req.params.collectionId)
-      .select('imageData imageContentType isPublic user updatedAt');
+      .select('imageData imageContentType imageKey isPublic user updatedAt');
 
-    if (!collection || !collection.imageData) {
-      return res.status(404).send('Image not found');
-    }
+    if (!collection) return res.status(404).send('Image not found');
 
     // Authorization: private collections only visible to their owner.
     if (!collection.isPublic) {
       if (!req.user || collection.user.toString() !== req.user.userId) {
-        // Mirror the generic 404 to avoid leaking collection existence.
         return res.status(404).send('Image not found');
       }
     }
 
-    const contentType = collection.imageContentType || 'image/webp';
-    let data = collection.imageData;
-
-    // Normalize to Buffer in case of { type: 'Buffer', data: [...] } or Binary formats
-    if (!Buffer.isBuffer(data)) {
-      if (data?.buffer) {
-        data = Buffer.from(data.buffer);
-      } else if (Array.isArray(data?.data)) {
-        data = Buffer.from(data.data);
-      } else {
-        data = Buffer.from(data);
-      }
-    }
-
-    // ETag for conditional GETs — cheap win for image bandwidth.
+    const firstAllowed = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
+    const cacheControl = collection.isPublic ? 'public, max-age=86400' : 'private, no-store';
     const etag = `"${(collection.updatedAt || new Date()).getTime()}"`;
-    if (req.headers['if-none-match'] === etag) {
-      return res.status(304).end();
+
+    if (req.headers['if-none-match'] === etag) return res.status(304).end();
+
+    const sharedHeaders = {
+      'Cache-Control': cacheControl,
+      'ETag': etag,
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Access-Control-Allow-Origin': firstAllowed
+    };
+
+    // R2/S3 path: stream from bucket using the stored key.
+    if (isS3Enabled() && collection.imageKey) {
+      return streamFromS3(collection.imageKey, res, sharedHeaders);
     }
 
-    const firstAllowed = (process.env.FRONTEND_URL || 'http://localhost:3000')
-      .split(',')[0].trim();
-    // Public collections get a long private cache; private images are per-user
-    // and must never be shared by an intermediary cache.
-    const cacheControl = collection.isPublic
-      ? 'public, max-age=86400'
-      : 'private, no-store';
+    // MongoDB binary fallback (local disk mode or legacy documents).
+    if (!collection.imageData) return res.status(404).send('Image not found');
+
+    let data = collection.imageData;
+    if (!Buffer.isBuffer(data)) {
+      if (data?.buffer) data = Buffer.from(data.buffer);
+      else if (Array.isArray(data?.data)) data = Buffer.from(data.data);
+      else data = Buffer.from(data);
+    }
 
     res
       .status(200)
-      .set('Content-Type', contentType)
+      .set('Content-Type', collection.imageContentType || 'image/webp')
       .set('Cache-Control', cacheControl)
       .set('ETag', etag)
       .set('Cross-Origin-Resource-Policy', 'cross-origin')
@@ -161,12 +159,12 @@ const updateCollectionWrapper = async (req, res) => {
         return; // image middleware already responded (error path)
       }
 
-      // Remove the previous on-disk image (if any) before the new one
-      // replaces it, to avoid orphaned files in the uploads directory.
+      // Delete the previous image (R2 key or local disk path) before replacing.
       if (req.uploadedImage) {
-        const collection = await Collection.findById(req.params.collectionId);
-        if (collection && collection.image && collection.image.startsWith('/uploads/collections/')) {
-          deleteImage(collection.image);
+        const collection = await Collection.findById(req.params.collectionId).select('imageKey image');
+        if (collection) {
+          if (collection.imageKey) deleteImage(collection.imageKey);
+          else if (collection.image && collection.image.startsWith('/uploads/collections/')) deleteImage(collection.image);
         }
       }
     }

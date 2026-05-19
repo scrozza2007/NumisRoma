@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const logger = require('./logger');
 
@@ -79,4 +79,32 @@ const deleteFromS3 = async (urlOrKey) => {
  */
 const buildKey = (subdir, filename) => path.posix.join('uploads', subdir, filename);
 
-module.exports = { isS3Enabled, uploadToS3, deleteFromS3, buildKey };
+/**
+ * Fetch an S3/R2 object and pipe it to an Express response.
+ * Streams the object directly — never buffers the whole image in memory.
+ * @param {string} urlOrKey  - Public URL or raw S3 key
+ * @param {import('express').Response} res
+ * @param {object} [headers] - Extra response headers to set (e.g. Cache-Control, ETag)
+ */
+const streamFromS3 = async (urlOrKey, res, headers = {}) => {
+  const bucket = process.env.AWS_S3_BUCKET;
+
+  let key;
+  try {
+    const url = new URL(urlOrKey);
+    key = url.pathname.replace(/^\//, '');
+  } catch {
+    key = urlOrKey;
+  }
+
+  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+  const { Body, ContentType, ContentLength } = await getClient().send(command);
+
+  res.set('Content-Type', ContentType || 'image/webp');
+  if (ContentLength) res.set('Content-Length', String(ContentLength));
+  for (const [k, v] of Object.entries(headers)) res.set(k, v);
+
+  Body.pipe(res);
+};
+
+module.exports = { isS3Enabled, uploadToS3, deleteFromS3, buildKey, streamFromS3 };

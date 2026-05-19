@@ -66,7 +66,7 @@ Copy `backend/.env.example`. Required variables:
 Optional variables:
 - `REDIS_URL` / `REDIS_HOST` — enables Redis-backed caching and rate limiting; falls back to in-memory when absent
 - `SENTRY_DSN` — error tracking; skipped when unset (warns in production)
-- `AWS_S3_BUCKET` / `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — enables S3 image storage; falls back to local disk (`src/uploads/`) when unset
+- `AWS_S3_BUCKET` / `AWS_REGION` / `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_ENDPOINT` — enables S3-compatible image storage (Cloudflare R2 recommended); falls back to local disk + MongoDB binary when unset. `AWS_ENDPOINT` is required for R2 (`https://<account-id>.r2.cloudflarestorage.com`); omit for AWS S3.
 - `ADMIN_API_KEY` — min 32 chars; required to access `/api/cache` admin endpoints
 - `TRUST_PROXY` — set to `1` behind a single LB/proxy; required in production for correct `req.ip` and rate-limit key derivation
 - `RESEND_API_KEY` — required for all transactional emails (OTP, welcome, password reset); errors in production, warns in dev
@@ -95,7 +95,7 @@ Standard Express MVC layout:
 - **`middlewares/`** — security (helmet/rate-limit), auth (JWT), CSRF, upload (multer/sharp), request ID, timeout, logging, error handler, `adminMiddleware.js` (API-key guard for admin routes), `enhancedValidation.js`
 - **`utils/cache.js`** — Redis-backed cache with automatic in-memory fallback; used via `cacheHelpers` (coins, collections, users, search, filters) and `cacheMiddleware` for HTTP routes
 - **`utils/metrics.js`** — Prometheus metrics via `prom-client`; exposed at `GET /metrics` (scrape endpoint)
-- **`utils/s3Storage.js`** — S3 upload/delete helpers; returns `null` when `AWS_S3_BUCKET` is unset so `upload.js` falls back to local disk
+- **`utils/s3Storage.js`** — S3-compatible storage helpers (`uploadToS3`, `deleteFromS3`, `streamFromS3`, `buildKey`); `isS3Enabled()` returns false when `AWS_S3_BUCKET` is unset, causing `upload.js` to fall back to local disk + MongoDB binary
 - **`utils/ssrfProtection.js`** — blocks requests to private/reserved IPs to prevent SSRF
 - **`utils/emailService.js`** — Resend SDK wrapper; `sendOtpEmail`, `sendWelcomeEmail`, `sendPasswordResetEmail`; brand-matched HTML templates using Cormorant Garamond + Inter, amber palette
 - **`utils/emailValidator.js`** — pre-send mailbox check via Abstract API Email Reputation; rejects `UNDELIVERABLE`, disposable, and high-risk addresses; fails open on missing key or timeout
@@ -125,7 +125,7 @@ Standard Express MVC layout:
 
 **Coin schema**: `coinage.date.from` / `coinage.date.to` are numeric indexed fields. BC years are stored as negative numbers; these power efficient year-range overlap queries (`$lte end`, `$gte start`).
 
-**Uploads**: Images are handled by multer + sharp (resize/optimise to WebP, max 1920×1080, 5 MB input). When `AWS_S3_BUCKET` is set, processed images are stored in S3; otherwise they land under `src/uploads/` and are served as static files from `/uploads`. Upload paths are not access-controlled.
+**Uploads**: Images are handled by multer + sharp (resize/optimise to WebP, max 1920×1080, 5 MB input). User-uploaded images (collection thumbnails, coin custom images) are stored in a **private** Cloudflare R2 bucket (or local disk when R2 is not configured) and always served through auth-gated backend proxy routes — never via direct bucket URLs. `persistImage` in `upload.js` returns `{ path, key }`; the `key` is stored on the document (`Collection.imageKey`, `CoinCustomImage.obverseImageKey` / `reverseImageKey`) and used by `streamFromS3` to proxy from R2. Deleting a collection or removing a coin cascades to delete the corresponding R2 objects. Catalog images live separately in the R2 bucket under `/images/` and are public.
 
 **Observability**: Sentry is initialised before any other `require` in `index.js` so it can instrument built-in Node modules. Prometheus metrics are collected by default (`numisroma_` prefix) and scraped from `GET /metrics`.
 

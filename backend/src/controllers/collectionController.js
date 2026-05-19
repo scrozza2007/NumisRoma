@@ -1,9 +1,10 @@
 const Collection = require('../models/Collection');
+const CoinCustomImage = require('../models/CoinCustomImage');
 const { validationResult } = require('express-validator');
 const { ErrorResponse } = require('../utils/errorResponse');
 const { UPLOAD } = require('../config/constants');
+const { deleteImage } = require('../middlewares/upload');
 const logger = require('../utils/logger');
-const fs = require('fs').promises;
 
 // Create a new collection
 exports.createCollection = async (req, res) => {
@@ -22,38 +23,20 @@ exports.createCollection = async (req, res) => {
       isPublic
     });
 
-    // If an image was uploaded, save to MongoDB (absolute priority)
-    if (req.uploadedImage) {
-      try {
-        // Security: Check file size before reading
-        if (req.uploadedImage.size && req.uploadedImage.size > UPLOAD.MAX_FILE_SIZE) {
+    if (req.uploadedImage?.path) {
+      if (req.uploadedImage.buffer) {
+        if (req.uploadedImage.buffer.length > UPLOAD.MAX_FILE_SIZE) {
           return ErrorResponse.badRequest(res, 'Image too large', {
             message: `Maximum image size is ${UPLOAD.MAX_FILE_SIZE / 1024 / 1024}MB`
           });
         }
-        
-        const buffer = req.uploadedImage.buffer || 
-          (req.uploadedImage.fullPath ? await fs.readFile(req.uploadedImage.fullPath) : undefined);
-        
-        // Double-check buffer size
-        if (buffer && buffer.length > UPLOAD.MAX_FILE_SIZE) {
-          return ErrorResponse.badRequest(res, 'Image too large', {
-            message: `Maximum image size is ${UPLOAD.MAX_FILE_SIZE / 1024 / 1024}MB`
-          });
-        }
-        
-        if (buffer) {
-          collection.imageData = buffer;
-          collection.imageContentType = req.uploadedImage.contentType || 'image/webp';
-          collection.image = `/api/collections/${collection._id}/image`;
-        }
-      } catch (e) {
-        logger.error('Error reading image for MongoDB', { error: e.message });
-        return ErrorResponse.serverError(res, 'Failed to process image');
+        collection.imageData = req.uploadedImage.buffer;
+        collection.imageContentType = req.uploadedImage.contentType || 'image/webp';
       }
+      if (req.uploadedImage.key) collection.imageKey = req.uploadedImage.key;
+      collection.image = `/api/collections/${collection._id}/image`;
     }
 
-    // If an external URL is provided, use it
     if (!collection.image && image) {
       collection.image = image;
     }
@@ -83,7 +66,7 @@ exports.getMyCollections = async (req, res) => {
     const collections = await Collection.find({ user: req.user.userId })
       .populate({
         path: 'coins.coin',
-        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date'
       })
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -119,7 +102,7 @@ exports.getPublicCollections = async (req, res) => {
     const collections = await Collection.find({ isPublic: true })
       .populate({
         path: 'coins.coin',
-        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date'
       })
       .populate('user', 'username avatar')
       .sort({ createdAt: -1 })
@@ -169,7 +152,7 @@ exports.getUserCollections = async (req, res) => {
       Collection.find(filter)
         .populate({
           path: 'coins.coin',
-          select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+          select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date'
         })
         .populate('user', 'username avatar')
         .sort({ createdAt: -1 })
@@ -204,7 +187,7 @@ exports.getCollectionById = async (req, res) => {
     const collection = await Collection.findById(collectionId)
       .populate({
         path: 'coins.coin',
-        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+        select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date'
       })
       .populate('user', 'username avatar');
 
@@ -250,32 +233,20 @@ exports.updateCollection = async (req, res) => {
     if (image !== undefined) update.image = image;
     if (isPublic !== undefined) update.isPublic = isPublic;
 
-    if (req.uploadedImage) {
-      try {
-        if (req.uploadedImage.size && req.uploadedImage.size > UPLOAD.MAX_FILE_SIZE) {
+    if (req.uploadedImage?.path) {
+      if (req.uploadedImage.buffer) {
+        if (req.uploadedImage.buffer.length > UPLOAD.MAX_FILE_SIZE) {
           return ErrorResponse.badRequest(res, 'Image too large', {
             message: `Maximum image size is ${UPLOAD.MAX_FILE_SIZE / 1024 / 1024}MB`
           });
         }
-
-        const buffer = req.uploadedImage.buffer ||
-          (req.uploadedImage.fullPath ? await fs.readFile(req.uploadedImage.fullPath) : undefined);
-
-        if (buffer && buffer.length > UPLOAD.MAX_FILE_SIZE) {
-          return ErrorResponse.badRequest(res, 'Image too large', {
-            message: `Maximum image size is ${UPLOAD.MAX_FILE_SIZE / 1024 / 1024}MB`
-          });
-        }
-
-        if (buffer) {
-          update.imageData = buffer;
-          update.imageContentType = req.uploadedImage.contentType || 'image/webp';
-          update.image = `/api/collections/${collectionId}/image`;
-        }
-      } catch (e) {
-        logger.error('Error reading image for MongoDB', { error: e.message });
-        return ErrorResponse.serverError(res, 'Failed to process image');
+        update.imageData = req.uploadedImage.buffer;
+        update.imageContentType = req.uploadedImage.contentType || 'image/webp';
+      } else {
+        update.$unset = { imageData: '', imageContentType: '' };
       }
+      if (req.uploadedImage.key) update.imageKey = req.uploadedImage.key;
+      update.image = `/api/collections/${collectionId}/image`;
     }
 
     // If the client sent an empty body (no fields, no upload) reject cleanly
@@ -317,6 +288,31 @@ exports.deleteCollection = async (req, res) => {
 
     if (!deleted) {
       return ErrorResponse.notFound(res, 'Collection not found');
+    }
+
+    // Delete collection thumbnail from R2/disk.
+    if (deleted.imageKey) deleteImage(deleted.imageKey);
+    else if (deleted.image && deleted.image.startsWith('/uploads/')) deleteImage(deleted.image);
+
+    // Delete all coin custom images for every entry in this collection.
+    const entryIds = deleted.coins.map(e => e._id);
+    if (entryIds.length > 0) {
+      const coinImages = await CoinCustomImage.find({
+        collectionEntryId: { $in: entryIds },
+        userId: req.user.userId
+      }).select('obverseImageKey reverseImageKey obverseImage reverseImage');
+
+      for (const img of coinImages) {
+        if (img.obverseImageKey) deleteImage(img.obverseImageKey);
+        else if (img.obverseImage) deleteImage(img.obverseImage);
+        if (img.reverseImageKey) deleteImage(img.reverseImageKey);
+        else if (img.reverseImage) deleteImage(img.reverseImage);
+      }
+
+      await CoinCustomImage.deleteMany({
+        collectionEntryId: { $in: entryIds },
+        userId: req.user.userId
+      });
     }
 
     res.json({ message: 'Collection deleted successfully' });
@@ -372,7 +368,7 @@ exports.addCoinToCollection = async (req, res) => {
       { new: true }
     ).populate({
       path: 'coins.coin',
-      select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date images'
+      select: 'title authority.issuer authority.dynasty classification.denomination classification.material classification.mint coinage.date'
     });
 
     if (!updated) {
@@ -391,6 +387,13 @@ exports.removeCoinFromCollection = async (req, res) => {
   const { collectionId, coinId } = req.params;
 
   try {
+    // Find the entry ID before pulling so we can clean up its images.
+    const before = await Collection.findOne(
+      { _id: collectionId, user: req.user.userId },
+      { coins: { $elemMatch: { coin: coinId } } }
+    );
+    const entryId = before?.coins?.[0]?._id;
+
     const collection = await Collection.findOneAndUpdate(
       { _id: collectionId, user: req.user.userId },
       { $pull: { coins: { coin: coinId } } },
@@ -399,6 +402,22 @@ exports.removeCoinFromCollection = async (req, res) => {
 
     if (!collection) {
       return ErrorResponse.notFound(res, 'Collection not found');
+    }
+
+    // Clean up R2/disk images for the removed entry.
+    if (entryId) {
+      const img = await CoinCustomImage.findOne({
+        collectionEntryId: entryId,
+        userId: req.user.userId
+      }).select('obverseImageKey reverseImageKey obverseImage reverseImage');
+
+      if (img) {
+        if (img.obverseImageKey) deleteImage(img.obverseImageKey);
+        else if (img.obverseImage) deleteImage(img.obverseImage);
+        if (img.reverseImageKey) deleteImage(img.reverseImageKey);
+        else if (img.reverseImage) deleteImage(img.reverseImage);
+        await CoinCustomImage.deleteOne({ _id: img._id });
+      }
     }
 
     res.status(200).json(collection);

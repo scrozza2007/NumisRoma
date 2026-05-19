@@ -49,18 +49,19 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-// Persist a processed image buffer — to S3 when configured, local disk otherwise.
-// Returns the public URL/path to store in the database.
+// Persist a processed image buffer — to S3/R2 when configured, local disk otherwise.
+// Returns { path, key } where path is the URL/local-path and key is the S3 object key (null for local).
 const persistImage = async (buffer, subdir, filename) => {
   if (isS3Enabled()) {
     const key = buildKey(subdir, filename);
-    return uploadToS3(buffer, key, 'image/webp');
+    const url = await uploadToS3(buffer, key, 'image/webp');
+    return { path: url, key };
   }
 
   const dir = subdir === 'collections' ? collectionsDir : coinsDir;
   const filepath = path.join(dir, filename);
   await sharp(buffer).toFile(filepath);
-  return `/uploads/${subdir}/${filename}`;
+  return { path: `/uploads/${subdir}/${filename}`, key: null };
 };
 
 // Middleware to process a single collection image.
@@ -98,12 +99,13 @@ const processCollectionImage = async (req, res, next) => {
       });
     }
 
-    const publicPath = await persistImage(processed.data, 'collections', filename);
+    const { path: publicPath, key: imageKey } = await persistImage(processed.data, 'collections', filename);
 
     req.uploadedImage = {
       filename,
       path: publicPath,
-      buffer: processed.data,
+      key: imageKey,
+      buffer: isS3Enabled() ? null : processed.data,
       contentType: 'image/webp'
     };
 
@@ -167,12 +169,13 @@ const processCoinImage = async (req, res, next) => {
           });
         }
 
-        const publicPath = await persistImage(processed.data, 'coins', filename);
+        const { path: publicPath, key: imageKey } = await persistImage(processed.data, 'coins', filename);
 
         processedImages[side] = {
           filename,
           path: publicPath,
-          buffer: processed.data,
+          key: imageKey,
+          buffer: isS3Enabled() ? null : processed.data,
           contentType: 'image/webp'
         };
       }
