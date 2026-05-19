@@ -47,11 +47,31 @@ const CACHE_TTL = {
 
 // File upload configurations
 const UPLOAD = {
-  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+  MAX_FILE_SIZE: 15 * 1024 * 1024, // 15MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
-  IMAGE_QUALITY: 80, // WebP quality
+  IMAGE_QUALITY: 80,
   MAX_IMAGE_WIDTH: 1920,
-  MAX_IMAGE_HEIGHT: 1080
+  MAX_IMAGE_HEIGHT: 1080,
+  // Coin image quality thresholds
+  COIN: {
+    MIN_WIDTH: 600,
+    MIN_HEIGHT: 600,
+    // DPI is intentionally not enforced: phone cameras report 72 DPI regardless
+    // of sensor resolution. Pixel dimensions (above) are the meaningful check.
+    MIN_BLUR_SCORE: 20,        // Laplacian variance — metallic coin surfaces are
+                               // inherently smooth; 20 filters motion blur only
+    MIN_BRIGHTNESS: 20,        // 0-255 average pixel brightness
+    AI_COIN_CONFIDENCE: 0.55,  // ancient coins are niche; lower bar than modern
+    AI_MODERN_CONFIDENCE: 0.80 // reject if modern coin confidence exceeds this
+  },
+  // Collection thumbnail quality thresholds
+  THUMBNAIL: {
+    MIN_WIDTH: 400,
+    MIN_HEIGHT: 400,
+    MIN_BLUR_SCORE: 60,   // stricter than coins — thumbnails should be crisp
+    MIN_BRIGHTNESS: 25,
+    MAX_ASPECT_RATIO: 3   // reject extreme panoramas / tall portraits (w/h or h/w > 3)
+  }
 };
 
 // Session configurations

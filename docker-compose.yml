@@ -36,6 +36,7 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_ENDPOINT=${AWS_ENDPOINT:-}
+      - GOOGLE_VISION_API_KEY=${GOOGLE_VISION_API_KEY:-}
     depends_on:
       mongodb:
         condition: service_healthy

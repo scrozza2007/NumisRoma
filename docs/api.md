@@ -341,6 +341,18 @@ Content-Type: multipart/form-data
 
 Requires admin role. Accepts coin metadata plus optional obverse/reverse image files.
 
+### Validate coin images (without persisting)
+
+```http
+POST /api/coins/validate-images
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+Runs the full coin image validation pipeline (format, resolution, blur, brightness, AI coin detection) without storing anything. Returns `200 { valid: true }` on success or `400 { error, message }` with the specific rejection reason on failure.
+
+Used by the add-coin flow to validate images *before* creating the collection entry, so an invalid image never leaves the user in an inconsistent state (coin added but images missing).
+
 ### Upload custom coin images
 
 ```http
@@ -349,7 +361,15 @@ Authorization: Bearer <token>
 Content-Type: multipart/form-data
 ```
 
-`:entryId` is the collection entry `_id` (unique per coin per collection). Fields: `obverse` (file), `reverse` (file). Images are processed by sharp (WebP, 600×600) and stored in private Cloudflare R2. Replaces any existing images for that entry.
+`:entryId` is the collection entry `_id` (unique per coin per collection). Fields: `obverse` (file), `reverse` (file).
+
+Images pass through the coin validation pipeline before being stored:
+- Minimum **600×600 px**
+- Laplacian blur score ≥ 20 (rejects motion blur; metallic surfaces are naturally smooth)
+- Average brightness ≥ 20
+- Google Vision AI coin-presence check — accepts ancient/archaeological labels; rejects modern currency; fails open if `GOOGLE_VISION_API_KEY` is not set
+
+Processed via Sharp (WebP output, stripped EXIF, resized to 1200×1200 max). Stored in private Cloudflare R2; replaces any existing images for that entry.
 
 ### Get custom images metadata
 
@@ -399,7 +419,13 @@ Content-Type: multipart/form-data
 name=My Collection&description=...&isPublic=true
 ```
 
-Optional `image` file field for the collection cover.
+Optional `image` file field for the collection cover. The thumbnail passes through the thumbnail validation pipeline before being stored:
+- Minimum **400×400 px**, max aspect ratio **3:1**
+- Laplacian blur score ≥ 60, average brightness ≥ 25
+- Google Vision **SafeSearch** — rejects adult, violent, or racy content (`POSSIBLE` or above)
+- Google Vision **Label Detection** — rejects clearly incoherent content (food, pets, selfies, screenshots, logos, etc.); accepts numismatics-related imagery (coins, artefacts, ancient history, sculptures, museums, etc.)
+
+Processed via Sharp (WebP, 800×600 cover crop). Stored in private Cloudflare R2.
 
 ### List my collections
 

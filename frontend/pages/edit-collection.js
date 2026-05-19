@@ -63,14 +63,14 @@ const EditCollectionPage = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setNotification({ show: true, message: 'File size must be less than 5MB', type: 'error' });
-        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      if (!file.type.startsWith('image/')) {
+        setNotification({ show: true, message: 'Unsupported file type. Please upload a JPEG, PNG, or WebP image.', type: 'error' });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 5000);
         return;
       }
-      if (!file.type.startsWith('image/')) {
-        setNotification({ show: true, message: 'Please select an image file', type: 'error' });
-        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      if (file.size > 15 * 1024 * 1024) {
+        setNotification({ show: true, message: 'File is too large. Please upload an image under 15 MB.', type: 'error' });
+        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 5000);
         return;
       }
       setSelectedImage(file);
@@ -249,7 +249,7 @@ const EditCollectionPage = () => {
                     {currentImageUrl || imagePreview ? 'Change image' : 'Upload an image'}
                     <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
                   </label>
-                  <p className="font-sans text-xs mt-1 text-text-muted">or drag and drop · PNG, JPG up to 5MB</p>
+                  <p className="font-sans text-xs mt-1 text-text-muted">JPEG, PNG, WebP · min 400×400px · max 15 MB</p>
                   {dragActive && <p className="font-sans text-xs mt-1 font-medium text-amber">Drop your image here!</p>}
                 </div>
               </div>

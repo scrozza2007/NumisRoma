@@ -34,6 +34,7 @@
 - 📂 Create unlimited public or private collections
 - ➕ Add coins with personal notes and custom obverse/reverse photos
 - 🖼️ Collection cover image upload (stored in private Cloudflare R2; served via auth-gated proxy)
+- 🛡️ Server-side image validation — blur, brightness, resolution, aspect ratio, NSFW detection (SafeSearch), and AI coin-presence check (Google Vision)
 - 🔒 Private collections are fully access-controlled (IDOR-protected)
 
 ### Community
@@ -154,6 +155,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `ABSTRACT_EMAIL_API_KEY` | optional | Mailbox deliverability check before sending OTPs; fails open when unset |
 | `GOOGLE_CLIENT_ID` | optional | Google OAuth app client ID |
 | `GOOGLE_CLIENT_SECRET` | optional | Google OAuth app client secret |
+| `GOOGLE_VISION_API_KEY` | optional | Google Cloud Vision API key — enables AI coin detection on coin uploads and NSFW + incoherent-content rejection on thumbnails; skips AI checks when unset (free tier: 1 000 units/month) |
 | `SENTRY_DSN` | optional | Error tracking via Sentry |
 | `ADMIN_API_KEY` | optional | ≥ 32-char key to access cache-flush admin endpoints |
 
@@ -183,6 +185,7 @@ See `backend/.env.example` and `.env.example` for the full list.
 - `GET /api/coins/random` — Random coin(s)
 - `GET /api/coins/filter-options` — Available filter values
 - `GET /api/coins/:id` — Coin detail
+- `POST /api/coins/validate-images` — Validate coin images without persisting *(auth)* — used by the add-coin flow before creating the collection entry
 
 ### Collections
 - `GET /api/collections/public` — All public collections
@@ -220,7 +223,8 @@ See `backend/.env.example` and `.env.example` for the full list.
 | **Database** | MongoDB 8.0, Mongoose |
 | **Cache** | Redis (optional, in-memory fallback) |
 | **Auth** | JWT (httpOnly cookies), refresh token rotation |
-| **Image processing** | Multer + Sharp (WebP, max 1920×1080) |
+| **Image processing** | Multer + Sharp (WebP output, resize, EXIF strip) |
+| **Image validation** | Blur (Laplacian variance), brightness, resolution, NSFW (Google Vision SafeSearch), AI coin detection (Google Vision Label Detection) |
 | **Image storage** | Private Cloudflare R2 (S3-compatible); local disk fallback for dev |
 | **Observability** | Sentry (errors), Prometheus `/metrics` |
 | **Containerization** | Docker + Docker Compose |

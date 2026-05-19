@@ -2,10 +2,12 @@ const multer = require('multer');
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
+const { validateImage, isValidImageFormat } = require('../utils/imageValidator');
 const { isS3Enabled, uploadToS3, deleteFromS3, buildKey } = require('../utils/s3Storage');
 
-// Local disk directories — only used when S3 is not configured.
+// Local disk directories — only used when S3/R2 is not configured.
 const uploadsDir = path.join(__dirname, '../uploads');
 const collectionsDir = path.join(uploadsDir, 'collections');
 const coinsDir = path.join(uploadsDir, 'coins');
@@ -17,28 +19,9 @@ if (!isS3Enabled()) {
 
 const storage = multer.memoryStorage();
 
-// Validate image magic numbers to prevent MIME-type spoofing.
-const validateImageBuffer = (buffer) => {
-  if (!buffer || buffer.length < 12) return false;
-
-  // JPEG
-  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return true;
-  // PNG
-  const PNG = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-  if (PNG.every((b, i) => buffer[i] === b)) return true;
-  // GIF
-  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return true;
-  // WebP (RIFF + WEBP at offset 8)
-  if ([0x52, 0x49, 0x46, 0x46].every((b, i) => buffer[i] === b) &&
-      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
-    return true;
-  }
-  return false;
-};
-
 const fileFilter = (req, file, cb) => {
   if (!file.mimetype.startsWith('image/')) {
-    return cb(new Error('Only image files are allowed!'), false);
+    return cb(new Error('File format not supported. Use JPEG, PNG or WebP.'), false);
   }
   cb(null, true);
 };
@@ -46,11 +29,12 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB
 });
 
-// Persist a processed image buffer — to S3/R2 when configured, local disk otherwise.
-// Returns { path, key } where path is the URL/local-path and key is the S3 object key (null for local).
+// ─── Persist ──────────────────────────────────────────────────────────────────
+// Returns { path, key } — S3 URL + key when R2 is configured, local path otherwise.
+
 const persistImage = async (buffer, subdir, filename) => {
   if (isS3Enabled()) {
     const key = buildKey(subdir, filename);
@@ -64,39 +48,54 @@ const persistImage = async (buffer, subdir, filename) => {
   return { path: `/uploads/${subdir}/${filename}`, key: null };
 };
 
-// Middleware to process a single collection image.
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+const deleteImage = async (imagePath) => {
+  if (!imagePath) return;
+  try {
+    if (isS3Enabled() || imagePath.startsWith('https://')) {
+      await deleteFromS3(imagePath);
+      return;
+    }
+    const filename = path.basename(imagePath);
+    const subdir = imagePath.includes('/coins/') ? coinsDir : collectionsDir;
+    const fullPath = path.join(subdir, filename);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  } catch (error) {
+    logger.error('Error deleting image', { error: error.message, imagePath });
+  }
+};
+
+// ─── respond400 ───────────────────────────────────────────────────────────────
+
+const respond400 = (res, message) =>
+  res.status(400).json({ error: 'Image validation failed', message });
+
+// ─── processCollectionImage ───────────────────────────────────────────────────
+// upload_type = 'thumbnail' (relaxed rules, no AI check)
+
 const processCollectionImage = async (req, res, next) => {
   if (!req.file) return next();
 
   try {
-    if (!validateImageBuffer(req.file.buffer)) {
-      return res.status(400).json({
-        error: 'Invalid image file',
-        message: 'File appears to be corrupted or not a valid image format'
-      });
+    // 1. Magic bytes
+    if (!isValidImageFormat(req.file.buffer)) {
+      return respond400(res, 'File format not supported. Use JPEG, PNG or WebP.');
     }
 
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const filename = `collection_${timestamp}_${randomString}.webp`;
+    // 2. Quality + format validation (thumbnail rules)
+    const validation = await validateImage(req.file.buffer, 'thumbnail');
+    if (!validation.valid) return respond400(res, validation.error);
 
+    // 3. Re-encode via sharp (strips EXIF, sanitises, resizes)
+    const filename = `collection_${uuidv4()}.webp`;
     const processed = await sharp(req.file.buffer)
       .resize(800, 600, { fit: 'cover', position: 'center' })
       .webp({ quality: 85 })
       .toBuffer({ resolveWithObject: true });
 
-    const metadata = await sharp(processed.data).metadata();
-    if (metadata.width > 5000 || metadata.height > 5000) {
-      return res.status(400).json({
-        error: 'Image dimensions too large',
-        message: 'Processed image exceeds maximum dimensions of 5000x5000px'
-      });
-    }
     if (processed.info.size > 10 * 1024 * 1024) {
-      return res.status(400).json({
-        error: 'Processed image too large',
-        message: 'Image file size exceeds 10MB after processing'
-      });
+      return respond400(res, 'Processed image exceeds the 10MB size limit.');
     }
 
     const { path: publicPath, key: imageKey } = await persistImage(processed.data, 'collections', filename);
@@ -111,63 +110,38 @@ const processCollectionImage = async (req, res, next) => {
 
     next();
   } catch (error) {
-    logger.error('Error processing image', { error: error.message });
-    res.status(500).json({ error: 'Error processing image', message: 'Error processing image', msg: 'Error processing image' });
+    logger.error('Error processing collection image', { error: error.message });
+    res.status(500).json({ error: 'Error processing image', message: 'Error processing image' });
   }
 };
 
-// Delete an image — S3 key/URL or local path, determined automatically.
-const deleteImage = async (imagePath) => {
-  if (!imagePath) return;
+// ─── processCoinImage ─────────────────────────────────────────────────────────
+// Strict rules + AI coin detection for each side (obverse / reverse).
 
-  try {
-    if (isS3Enabled() || imagePath.startsWith('https://')) {
-      await deleteFromS3(imagePath);
-      return;
-    }
-    // Local path: strip leading /uploads/collections/ to get the filename.
-    const filename = path.basename(imagePath);
-    const subdir = imagePath.includes('/coins/') ? coinsDir : collectionsDir;
-    const fullPath = path.join(subdir, filename);
-    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-  } catch (error) {
-    logger.error('Error deleting image', { error: error.message, imagePath });
-  }
-};
-
-// Middleware to process coin obverse/reverse images.
 const processCoinImage = async (req, res, next) => {
   try {
     const processedImages = {};
 
     if (req.files) {
       for (const side of ['obverse', 'reverse']) {
-        const file = req.files[side] && req.files[side][0];
+        const file = req.files[side]?.[0];
         if (!file) continue;
 
-        if (!validateImageBuffer(file.buffer)) {
-          return res.status(400).json({
-            error: `Invalid ${side} image file`,
-            message: `${side} image appears to be corrupted or not a valid image format`
-          });
+        // 1. Magic bytes
+        if (!isValidImageFormat(file.buffer)) {
+          return respond400(res, 'File format not supported. Use JPEG, PNG or WebP.');
         }
 
-        const timestamp = Date.now();
-        const randomString = Math.random().toString(36).substring(2, 15);
-        const filename = `coin_${side}_${timestamp}_${randomString}.webp`;
+        // 2. Quality + AI validation (coin rules)
+        const validation = await validateImage(file.buffer, 'coin');
+        if (!validation.valid) return respond400(res, validation.error);
 
+        // 3. Re-encode via sharp (strips EXIF, sanitises, resizes)
+        const filename = `coin_${side}_${uuidv4()}.webp`;
         const processed = await sharp(file.buffer)
-          .resize(600, 600, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+          .resize(1200, 1200, { fit: 'inside', withoutEnlargement: false })
           .webp({ quality: 90 })
           .toBuffer({ resolveWithObject: true });
-
-        const metadata = await sharp(processed.data).metadata();
-        if (metadata.width > 5000 || metadata.height > 5000) {
-          return res.status(400).json({
-            error: `${side} image dimensions too large`,
-            message: 'Processed image exceeds maximum dimensions of 5000x5000px'
-          });
-        }
 
         const { path: publicPath, key: imageKey } = await persistImage(processed.data, 'coins', filename);
 
@@ -185,7 +159,7 @@ const processCoinImage = async (req, res, next) => {
     next();
   } catch (error) {
     logger.error('Error processing coin images', { error: error.message });
-    res.status(500).json({ error: 'Error processing images', message: 'Error processing images', msg: 'Error processing images' });
+    res.status(500).json({ error: 'Error processing images', message: 'Error processing images' });
   }
 };
 

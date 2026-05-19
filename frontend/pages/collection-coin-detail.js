@@ -62,6 +62,7 @@ const CollectionCoinDetail = () => {
   const [dragActiveObverse, setDragActiveObverse] = useState(false);
   const [dragActiveReverse, setDragActiveReverse] = useState(false);
   const [imageResetLoading, setImageResetLoading] = useState(false);
+  const [imageModalError, setImageModalError] = useState(null);
 
   const [customImages, setCustomImages] = useState({ obverse: null, reverse: null });
 
@@ -190,9 +191,13 @@ const CollectionCoinDetail = () => {
 
   const handleImageChange = (file, type) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setNotification({ show: true, message: 'File size must be less than 5MB', type: 'error' });
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    setImageModalError(null);
+    if (!file.type.startsWith('image/')) {
+      setImageModalError('Unsupported file type. Please upload a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setImageModalError('File is too large. Please upload an image under 15 MB.');
       return;
     }
     const reader = new FileReader();
@@ -206,6 +211,7 @@ const CollectionCoinDetail = () => {
   const handleImageUpload = async () => {
     if (!selectedObverseImage && !selectedReverseImage) return;
     setImageUploadLoading(true);
+    setImageModalError(null);
     try {
       const formData = new FormData();
       if (selectedObverseImage) formData.append('obverse', selectedObverseImage);
@@ -213,14 +219,15 @@ const CollectionCoinDetail = () => {
       await apiClient.postFormData(`/api/coins/entry/${entryId}/images`, formData);
       setNotification({ show: true, message: 'Images uploaded successfully!', type: 'success' });
       setShowImageEditModal(false);
+      setImageModalError(null);
       setSelectedObverseImage(null); setSelectedReverseImage(null);
       setObversePreview(null); setReversePreview(null);
       await fetchCustomImages();
+      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     } catch (err) {
-      setNotification({ show: true, message: err.message || 'Error uploading images', type: 'error' });
+      setImageModalError(err.message || 'Upload failed. Please try again.');
     } finally {
       setImageUploadLoading(false);
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
     }
   };
 
@@ -650,7 +657,7 @@ const CollectionCoinDetail = () => {
         >
           <div className="relative w-full max-w-2xl my-4 bg-card border border-border rounded-md">
             <button
-              onClick={() => setShowImageEditModal(false)}
+              onClick={() => { setShowImageEditModal(false); setImageModalError(null); }}
               className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-alt text-text-secondary hover:bg-border transition-colors duration-150"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -660,7 +667,23 @@ const CollectionCoinDetail = () => {
 
             <div className="p-6">
               <h2 className="font-display font-semibold text-2xl mb-1 text-text-primary">Edit Coin Images</h2>
-              <p className="font-sans text-sm mb-5 text-text-muted">Upload custom images for this coin in your collection</p>
+              <p className="font-sans text-sm mb-4 text-text-muted">Upload your own photos of this coin. Min 600×600px · JPEG, PNG, WebP · Max 15 MB.</p>
+
+              {imageModalError && (
+                <div className="flex items-start gap-2.5 p-3 mb-4 rounded-md text-sm font-sans"
+                  style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="font-semibold mb-0.5">Photo not accepted</p>
+                    <p>{imageModalError}</p>
+                  </div>
+                  <button onClick={() => setImageModalError(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                 {[
@@ -715,7 +738,7 @@ const CollectionCoinDetail = () => {
                 </button>
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setShowImageEditModal(false)}
+                    onClick={() => { setShowImageEditModal(false); setImageModalError(null); }}
                     className="px-4 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong transition-colors duration-150"
                   >
                     Cancel

@@ -8,6 +8,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Image upload validation system** — all user-uploaded images are now validated server-side before being persisted. Two upload types with separate rule sets:
+  - **Coin photos** (`coin`): minimum 600×600 px, Laplacian blur score ≥ 20, average brightness ≥ 20, Google Vision AI coin-presence check (ancient/archaeological labels accepted; modern currency rejected).
+  - **Collection thumbnails** (`thumbnail`): minimum 400×400 px, blur score ≥ 60, brightness ≥ 25, max aspect ratio 3:1 (no panoramas/portraits), Google Vision SafeSearch NSFW rejection, incoherent-content rejection (food, pets, selfies, screenshots, etc.), coherent-content allowlist (coins, artefacts, ancient history, sculptures, etc.).
+- **`POST /api/coins/validate-images`** — pre-validation endpoint used by the add-coin flow; runs the full `processCoinImage` pipeline without persisting anything. Allows the frontend to reject invalid images *before* adding the coin to the collection, preventing inconsistent state.
+- **`GOOGLE_VISION_API_KEY`** environment variable — enables AI coin detection and thumbnail content moderation via Google Cloud Vision REST API. Falls back to format/quality checks only when unset.
+### Changed
+- **Add-coin flow** — images are now validated via `POST /api/coins/validate-images` *before* the collection entry is created. If validation fails the coin is not added and the specific rejection reason is shown inline (no more "coin added but images failed" inconsistency).
+- **Error messages** — all image validation errors are now specific and actionable (e.g. "The coin photo looks blurry. Try placing the coin on a flat surface…", "No coin detected. Make sure the coin fills most of the frame against a plain background.").
+- **Inline error display** — image rejection reasons are shown in a persistent banner directly below the upload controls in both the add-coin page and the coin image edit modal; errors no longer rely on auto-dismissing toasts.
+- **`apiClient.postFormData`** — now prefers `data.message` over `data.error` when building the thrown `ApiError`, so specific backend validation messages reach the UI instead of the generic category label.
+- **File size limit** — raised from 5 MB to 15 MB across all upload UI and client-side validation to match the backend multer limit.
+- **DPI check removed** — the 150 DPI minimum for coin uploads has been dropped; phone cameras report 72 DPI regardless of sensor resolution, making the check misleading. Pixel dimensions (600×600) remain the quality gate.
+- **`docker-compose.yml`** — `GOOGLE_VISION_API_KEY` added to the backend service environment block.
+
+### Added
 - **Google OAuth sign-in** — `GET /api/auth/google` via Passport.js. Find-or-create with email merging: if an account with the same email already exists it is linked to the OAuth identity. New OAuth accounts skip OTP (Google already verified the email) and receive a welcome email directly. Synthetic emails (`@oauth.numisroma`) are used when the provider omits email — welcome email suppressed for these.
 - **Email-verified registration** — three-step OTP flow replacing the old single-step `POST /api/auth/register`:
   1. `POST /api/auth/register/initiate` — validates fields, checks availability, verifies mailbox via Abstract API, sends 6-digit OTP via Resend (SHA-256 hashed `PendingRegistration`, 15 min TTL). Rate-limited to 20/15 min per IP; max 5 sends/hr per email.

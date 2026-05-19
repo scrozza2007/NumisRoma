@@ -37,8 +37,8 @@ const NewCollectionPage = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { showNotification('File size must be less than 5MB', 'error'); return; }
-    if (!file.type.startsWith('image/')) { showNotification('Please select an image file', 'error'); return; }
+    if (!file.type.startsWith('image/')) { showNotification('Unsupported file type. Please upload a JPEG, PNG, or WebP image.', 'error'); return; }
+    if (file.size > 15 * 1024 * 1024) { showNotification('File is too large. Please upload an image under 15 MB.', 'error'); return; }
     setSelectedImage(file);
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target.result);
@@ -175,7 +175,7 @@ const NewCollectionPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
                   <p className="font-sans text-sm text-text-muted">Click to upload <span className="text-amber">or drag & drop</span></p>
-                  <p className="font-sans text-xs mt-1 text-text-muted">PNG, JPG up to 5MB</p>
+                  <p className="font-sans text-xs mt-1 text-text-muted">JPEG, PNG, WebP · min 400×400px · max 15 MB</p>
                   <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
                 </label>
               )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -54,6 +54,12 @@ const AddCoinToCollectionPage = () => {
   const [selectedReverseImage, setSelectedReverseImage] = useState(null);
   const [obversePreview, setObversePreview] = useState(null);
   const [reversePreview, setReversePreview] = useState(null);
+  const [imageError, setImageError] = useState(null);
+  const [formError, setFormError] = useState(null);
+  const [dragActiveObverse, setDragActiveObverse] = useState(false);
+  const [dragActiveReverse, setDragActiveReverse] = useState(false);
+  const imageErrorRef = useRef(null);
+  const formErrorRef = useRef(null);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -108,6 +114,8 @@ const AddCoinToCollectionPage = () => {
 
   const handleCoinSelect = (coin) => {
     setSelectedCoin(coin);
+    setFormError(null);
+    setImageError(null);
     setCoinDetails({ weight: '', diameter: '', grade: '', notes: '' });
     setSelectedObverseImage(null); setSelectedReverseImage(null);
     setObversePreview(null); setReversePreview(null);
@@ -126,7 +134,24 @@ const AddCoinToCollectionPage = () => {
       return;
     }
     setAddingCoin(true);
+    setImageError(null);
     try {
+      // Step 1: validate images before touching the collection — if they fail,
+      // the user stays on the page with the error shown inline.
+      if (selectedObverseImage || selectedReverseImage) {
+        const validateForm = new FormData();
+        if (selectedObverseImage) validateForm.append('obverse', selectedObverseImage);
+        if (selectedReverseImage) validateForm.append('reverse', selectedReverseImage);
+        try {
+          await apiClient.postFormData('/api/coins/validate-images', validateForm);
+        } catch (imgErr) {
+          setImageError(imgErr.message || 'Image validation failed. Please check your photos and try again.');
+          setAddingCoin(false);
+          return;
+        }
+      }
+
+      // Step 2: add coin to collection
       const updatedCollection = await apiClient.post(`/api/collections/${id}/coins`, {
         coin: selectedCoin._id,
         weight: coinDetails.weight || undefined,
@@ -134,24 +159,23 @@ const AddCoinToCollectionPage = () => {
         grade: coinDetails.grade || undefined,
         notes: coinDetails.notes || undefined
       });
+
+      // Step 3: upload images (already validated — should not fail)
       if (selectedObverseImage || selectedReverseImage) {
-        try {
-          // Find the newly added entry — it's the last one matching this coin
-          const entries = updatedCollection.coins?.filter(e => (e.coin?._id || e.coin) === selectedCoin._id || e.coin?.toString() === selectedCoin._id);
-          const newEntry = entries?.[entries.length - 1];
-          if (newEntry?._id) {
-            const formData = new FormData();
-            if (selectedObverseImage) formData.append('obverse', selectedObverseImage);
-            if (selectedReverseImage) formData.append('reverse', selectedReverseImage);
-            await apiClient.postFormData(`/api/coins/entry/${newEntry._id}/images`, formData);
-          }
-        } catch {}
+        const entries = updatedCollection.coins?.filter(e => (e.coin?._id || e.coin) === selectedCoin._id || e.coin?.toString() === selectedCoin._id);
+        const newEntry = entries?.[entries.length - 1];
+        if (newEntry?._id) {
+          const formData = new FormData();
+          if (selectedObverseImage) formData.append('obverse', selectedObverseImage);
+          if (selectedReverseImage) formData.append('reverse', selectedReverseImage);
+          await apiClient.postFormData(`/api/coins/entry/${newEntry._id}/images`, formData);
+        }
       }
+
       setNotification({ show: true, message: 'Coin added successfully!', type: 'success' });
       setTimeout(() => router.push(`/collection-detail?id=${id}`), 1500);
     } catch (err) {
-      setNotification({ show: true, message: err.message || 'Error adding coin. Please try again.', type: 'error' });
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      setFormError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setAddingCoin(false);
     }
@@ -159,24 +183,36 @@ const AddCoinToCollectionPage = () => {
 
   const clearSelection = () => {
     setSelectedCoin(null);
+    setFormError(null);
+    setImageError(null);
     setCoinDetails({ weight: '', diameter: '', grade: '', notes: '' });
     setSelectedObverseImage(null); setSelectedReverseImage(null);
     setObversePreview(null); setReversePreview(null);
   };
 
+  useEffect(() => {
+    if (imageError && imageErrorRef.current) {
+      imageErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [imageError]);
+
+  useEffect(() => {
+    if (formError && formErrorRef.current) {
+      formErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [formError]);
+
   const getSafeDescription = (coin) => coin?._period || 'Period not specified';
 
-  const handleImageChange = (e, side) => {
-    const file = e.target.files[0];
+  const handleImageChange = (file, side) => {
     if (!file) return;
+    setImageError(null);
     if (!file.type.startsWith('image/')) {
-      setNotification({ show: true, message: 'Please select a valid image file', type: 'error' });
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+      setImageError('Unsupported file type. Please upload a JPEG, PNG, or WebP image.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setNotification({ show: true, message: 'Image size must be less than 5MB', type: 'error' });
-      setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+    if (file.size > 15 * 1024 * 1024) {
+      setImageError('File is too large. Please upload an image under 15 MB.');
       return;
     }
     const previewUrl = URL.createObjectURL(file);
@@ -185,6 +221,7 @@ const AddCoinToCollectionPage = () => {
   };
 
   const removeImage = (side) => {
+    setImageError(null);
     if (side === 'obverse') {
       if (obversePreview) URL.revokeObjectURL(obversePreview);
       setSelectedObverseImage(null); setObversePreview(null);
@@ -430,46 +467,99 @@ const AddCoinToCollectionPage = () => {
                   </div>
 
                   {/* Custom images */}
-                  <div className="pt-3 border-t border-border">
-                    <h4 className="font-sans text-sm font-semibold mb-3 text-text-primary">
-                      Custom Images <span className="font-normal text-text-muted">(Optional)</span>
-                    </h4>
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-sans text-sm font-semibold text-text-primary">
+                        Your Coin Photos
+                      </h4>
+                      <span className="font-sans text-xs text-text-muted">Optional</span>
+                    </div>
+                    <p className="font-sans text-xs text-text-muted mb-3">Upload your own photos of this specific coin. Min 600×600px · JPEG, PNG, WebP · Max 15 MB.</p>
+
+                    {imageError && (
+                      <div ref={imageErrorRef} className="flex items-start gap-2.5 p-3 mb-3 rounded-md text-sm font-sans"
+                        style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="font-semibold mb-0.5">Photo not accepted</p>
+                          <p>{imageError}</p>
+                        </div>
+                        <button onClick={() => setImageError(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { side: 'obverse', label: 'Obverse', preview: obversePreview },
-                        { side: 'reverse', label: 'Reverse', preview: reversePreview },
-                      ].map(({ side, label, preview }) => (
+                        { side: 'obverse', label: 'Obverse (Front)', preview: obversePreview, dragActive: dragActiveObverse, setDragActive: setDragActiveObverse },
+                        { side: 'reverse', label: 'Reverse (Back)', preview: reversePreview, dragActive: dragActiveReverse, setDragActive: setDragActiveReverse },
+                      ].map(({ side, label, preview, dragActive: da, setDragActive: sda }) => (
                         <div key={side}>
-                          <p className="font-sans text-xs font-medium mb-1.5 text-text-secondary">{label}</p>
-                          <div className="p-3 text-center rounded-md" style={{ border: '2px dashed var(--color-border)' }}>
+                          <p className="font-sans text-xs font-semibold mb-1.5 text-text-secondary">{label}</p>
+                          <div
+                            className="relative text-center rounded-md transition-colors duration-150"
+                            style={{
+                              border: `2px dashed ${da ? '#b8843a' : '#e8e0d0'}`,
+                              backgroundColor: da ? '#f0e8d4' : '#faf4ea',
+                              minHeight: 110,
+                            }}
+                            onDragEnter={e => { e.preventDefault(); sda(true); }}
+                            onDragLeave={e => { e.preventDefault(); sda(false); }}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => {
+                              e.preventDefault(); sda(false);
+                              if (e.dataTransfer.files[0]) handleImageChange(e.dataTransfer.files[0], side);
+                            }}
+                          >
+                            <input
+                              type="file" accept="image/jpeg,image/png,image/webp"
+                              onChange={e => handleImageChange(e.target.files[0], side)}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
                             {preview ? (
-                              <div className="relative">
-                                <img src={preview} alt={`${label} preview`} className="w-full h-24 object-cover rounded" />
+                              <div className="p-2">
+                                <img src={preview} alt={label} className="w-full h-24 object-contain rounded" style={{ mixBlendMode: 'multiply' }} />
                                 <button
-                                  type="button" onClick={() => removeImage(side)}
-                                  className="absolute top-1 right-1 w-5 h-5 flex items-center justify-center rounded-full text-white font-bold text-xs"
-                                  style={{ backgroundColor: semantic.error.text }}
-                                >×</button>
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); removeImage(side); }}
+                                  className="mt-1.5 font-sans text-xs text-text-muted hover:text-red-600 transition-colors"
+                                >
+                                  Remove
+                                </button>
                               </div>
                             ) : (
-                              <>
-                                <svg className="w-7 h-7 mx-auto mb-1 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              <div className="flex flex-col items-center justify-center py-5 px-3 pointer-events-none">
+                                <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#b8843a' }}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                <p className="font-sans text-xs mb-1 text-text-muted">Upload {label.toLowerCase()}</p>
-                                <input
-                                  type="file" accept="image/*"
-                                  onChange={e => handleImageChange(e, side)}
-                                  className="block w-full font-sans text-xs text-text-muted"
-                                />
-                              </>
+                                <p className="font-sans text-xs font-medium text-text-secondary">Click or drag & drop</p>
+                                <p className="font-sans text-xs text-text-muted mt-0.5">{label.split(' ')[0]} image</p>
+                              </div>
                             )}
                           </div>
                         </div>
                       ))}
                     </div>
-                    <p className="mt-1.5 font-sans text-xs text-text-muted">Max 5MB · JPG, PNG, GIF</p>
                   </div>
+
+                  {formError && (
+                    <div ref={formErrorRef} className="flex items-start gap-2.5 p-3 rounded-md text-sm font-sans"
+                      style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="font-semibold mb-0.5">Could not add coin</p>
+                        <p>{formError}</p>
+                      </div>
+                      <button onClick={() => setFormError(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  )}
 
                   <button
                     type="submit" disabled={addingCoin}

@@ -111,7 +111,7 @@ const apiFetch = async (endpoint, options = {}) => {
       }
 
       throw new ApiError(
-        data.error || data.msg || data.message || 'Request failed',
+        data.message || data.error || data.msg || 'Request failed',
         response.status,
         data.details || null,
         errCode
@@ -192,7 +192,7 @@ export const apiClient = {
           return doFetch(true);
         }
         throw new ApiError(
-          data.error || data.msg || 'Upload failed',
+          data.message || data.error || data.msg || 'Upload failed',
           res.status,
           data.details,
           data.code || null

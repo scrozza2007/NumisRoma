@@ -109,6 +109,11 @@ const validateEnv = () => {
     warnings.push('RESEND_API_KEY does not look like a valid Resend key (expected prefix: re_)');
   }
 
+  // Google Vision API key — required for coin image AI validation.
+  if (!process.env.GOOGLE_VISION_API_KEY) {
+    warnings.push('GOOGLE_VISION_API_KEY is unset — AI coin detection will be skipped (uploads accepted without coin check)');
+  }
+
   if (warnings.length > 0) {
     warnings.forEach(w => logger.warn(`[env] ${w}`));
   }

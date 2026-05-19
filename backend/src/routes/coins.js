@@ -101,4 +101,11 @@ router.get('/entry/:entryId/images/reverse', validateObjectId('entryId'), authMi
 router.post('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, uploadFields, processCoinImage, updateCoinImages);
 router.delete('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, resetCoinImages);
 
+// Validate coin images without persisting — used by the add-coin flow to check
+// images before the collection entry is created, so a bad image never leaves
+// the user in an inconsistent state (coin added but images rejected).
+router.post('/validate-images', authMiddleware, uploadFields, processCoinImage, (req, res) => {
+  res.json({ valid: true });
+});
+
 module.exports = router;
