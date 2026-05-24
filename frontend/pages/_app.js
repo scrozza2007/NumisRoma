@@ -15,6 +15,7 @@ const PROTECTED_ROUTES = new Set([
   '/new-collection',
   '/edit-collection',
   '/collection-detail',
+  '/collection-export',
   '/collection-coin-detail',
   '/add-coin',
   '/delete-account',

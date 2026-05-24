@@ -197,11 +197,11 @@ const welcomeEmailHtml = (username) =>
     `Welcome to NumisRoma, ${username}!`,
     `
     <h1>Welcome to NumisRoma</h1>
-    <p>Your account is ready, <strong>${username}</strong>. You've joined a growing community of collectors exploring and cataloging ancient Roman coins.</p>
+    <p>Your account is ready, <strong>${username}</strong>. You've joined a growing community of collectors exploring and cataloging Roman Republican and Imperial coins.</p>
 
     <p>Here's what you can do:</p>
     <ul>
-      <li>Browse thousands of cataloged ancient Roman coins</li>
+      <li>Browse cataloged Roman Republican and Imperial coins</li>
       <li>Build and share your personal collection</li>
       <li>Connect and message other collectors securely</li>
       <li>Track provenance, references, and auction history</li>

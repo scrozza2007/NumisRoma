@@ -10,7 +10,7 @@ const Custom404 = () => {
     <div className="min-h-screen flex items-center justify-center px-6 bg-canvas">
       <Head>
         <title>404 — Page Not Found | NumisRoma</title>
-        <meta name="description" content="Page not found — NumisRoma Roman Imperial Coinage Catalog" />
+        <meta name="description" content="Page not found — NumisRoma Roman coinage catalog" />
       </Head>
 
       <div className="text-center max-w-md">

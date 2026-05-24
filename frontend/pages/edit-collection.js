@@ -24,7 +24,7 @@ const EditCollectionPage = () => {
   }, [user, authLoading, router]);
 
   const [collection, setCollection] = useState(null);
-  const [formData, setFormData] = useState({ name: '', description: '', image: '', isPublic: true });
+  const [formData, setFormData] = useState({ name: '', description: '', image: '', visibility: 'Private' });
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [currentImageUrl, setCurrentImageUrl] = useState('');
@@ -45,7 +45,7 @@ const EditCollectionPage = () => {
         }
         setCollection(data);
         setCurrentImageUrl(data.image || '');
-        setFormData({ name: data.name || '', description: data.description || '', image: data.image || '', isPublic: data.isPublic !== undefined ? data.isPublic : true });
+        setFormData({ name: data.name || '', description: data.description || '', image: data.image || '', visibility: data.visibility || (data.isPublic ? 'Public' : 'Private') });
       } catch {
         setNotification({ show: true, message: 'Error loading the collection', type: 'error' });
       } finally {
@@ -118,11 +118,11 @@ const EditCollectionPage = () => {
         const submitData = new FormData();
         submitData.append('name', formData.name);
         submitData.append('description', formData.description);
-        submitData.append('isPublic', formData.isPublic);
+        submitData.append('visibility', formData.visibility);
         submitData.append('image', selectedImage);
         await apiClient.postFormData(`/api/collections/${id}`, submitData, { method: 'PUT' });
       } else {
-        const updateData = { name: formData.name, description: formData.description, isPublic: formData.isPublic };
+        const updateData = { name: formData.name, description: formData.description, visibility: formData.visibility };
         if (!currentImageUrl) updateData.image = '';
         await apiClient.put(`/api/collections/${id}`, updateData);
       }
@@ -259,19 +259,20 @@ const EditCollectionPage = () => {
                 <h3 className="font-sans font-semibold text-sm mb-4 text-text-primary">Visibility</h3>
                 <div className="space-y-3">
                   {[
-                    { value: true, label: 'Public', desc: 'Visible to all users in the public collections section', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' },
-                    { value: false, label: 'Private', desc: 'Visible only to you in your profile', icon: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z' },
+                    { value: 'Public', label: 'Public', desc: 'Visible to all users in the public collections section', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' },
+                    { value: 'Private', label: 'Private', desc: 'Visible only to you in your profile', icon: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z' },
+                    { value: 'Shared', label: 'Shared', desc: 'Prepared for private sharing workflows', icon: 'M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-4a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8z' },
                   ].map(({ value, label, desc, icon }) => (
                     <label key={label} className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="radio" name="isPublic"
-                        checked={formData.isPublic === value}
-                        onChange={() => setFormData(prev => ({ ...prev, isPublic: value }))}
+                        checked={formData.visibility === value}
+                        onChange={() => setFormData(prev => ({ ...prev, visibility: value }))}
                         className="mt-0.5 accent-amber"
                       />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style={{ color: value ? semantic.success.text : 'var(--color-text-muted)' }}>
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style={{ color: value === 'Public' ? semantic.success.text : 'var(--color-text-muted)' }}>
                             <path d={icon} />
                           </svg>
                           <span className="font-sans text-sm font-medium text-text-primary">{label}</span>

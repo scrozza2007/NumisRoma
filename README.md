@@ -13,9 +13,10 @@
 
 **NumisRoma** is a production-ready platform built for numismatists and history enthusiasts to:
 
-- 🪙 Browse a catalog of **40,000+ documented Roman Imperial coins**
-- 🔍 Search and filter by emperor, dynasty, mint, material, and year range (BC/AD)
+- 🪙 Browse a live catalog of documented Roman Republican and Imperial coins
+- 🔍 Search and filter by issuer, era, dynasty, mint, material, and year range (BC/AD)
 - 📁 Create and manage personal coin collections (public or private)
+- ⭐ Save wanted catalog coins to a wishlist and jump back to their detail pages
 - 👥 Follow other collectors, explore their collections, and send direct messages
 - 🖼️ Upload custom photos for coins in your collection
 - 🔐 Manage your account with full session control across devices
@@ -25,14 +26,15 @@
 ## ✨ Features
 
 ### Catalog
-- ⚡ Full-text search with filters: emperor, period, mint, material, denomination
+- ⚡ Full-text search with filters: issuer, era, period, mint, material, denomination
 - 📅 Year-range queries with BC/AD support (BC stored as negative numbers)
 - 🎲 Random coin discovery endpoint
 - 🗂️ Filter options cached via Redis for fast response times
 
 ### Collections
 - 📂 Create unlimited public or private collections
-- ➕ Add coins with personal notes and custom obverse/reverse photos
+- ➕ Add coins with detailed specimen metadata, provenance, values, private references, and custom obverse/reverse photos
+- 📊 View collection statistics, export collections, and import CSV/JSON rows
 - 🖼️ Collection cover image upload (stored in private Cloudflare R2; served via auth-gated proxy)
 - 🛡️ Server-side image validation — blur, brightness, resolution, aspect ratio, NSFW detection (SafeSearch), and AI coin-presence check (Google Vision)
 - 🔒 Private collections are fully access-controlled (IDOR-protected)
@@ -108,7 +110,7 @@ numisroma/
 ├── backend/                  Express.js API (MVC)
 │   ├── src/
 │   │   ├── config/          validateEnv, database, constants, sentry
-│   │   ├── controllers/     auth, coins, collections, users, messages, sessions, contact
+│   │   ├── controllers/     auth, coins, collections, wishlist, users, messages, sessions, contact
 │   │   ├── middlewares/     auth, CSRF, upload, rate-limit, error handler
 │   │   ├── models/          Coin, Collection, User, Session, Message, Conversation, Follow…
 │   │   ├── routes/          one file per domain
@@ -120,7 +122,7 @@ numisroma/
 │   ├── components/          Layout, Navbar, dropdowns, sliders, toasts
 │   ├── context/             AuthContext (global auth state)
 │   ├── cypress/             E2E tests (auth, browse, coin detail)
-│   ├── pages/               browse, collections, profile, messages, settings…
+│   ├── pages/               browse, collections, wishlist, profile, messages, settings…
 │   └── utils/               apiClient, csrf, tokens, passwordValidation
 ├── docs/                    API reference, deployment guide, testing guide
 ├── scripts/                 MongoDB backup script
@@ -181,7 +183,7 @@ See `backend/.env.example` and `.env.example` for the full list.
 - `GET /api/auth/session-check` — Validate active session
 
 ### Coins
-- `GET /api/coins` — Search & filter catalog
+- `GET /api/coins` — Search & filter catalog (`era=imperial|republican` supported)
 - `GET /api/coins/random` — Random coin(s)
 - `GET /api/coins/filter-options` — Available filter values
 - `GET /api/coins/:id` — Coin detail
@@ -195,6 +197,11 @@ See `backend/.env.example` and `.env.example` for the full list.
 - `DELETE /api/collections/:id` — Delete collection *(auth)*
 - `POST /api/collections/:id/coins` — Add coin *(auth)*
 - `DELETE /api/collections/:id/coins/:coinId` — Remove coin *(auth)*
+
+### Wishlist
+- `GET /api/wishlist` — Wanted/watching/acquired entries *(auth)*
+- `POST /api/wishlist` — Save a wanted catalog coin or manual target *(auth)*
+- `DELETE /api/wishlist/:entryId` — Remove wishlist entry *(auth)*
 
 ### Users
 - `GET /api/users/:id/profile` — User profile
@@ -316,8 +323,7 @@ cd frontend && npm run cypress:run
 ## 🛣️ Roadmap
 
 - [ ] Coin valuation estimates
-- [ ] Advanced collection statistics and charts
-- [ ] CSV/JSON export of collections
+- [ ] Advanced collection charts
 - [ ] Mobile-friendly PWA
 - [ ] Public API for third-party integrations
 - [ ] Email notifications for follows and messages

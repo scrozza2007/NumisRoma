@@ -214,7 +214,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('materials');
-      expect(response.body).toHaveProperty('emperors');
+      expect(response.body).toHaveProperty('issuers');
       expect(response.body).toHaveProperty('dynasties');
       expect(response.body).toHaveProperty('tooltips');
     });

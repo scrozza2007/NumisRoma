@@ -12,6 +12,39 @@ const escapeRegex = (str) => {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
+const buildEraQuery = (era) => {
+  if (era === 'imperial') {
+    return {
+      $or: [
+        { 'reference.system': { $regex: /^RIC$/i } },
+        { 'references.system': { $regex: /^RIC$/i } },
+        { _id: { $regex: /^ric[_\-.]/i } },
+        { source_ocre_url: { $regex: /\/ocre\//i } }
+      ]
+    };
+  }
+
+  if (era === 'republican') {
+    return {
+      $or: [
+        { 'reference.system': { $regex: /^(RRC|CRRO|Crawford)$/i } },
+        { 'references.system': { $regex: /^(RRC|CRRO|Crawford)$/i } },
+        { _id: { $regex: /^(rrc|crro|crawford)[_\-.]/i } },
+        { source_ocre_url: { $regex: /\/(crro|rrc)\//i } },
+        { 'authority.dynasty': { $regex: /republic/i } }
+      ]
+    };
+  }
+
+  return null;
+};
+
+const addAndQuery = (query, condition) => {
+  if (!condition) return;
+  query.$and = query.$and || [];
+  query.$and.push(condition);
+};
+
 // Returns the primary display image URL for a coin document.
 // Prefers the first image's obverse file; falls back to unified; returns null
 // when no images are present.
@@ -266,6 +299,7 @@ exports.getCoins = async (req, res) => {
       mint,
       portrait,
       subject,
+      era = 'both',
       startYear,
       endYear,
       sortBy = 'title',
@@ -286,6 +320,10 @@ exports.getCoins = async (req, res) => {
     }
 
     let query = {};
+    const normalizedEra = ['imperial', 'republican'].includes(String(era).toLowerCase())
+      ? String(era).toLowerCase()
+      : 'both';
+    addAndQuery(query, buildEraQuery(normalizedEra));
 
     if (keyword) {
       const safe = escapeRegex(keyword);
@@ -316,14 +354,13 @@ exports.getCoins = async (req, res) => {
 
     if (portrait) {
       const esc = escapeRegex(portrait);
-      query.$and = query.$and || [];
-      query.$and.push({ $or: [
+      addAndQuery(query, { $or: [
         { 'descriptions.obverse.portrait': { $regex: esc, $options: 'i' } },
         { 'descriptions.reverse.portrait': { $regex: esc, $options: 'i' } }
       ]});
       // Move any top-level $or (from keyword) into $and so they don't conflict
       if (query.$or) {
-        query.$and.push({ $or: query.$or });
+        addAndQuery(query, { $or: query.$or });
         delete query.$or;
       }
     }
@@ -361,9 +398,8 @@ exports.getCoins = async (req, res) => {
         });
       }
 
-      query.$and = query.$and || [];
       // Overlap: coin range [from, to] overlaps query range [start, end]
-      query.$and.push({
+      addAndQuery(query, {
         'coinage.date.from': { $exists: true, $lte: end },
         'coinage.date.to':   { $exists: true, $gte: start }
       });

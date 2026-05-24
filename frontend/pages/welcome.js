@@ -8,7 +8,7 @@ const steps = [
   {
     number: 1,
     title: 'Browse the catalog',
-    description: 'Search 40,000+ coins by emperor, dynasty, mint, material, or date range.',
+    description: 'Search the catalog by issuer, dynasty, mint, material, or date range.',
     cta: 'Browse Catalog',
     href: '/browse',
     icon: (
@@ -20,7 +20,7 @@ const steps = [
   {
     number: 2,
     title: 'Create your first collection',
-    description: 'Group coins around a theme — an emperor, a period, coins you own, or anything else.',
+    description: 'Group coins around a theme — an issuer, a period, coins you own, or anything else.',
     cta: 'Create Collection',
     href: '/new-collection',
     icon: (

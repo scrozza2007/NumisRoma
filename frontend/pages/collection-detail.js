@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
 import { fmt, fmtPeriod } from '../utils/formatters';
+import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -21,6 +22,25 @@ const CollectionDetailPage = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
   const [customImages, setCustomImages] = useState({});
+  const [myCollections, setMyCollections] = useState([]);
+  const [transferDialog, setTransferDialog] = useState({ open: false, entryId: null, mode: 'move', targetCollectionId: '' });
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [coinQuery, setCoinQuery] = useState({
+    keyword: '',
+    emperor: '',
+    dynasty: '',
+    mint: '',
+    historicalPeriod: '',
+    denomination: '',
+    material: '',
+    grade: '',
+    rarity: '',
+    acquisitionSource: '',
+    tags: '',
+    sortBy: 'dateAdded',
+    order: 'desc'
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -47,7 +67,8 @@ const CollectionDetailPage = () => {
   const fetchCollection = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiClient.get(`/api/collections/${id}`);
+      const params = new URLSearchParams(Object.entries(coinQuery).filter(([, value]) => value));
+      const data = await apiClient.get(`/api/collections/${id}${params.toString() ? `?${params}` : ''}`);
       setCollection(data);
       if (data.coins && data.coins.length > 0) {
         await fetchCustomImages(id);
@@ -61,12 +82,19 @@ const CollectionDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, user, authLoading, fetchCustomImages]);
+  }, [id, user, authLoading, fetchCustomImages, coinQuery]);
 
   useEffect(() => {
     if (!id || authLoading) return;
     fetchCollection();
   }, [id, user, authLoading, fetchCollection]);
+
+  useEffect(() => {
+    if (!user) return;
+    apiClient.get('/api/collections?limit=50')
+      .then(data => setMyCollections((data.collections || []).filter(item => item._id !== id)))
+      .catch(() => {});
+  }, [user, id]);
 
   const handleDeleteCollection = async () => {
     if (!deletePassword.trim()) {
@@ -87,6 +115,83 @@ const CollectionDetailPage = () => {
       setDeleteLoading(false);
       setShowDeleteModal(false);
       setDeletePassword('');
+    }
+  };
+
+  const showNotice = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
+  };
+
+  const handleEntryAction = async (entryId, action) => {
+    try {
+      if (action === 'delete') {
+        await apiClient.delete(`/api/collections/${id}/coins/${entryId}`);
+        showNotice('Coin removed from collection');
+      }
+      if (action === 'duplicate') {
+        await apiClient.post(`/api/collections/${id}/entries/${entryId}/duplicate`);
+        showNotice('Coin duplicated');
+      }
+      await fetchCollection();
+    } catch (err) {
+      showNotice(err.message || 'Action failed', 'error');
+    }
+  };
+
+  const openTransferDialog = (entryId, mode) => {
+    setTransferDialog({
+      open: true,
+      entryId,
+      mode,
+      targetCollectionId: myCollections[0]?._id || ''
+    });
+  };
+
+  const handleTransfer = async () => {
+    const { entryId, mode, targetCollectionId } = transferDialog;
+    if (!targetCollectionId) return;
+    setTransferLoading(true);
+    try {
+      await apiClient.post(`/api/collections/${id}/entries/${entryId}/transfer`, { targetCollectionId, mode });
+      showNotice(`Coin ${mode === 'copy' ? 'copied' : 'moved'}`);
+      setTransferDialog({ open: false, entryId: null, mode: 'move', targetCollectionId: '' });
+      await fetchCollection();
+    } catch (err) {
+      showNotice(err.message || 'Transfer failed', 'error');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const handleExport = (format) => {
+    if (format === 'pdf') {
+      router.push(`/collection-export?id=${id}`);
+      return;
+    }
+    window.location.href = `${API_URL}/api/collections/${id}/export?format=${format}&includeStatistics=true`;
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      const format = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'json';
+      const preview = await apiClient.post(`/api/collections/${id}/import/preview`, { format, content });
+      if (!preview.canImport) {
+        showNotice('Import preview found validation errors', 'error');
+        return;
+      }
+      const confirmed = window.confirm(`Import ${preview.rows.length} coin rows? Duplicate rows found: ${preview.duplicates.length}.`);
+      if (!confirmed) return;
+      await apiClient.post(`/api/collections/${id}/import`, { format, content, overwrite: true });
+      showNotice('Import completed');
+      await fetchCollection();
+    } catch (err) {
+      showNotice(err.message || 'Import failed', 'error');
+    } finally {
+      event.target.value = '';
     }
   };
 
@@ -113,6 +218,8 @@ const CollectionDetailPage = () => {
   }
 
   const isOwner = user && collection.user && user._id === collection.user._id;
+  const stats = collection.statistics || {};
+  const coverSrc = collection.image ? (collection.image.startsWith('/') ? `${API_URL}${collection.image}` : collection.image) : null;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -155,23 +262,30 @@ const CollectionDetailPage = () => {
         </div>
 
         {/* Collection header */}
-        <div className="mb-6">
-          <h1 className="font-display font-semibold mb-3 text-text-primary" style={{ fontSize: 'clamp(28px,5vw,42px)', lineHeight: 1.15 }}>{collection.name}</h1>
-          <div className="flex flex-wrap items-center gap-3 font-sans text-sm text-text-secondary">
-            {collection.user && (
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-amber-bg text-amber">
-                  {collection.user.username?.charAt(0).toUpperCase()}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5 items-end">
+          <div className="h-44 rounded-md overflow-hidden border border-border bg-surface-alt flex items-center justify-center">
+            {coverSrc ? (
+              <img src={coverSrc} alt={collection.name} className="w-full h-full object-cover" />
+            ) : <CoinImagePlaceholder />}
+          </div>
+          <div>
+            <h1 className="font-display font-semibold mb-3 text-text-primary" style={{ fontSize: 'clamp(28px,5vw,42px)', lineHeight: 1.15 }}>{collection.name}</h1>
+            <div className="flex flex-wrap items-center gap-3 font-sans text-sm text-text-secondary">
+              {collection.user && (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-amber-bg text-amber">
+                    {collection.user.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <span>{collection.user.username}</span>
                 </div>
-                <span>{collection.user.username}</span>
-              </div>
-            )}
-            <span className="text-border-strong">·</span>
-            <span>{collection.coins?.length || 0} coins</span>
-            <span className="text-border-strong">·</span>
-            <span style={{ color: collection.isPublic ? semantic.success.text : undefined }} className={collection.isPublic ? '' : 'text-text-muted'}>
-              {collection.isPublic ? 'Public' : 'Private'}
-            </span>
+              )}
+              <span className="text-border-strong">·</span>
+              <span>{stats.totalCoins ?? collection.coins?.length ?? 0} coins</span>
+              <span className="text-border-strong">·</span>
+              <span style={{ color: collection.visibility === 'Public' ? semantic.success.text : undefined }} className={collection.visibility === 'Public' ? '' : 'text-text-muted'}>
+                {fmt(collection.visibility || (collection.isPublic ? 'Public' : 'Private'))}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -185,14 +299,19 @@ const CollectionDetailPage = () => {
                   <p className="font-sans text-sm leading-relaxed text-text-secondary">{collection.description}</p>
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Coins', value: collection.coins?.length || 0 },
+                  { label: 'Coins', value: stats.totalCoins ?? collection.coins?.length ?? 0 },
+                  { label: 'Estimated', value: `€${Number(stats.totalEstimatedValue || 0).toFixed(0)}` },
+                  { label: 'Cost', value: `€${Number(stats.totalPurchaseCost || 0).toFixed(0)}` },
+                  { label: 'Avg. value', value: `€${Number(stats.averageCoinValue || 0).toFixed(0)}` },
                   { label: 'Created', value: new Date(collection.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' }) },
                   { label: 'Updated', value: new Date(collection.updatedAt).toLocaleDateString('en-US', { day: '2-digit', month: '2-digit' }) },
+                  { label: 'Top issuer', value: fmt(stats.mostRepresentedEmperor) || '—' },
+                  { label: 'Top mint', value: fmt(stats.mostRepresentedMint) || '—' },
                 ].map(({ label, value }) => (
                   <div key={label} className="p-3 text-center bg-surface-alt border border-border rounded">
-                    <div className="font-display font-semibold text-xl text-amber">{value}</div>
+                    <div className="font-display font-semibold text-lg text-amber truncate">{value}</div>
                     <div className="font-sans text-xs mt-0.5 text-text-muted">{label}</div>
                   </div>
                 ))}
@@ -229,70 +348,137 @@ const CollectionDetailPage = () => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-display font-semibold text-2xl text-text-primary">Coins</h2>
             {isOwner && (
-              <Link
-                href={`/add-coin?id=${id}`}
-                className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/add-coin?id=${id}`}
+                  className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Coin
+                </Link>
+                <label className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong cursor-pointer">
+                  Import
+                  <input type="file" accept=".json,.csv,application/json,text/csv" onChange={handleImportFile} className="sr-only" />
+                </label>
+                {['csv', 'json', 'pdf'].map(format => (
+                  <button key={format} onClick={() => handleExport(format)} className="px-3 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong uppercase">
+                    {format}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6 p-4 bg-card border border-border rounded-md">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_170px_120px_auto] gap-3">
+              <input
+                value={coinQuery.keyword}
+                onChange={e => setCoinQuery(prev => ({ ...prev, keyword: e.target.value }))}
+                placeholder="Search this collection"
+                className="px-3.5 py-2.5 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber text-text-primary"
+              />
+              <select
+                value={coinQuery.sortBy}
+                onChange={e => setCoinQuery(prev => ({ ...prev, sortBy: e.target.value }))}
+                className="px-3.5 py-2.5 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber text-text-primary"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Coin
-              </Link>
+                {[
+                  ['name', 'Name'], ['dateOfIssue', 'Date of issue'], ['dateAdded', 'Date added'],
+                  ['weight', 'Weight'], ['diameter', 'Diameter'], ['estimatedValue', 'Estimated value'], ['purchasePrice', 'Purchase price']
+                ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <select
+                value={coinQuery.order}
+                onChange={e => setCoinQuery(prev => ({ ...prev, order: e.target.value }))}
+                className="px-3.5 py-2.5 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber text-text-primary"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+              <button onClick={() => setFiltersOpen(open => !open)} className="px-3.5 py-2.5 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong">
+                Filters
+              </button>
+            </div>
+            {filtersOpen && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+                {[
+                  ['emperor', 'Issuer'], ['dynasty', 'Dynasty'], ['mint', 'Mint'], ['historicalPeriod', 'Historical period'],
+                  ['denomination', 'Denomination'], ['material', 'Material'], ['grade', 'Preservation grade'], ['rarity', 'Rarity'],
+                  ['acquisitionSource', 'Acquisition source'], ['tags', 'Tags']
+                ].map(([key, label]) => (
+                  <input
+                    key={key}
+                    value={coinQuery[key]}
+                    onChange={e => setCoinQuery(prev => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={label}
+                    className="px-3.5 py-2.5 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber text-text-primary"
+                  />
+                ))}
+              </div>
             )}
           </div>
 
           {collection.coins && collection.coins.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {collection.coins.map((coinEntry, index) => (
-                <Link
-                  key={coinEntry._id || index}
-                  href={`/collection-coin-detail?id=${coinEntry.coin._id}&collectionId=${id}&entryId=${coinEntry._id}${coinEntry.weight ? `&weight=${encodeURIComponent(coinEntry.weight)}` : ''}${coinEntry.diameter ? `&diameter=${encodeURIComponent(coinEntry.diameter)}` : ''}${coinEntry.grade ? `&grade=${encodeURIComponent(coinEntry.grade)}` : ''}${coinEntry.notes ? `&notes=${encodeURIComponent(coinEntry.notes)}` : ''}`}
-                  className="flex flex-col overflow-hidden rounded-md bg-card border border-border hover:border-amber transition-colors duration-200"
-                >
-                  <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
-                    {(() => {
-                      const src = customImages[coinEntry._id]?.obverse;
-                      return src ? (
-                        <img
-                          src={src}
-                          alt={coinEntry.coin.title?.en || coinEntry.coin.name}
-                          className="w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
-                          style={{ mixBlendMode: 'multiply' }}
-                          loading="lazy"
-                          onError={e => { e.currentTarget.style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center" style={{ color: '#9a8e80' }}>
-                          <svg className="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <p className="font-sans text-xs">No image</p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="p-4 flex flex-col gap-1">
-                    <h3 className="font-display font-semibold text-base line-clamp-2 text-text-primary">{coinEntry.coin.title?.en || coinEntry.coin.name}</h3>
-                    {coinEntry.coin.authority?.issuer && (
-                      <p className="font-sans text-xs text-text-secondary">{fmt(coinEntry.coin.authority.issuer)}</p>
-                    )}
-                    <p className="font-sans text-xs text-text-muted">
-                      {fmtPeriod(coinEntry.coin.coinage?.date) || 'Period not specified'}
-                    </p>
-                    {coinEntry.notes && (
-                      <p className="font-sans text-xs mt-1 pt-2 text-text-muted border-t border-border">
-                        {coinEntry.notes.length > 40 ? coinEntry.notes.substring(0, 40) + '…' : coinEntry.notes}
+              {collection.coins.map((coinEntry, index) => {
+                const detailHref = `/collection-coin-detail?id=${coinEntry.coin._id}&collectionId=${id}&entryId=${coinEntry._id}${coinEntry.weight ? `&weight=${encodeURIComponent(coinEntry.weight)}` : ''}${coinEntry.diameter ? `&diameter=${encodeURIComponent(coinEntry.diameter)}` : ''}${coinEntry.grade ? `&grade=${encodeURIComponent(coinEntry.grade)}` : ''}${coinEntry.notes ? `&notes=${encodeURIComponent(coinEntry.notes)}` : ''}`;
+
+                return (
+                  <div
+                    key={coinEntry._id || index}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => router.push(detailHref)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(detailHref);
+                      }
+                    }}
+                    className="group flex flex-col overflow-hidden rounded-md bg-card border border-border hover:border-amber focus-visible:border-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/25 transition-colors duration-200 cursor-pointer"
+                  >
+                    <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                      {(() => {
+                        const src = customImages[coinEntry._id]?.obverse;
+                        return src ? (
+                          <img
+                            src={src}
+                            alt={coinEntry.coin.title?.en || coinEntry.coin.name}
+                            className="w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
+                            style={{ mixBlendMode: 'multiply' }}
+                            loading="lazy"
+                            onError={e => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : <CoinImagePlaceholder />;
+                      })()}
+                    </div>
+                    <div className="p-4 flex flex-col gap-1">
+                      <h3 className="font-display font-semibold text-base line-clamp-2 text-text-primary">{coinEntry.coin.title?.en || coinEntry.coin.name}</h3>
+                      {coinEntry.coin.authority?.issuer && (
+                        <p className="font-sans text-xs text-text-secondary">{fmt(coinEntry.coin.authority.issuer)}</p>
+                      )}
+                      <p className="font-sans text-xs text-text-muted">
+                        {fmtPeriod(coinEntry.coin.coinage?.date) || 'Period not specified'}
                       </p>
-                    )}
-                    <div className="flex items-center gap-1 mt-2 font-sans text-xs font-medium text-amber">
-                      View details
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                      </svg>
+                      {coinEntry.notes && (
+                        <p className="font-sans text-xs mt-1 pt-2 text-text-muted border-t border-border">
+                          {coinEntry.notes.length > 40 ? coinEntry.notes.substring(0, 40) + '…' : coinEntry.notes}
+                        </p>
+                      )}
+                      {isOwner && (
+                        <div className="mt-3 grid grid-cols-4 gap-1">
+                          <button onClick={e => { e.stopPropagation(); handleEntryAction(coinEntry._id, 'duplicate'); }} className="px-2 py-1 font-sans text-[11px] border border-border rounded text-text-muted hover:text-text-primary">Dup</button>
+                          <button onClick={e => { e.stopPropagation(); openTransferDialog(coinEntry._id, 'move'); }} className="px-2 py-1 font-sans text-[11px] border border-border rounded text-text-muted hover:text-text-primary">Move</button>
+                          <button onClick={e => { e.stopPropagation(); openTransferDialog(coinEntry._id, 'copy'); }} className="px-2 py-1 font-sans text-[11px] border border-border rounded text-text-muted hover:text-text-primary">Copy</button>
+                          <button onClick={e => { e.stopPropagation(); handleEntryAction(coinEntry._id, 'delete'); }} className="px-2 py-1 font-sans text-[11px] border border-red-200 rounded text-red-700 hover:bg-red-50">Del</button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-12 text-center bg-card border border-border rounded-md">
@@ -317,6 +503,60 @@ const CollectionDetailPage = () => {
           )}
         </div>
       </div>
+
+      {transferDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(46,40,32,0.6)]">
+          <div className="w-full max-w-md p-6 bg-card border border-border rounded-md shadow-xl">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h3 className="font-display font-semibold text-xl text-text-primary">
+                  {transferDialog.mode === 'copy' ? 'Copy Coin' : 'Move Coin'}
+                </h3>
+                <p className="font-sans text-sm mt-1 text-text-muted">Choose one of your collections.</p>
+              </div>
+              <button
+                onClick={() => setTransferDialog({ open: false, entryId: null, mode: 'move', targetCollectionId: '' })}
+                className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-muted hover:text-text-primary"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {myCollections.length > 0 ? (
+              <select
+                value={transferDialog.targetCollectionId}
+                onChange={e => setTransferDialog(prev => ({ ...prev, targetCollectionId: e.target.value }))}
+                className="w-full px-3.5 py-2.5 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber text-text-primary"
+              >
+                {myCollections.map(item => (
+                  <option key={item._id} value={item._id}>{item.name}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-4 bg-surface-alt border border-border rounded font-sans text-sm text-text-muted">
+                Create another collection before moving or copying this coin.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setTransferDialog({ open: false, entryId: null, mode: 'move', targetCollectionId: '' })}
+                className="px-4 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={transferLoading || !transferDialog.targetCollectionId}
+                className="px-5 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferLoading ? 'Saving...' : transferDialog.mode === 'copy' ? 'Copy Coin' : 'Move Coin'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Modal */}
       {showDeleteModal && (

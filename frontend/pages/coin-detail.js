@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
 import { fmt, fmtPeriod, fmtReference, fmtSource, hasVal } from '../utils/formatters';
+import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 // Build a list of specimens: each has { label, meta, obverse?, reverse?, unified? }
 // Split images keep obverse + reverse together per specimen.
@@ -29,6 +30,15 @@ const Field = ({ label, value }) => {
   );
 };
 
+const emptyCoinDetails = {
+  weight: '', diameter: '', axis: '', thickness: '', shape: '', grade: '',
+  patina: '', conditionNotes: '', rarity: '', authenticityStatus: 'Unknown',
+  acquisitionDate: '', purchasePrice: '', estimatedValue: '', seller: '', auctionHouse: '', lotNumber: '',
+  invoiceReferenceNumber: '', sourceType: '', provenance: '', storageLocation: '', tags: '', notes: '', otherReferences: ''
+};
+
+const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchasePrice', 'estimatedValue']);
+
 const CoinDetail = () => {
   const router = useRouter();
   const { user } = useContext(AuthContext);
@@ -51,11 +61,17 @@ const CoinDetail = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [userCollections, setUserCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState('');
-  const [coinWeight, setCoinWeight]   = useState('');
-  const [coinDiameter, setCoinDiameter] = useState('');
-  const [coinGrade, setCoinGrade]     = useState('');
-  const [coinNotes, setCoinNotes]     = useState('');
+  const [coinDetails, setCoinDetails] = useState(emptyCoinDetails);
+  const [selectedObverseImage, setSelectedObverseImage] = useState(null);
+  const [selectedReverseImage, setSelectedReverseImage] = useState(null);
+  const [obversePreview, setObversePreview] = useState(null);
+  const [reversePreview, setReversePreview] = useState(null);
+  const [imageError, setImageError] = useState(null);
+  const [formError, setFormError] = useState(null);
+  const [dragActiveObverse, setDragActiveObverse] = useState(false);
+  const [dragActiveReverse, setDragActiveReverse] = useState(false);
   const [adding, setAdding]           = useState(false);
+  const [addingWishlist, setAddingWishlist] = useState(false);
   const [notif, setNotif]             = useState({ show: false, message: '', type: '' });
 
   useEffect(() => {
@@ -118,21 +134,79 @@ const CoinDetail = () => {
 
   const handleAddToCollection = async () => {
     setAdding(true);
+    setImageError(null);
+    setFormError(null);
     try {
-      await apiClient.post(`/api/collections/${selectedCollection}/coins`, {
+      if (selectedObverseImage || selectedReverseImage) {
+        const validateForm = new FormData();
+        if (selectedObverseImage) validateForm.append('obverse', selectedObverseImage);
+        if (selectedReverseImage) validateForm.append('reverse', selectedReverseImage);
+        try {
+          await apiClient.postFormData('/api/coins/validate-images', validateForm);
+        } catch (imgErr) {
+          setImageError(imgErr.message || 'Image validation failed. Please check your photos and try again.');
+          setAdding(false);
+          return;
+        }
+      }
+
+      const updatedCollection = await apiClient.post(`/api/collections/${selectedCollection}/coins`, {
         coin: id,
-        ...(coinWeight   && { weight:   parseFloat(coinWeight) }),
-        ...(coinDiameter && { diameter: parseFloat(coinDiameter) }),
-        ...(coinGrade    && { grade:    coinGrade }),
-        ...(coinNotes    && { notes:    coinNotes }),
+        ...coinDetails,
+        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency: 'EUR' } : undefined,
+        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency: 'EUR' } : undefined,
+        catalogReferences: coinDetails.otherReferences ? { other: coinDetails.otherReferences } : undefined
       });
+
+      if (selectedObverseImage || selectedReverseImage) {
+        const entries = updatedCollection.coins?.filter(e => (e.coin?._id || e.coin) === id || e.coin?.toString() === id);
+        const newEntry = entries?.[entries.length - 1];
+        if (newEntry?._id) {
+          const formData = new FormData();
+          if (selectedObverseImage) formData.append('obverse', selectedObverseImage);
+          if (selectedReverseImage) formData.append('reverse', selectedReverseImage);
+          await apiClient.postFormData(`/api/coins/entry/${newEntry._id}/images`, formData);
+        }
+      }
+
       setNotif({ show: true, message: 'Coin added to collection!', type: 'success' });
       setShowAddModal(false);
-      setSelectedCollection(''); setCoinWeight(''); setCoinDiameter(''); setCoinGrade(''); setCoinNotes('');
+      setSelectedCollection('');
+      setCoinDetails(emptyCoinDetails);
+      removeImage('obverse');
+      removeImage('reverse');
     } catch (err) {
-      setNotif({ show: true, message: err.message || 'Error adding coin', type: 'error' });
+      setFormError(err.message || 'Error adding coin');
     } finally {
       setAdding(false);
+      setTimeout(() => setNotif({ show: false, message: '', type: '' }), 3000);
+    }
+  };
+
+  const handleAddToWishlist = async () => {
+    if (!coin) return;
+    setAddingWishlist(true);
+    try {
+      const reference = fmtReference(coin.reference);
+      await apiClient.post('/api/wishlist', {
+        coinId: coin._id,
+        name: coin.title?.en || 'Catalog coin',
+        emperor: coin.authority?.issuer || '',
+        mint: coin.classification?.mint || '',
+        material: coin.classification?.material || '',
+        denomination: coin.classification?.denomination || '',
+        references: [
+          reference,
+          coin.source_ocre_url
+        ].filter(Boolean).join('\n'),
+        notes: `Catalog ID: ${coin._id}`,
+        status: 'Wanted'
+      });
+      setNotif({ show: true, message: 'Coin added to wishlist!', type: 'success' });
+    } catch (err) {
+      setNotif({ show: true, message: err.message || 'Error adding coin to wishlist', type: 'error' });
+    } finally {
+      setAddingWishlist(false);
       setTimeout(() => setNotif({ show: false, message: '', type: '' }), 3000);
     }
   };
@@ -145,6 +219,39 @@ const CoinDetail = () => {
 
   const inputCls  = 'w-full px-3 py-2 font-sans text-sm bg-card text-text-primary border border-border rounded outline-none focus:border-amber transition-colors';
   const selectCls = inputCls + ' cursor-pointer';
+
+  const handleSpecimenInputChange = (e) => {
+    const { name, value } = e.target;
+    if (nonNegativeFields.has(name) && Number(value) < 0) return;
+    setCoinDetails(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageChange = (file, side) => {
+    if (!file) return;
+    setImageError(null);
+    if (!file.type.startsWith('image/')) {
+      setImageError('Unsupported file type. Please upload a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setImageError('File is too large. Please upload an image under 15 MB.');
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    if (side === 'obverse') { setSelectedObverseImage(file); setObversePreview(previewUrl); }
+    else { setSelectedReverseImage(file); setReversePreview(previewUrl); }
+  };
+
+  const removeImage = (side) => {
+    setImageError(null);
+    if (side === 'obverse') {
+      if (obversePreview) URL.revokeObjectURL(obversePreview);
+      setSelectedObverseImage(null); setObversePreview(null);
+    } else {
+      if (reversePreview) URL.revokeObjectURL(reversePreview);
+      setSelectedReverseImage(null); setReversePreview(null);
+    }
+  };
 
   const active = specimens[activeIdx] || null;
 
@@ -195,10 +302,22 @@ const CoinDetail = () => {
                   </button>
                 )}
                 {user && (
-                  <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
-                    Add to Collection
-                  </button>
+                  <>
+                    <button
+                      onClick={handleAddToWishlist}
+                      disabled={addingWishlist}
+                      className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded border border-border bg-card text-text-secondary hover:border-amber hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-4-7 4V5z" />
+                      </svg>
+                      {addingWishlist ? 'Adding…' : 'Add to Wishlist'}
+                    </button>
+                    <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
+                      Add to Collection
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -425,7 +544,7 @@ const CoinDetail = () => {
                         </Link>
                       </div>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
                         <div>
                           <label className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Collection</label>
                           <select value={selectedCollection} onChange={e => setSelectedCollection(e.target.value)} className={selectCls}>
@@ -433,27 +552,209 @@ const CoinDetail = () => {
                             {userCollections.map(c => <option key={c._id} value={c._id}>{c.name} ({c.coins?.length || 0})</option>)}
                           </select>
                         </div>
+
+                        <div className="p-3 rounded bg-surface-alt border border-border">
+                          <h3 className="font-sans font-semibold text-sm mb-3 text-text-primary">Catalog Match</h3>
+                          <div className="grid grid-cols-2 gap-3 font-sans text-xs">
+                            {[
+                              ['Name', coin.title?.en],
+                              ['Authority', coin.authority?.issuer],
+                              ['Dynasty', coin.authority?.dynasty],
+                              ['Period', fmtPeriod(coin.coinage?.date)],
+                              ['Mint', coin.classification?.mint],
+                              ['Denomination', coin.classification?.denomination],
+                              ['Material', coin.classification?.material],
+                              ['Reference', fmtReference(coin.reference)]
+                            ].map(([label, value]) => (
+                              <div key={label}>
+                                <p className="text-text-muted">{label}</p>
+                                <p className="font-medium text-text-primary">{fmt(value) || '-'}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <h3 className="font-sans font-semibold text-sm text-text-primary">
+                          Your Specimen Details <span className="font-normal text-text-muted">(Optional)</span>
+                        </h3>
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Weight (g)</label>
-                            <input type="number" step="0.01" value={coinWeight} onChange={e => setCoinWeight(e.target.value)} placeholder="3.2" className={inputCls} />
+                            <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Weight (g)</label>
+                            <input name="weight" type="number" step="0.01" min="0" value={coinDetails.weight} onChange={handleSpecimenInputChange} placeholder="0.00" className={inputCls} />
                           </div>
                           <div>
-                            <label className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Diameter (mm)</label>
-                            <input type="number" step="0.1" value={coinDiameter} onChange={e => setCoinDiameter(e.target.value)} placeholder="19.5" className={inputCls} />
+                            <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Diameter (mm)</label>
+                            <input name="diameter" type="number" step="0.01" min="0" value={coinDetails.diameter} onChange={handleSpecimenInputChange} placeholder="0.00" className={inputCls} />
                           </div>
                         </div>
+
                         <div>
-                          <label className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Grade</label>
-                          <select value={coinGrade} onChange={e => setCoinGrade(e.target.value)} className={selectCls}>
-                            <option value="">Select…</option>
-                            {['Poor (P)','Fair (F)','Very Good (VG)','Fine (F)','Very Fine (VF)','Extremely Fine (EF)','About Uncirculated (AU)','Uncirculated (UNC)'].map(g => <option key={g} value={g}>{g}</option>)}
+                          <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Grade / Condition</label>
+                          <select name="grade" value={coinDetails.grade} onChange={handleSpecimenInputChange} className={selectCls}>
+                            <option value="">Select grade…</option>
+                            {['Poor','Fair','About Good','Good','Very Good','Fine','Very Fine','Extremely Fine','About Uncirculated','Uncirculated'].map(g => <option key={g} value={g}>{g}</option>)}
                           </select>
                         </div>
-                        <div>
-                          <label className="block font-sans text-sm font-medium mb-1.5 text-text-primary">Notes</label>
-                          <textarea value={coinNotes} onChange={e => setCoinNotes(e.target.value)} placeholder="Provenance, condition…" rows={3} className={inputCls + ' resize-none'} />
+
+                        <div className="pt-2 border-t border-border">
+                          <h3 className="font-sans font-semibold text-sm mb-3 text-text-primary">Additional Collection Fields</h3>
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              ['axis', 'Axis'], ['thickness', 'Thickness'], ['shape', 'Shape'], ['patina', 'Patina'],
+                              ['rarity', 'Rarity'], ['storageLocation', 'Storage location'], ['tags', 'Tags'], ['seller', 'Seller'],
+                              ['auctionHouse', 'Auction house'], ['lotNumber', 'Lot number'], ['invoiceReferenceNumber', 'Invoice/reference'], ['acquisitionDate', 'Acquisition date']
+                            ].map(([field, label]) => (
+                              <div key={field}>
+                                <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
+                                <input
+                                  name={field}
+                                  type={field === 'acquisitionDate' ? 'date' : field === 'thickness' ? 'number' : 'text'}
+                                  min={field === 'thickness' ? '0' : undefined}
+                                  value={coinDetails[field] || ''}
+                                  onChange={handleSpecimenInputChange}
+                                  className={inputCls}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Purchase price</label>
+                              <input name="purchasePrice" type="number" min="0" step="0.01" value={coinDetails.purchasePrice} onChange={handleSpecimenInputChange} className={inputCls} />
+                            </div>
+                            <div>
+                              <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Estimated value</label>
+                              <input name="estimatedValue" type="number" min="0" step="0.01" value={coinDetails.estimatedValue} onChange={handleSpecimenInputChange} className={inputCls} />
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Additional private references</label>
+                            <input name="otherReferences" value={coinDetails.otherReferences} onChange={handleSpecimenInputChange} className={inputCls} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div>
+                              <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Source type</label>
+                              <select name="sourceType" value={coinDetails.sourceType} onChange={handleSpecimenInputChange} className={selectCls}>
+                                <option value="">Select source…</option>
+                                {['Auction', 'Dealer', 'Private seller', 'Personally found', 'Inherited', 'Gift'].map(source => <option key={source} value={source}>{source}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Authenticity</label>
+                              <select name="authenticityStatus" value={coinDetails.authenticityStatus} onChange={handleSpecimenInputChange} className={selectCls}>
+                                {['Unknown', 'Authentic', 'Likely authentic', 'Questionable', 'Replica', 'Forgery'].map(status => <option key={status} value={status}>{status}</option>)}
+                              </select>
+                            </div>
+                          </div>
                         </div>
+
+                        <div>
+                          <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Personal Notes</label>
+                          <textarea name="notes" value={coinDetails.notes} onChange={handleSpecimenInputChange} placeholder="Add personal notes about this coin…" rows={3} className={inputCls + ' resize-none'} />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {[
+                            ['conditionNotes', 'Condition notes'], ['provenance', 'Provenance']
+                          ].map(([field, label]) => (
+                            <div key={field}>
+                              <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
+                              <textarea name={field} rows={2} value={coinDetails[field] || ''} onChange={handleSpecimenInputChange} className={inputCls + ' resize-none'} />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-4 border-t border-border">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-sans text-sm font-semibold text-text-primary">Your Coin Photos</h4>
+                            <span className="font-sans text-xs text-text-muted">Optional</span>
+                          </div>
+                          <p className="font-sans text-xs text-text-muted mb-3">Upload your own photos of this specific coin. Min 600x600px. JPEG, PNG, WebP. Max 15 MB.</p>
+
+                          {imageError && (
+                            <div className="flex items-start gap-2.5 p-3 mb-3 rounded-md text-sm font-sans"
+                              style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                              <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <div className="flex-1">
+                                <p className="font-semibold mb-0.5">Photo not accepted</p>
+                                <p>{imageError}</p>
+                              </div>
+                              <button onClick={() => setImageError(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-3">
+                            {[
+                              { side: 'obverse', label: 'Obverse (Front)', preview: obversePreview, dragActive: dragActiveObverse, setDragActive: setDragActiveObverse },
+                              { side: 'reverse', label: 'Reverse (Back)', preview: reversePreview, dragActive: dragActiveReverse, setDragActive: setDragActiveReverse },
+                            ].map(({ side, label, preview, dragActive, setDragActive }) => (
+                              <div key={side}>
+                                <p className="font-sans text-xs font-semibold mb-1.5 text-text-secondary">{label}</p>
+                                <div
+                                  className="relative text-center rounded-md transition-colors duration-150"
+                                  style={{
+                                    border: `2px dashed ${dragActive ? '#b8843a' : '#e8e0d0'}`,
+                                    backgroundColor: dragActive ? '#f0e8d4' : '#faf4ea',
+                                    minHeight: 110,
+                                  }}
+                                  onDragEnter={e => { e.preventDefault(); setDragActive(true); }}
+                                  onDragLeave={e => { e.preventDefault(); setDragActive(false); }}
+                                  onDragOver={e => e.preventDefault()}
+                                  onDrop={e => {
+                                    e.preventDefault(); setDragActive(false);
+                                    if (e.dataTransfer.files[0]) handleImageChange(e.dataTransfer.files[0], side);
+                                  }}
+                                >
+                                  <input
+                                    type="file" accept="image/jpeg,image/png,image/webp"
+                                    onChange={e => handleImageChange(e.target.files[0], side)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  />
+                                  {preview ? (
+                                    <div className="p-2">
+                                      <img src={preview} alt={label} className="w-full h-24 object-contain rounded" style={{ mixBlendMode: 'multiply' }} />
+                                      <button
+                                        type="button"
+                                        onClick={e => { e.stopPropagation(); removeImage(side); }}
+                                        className="mt-1.5 font-sans text-xs text-text-muted hover:text-red-600 transition-colors"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center py-3 px-3 pointer-events-none">
+                                      <CoinImagePlaceholder className="w-20 h-20 rounded mb-2" />
+                                      <p className="font-sans text-xs font-medium text-text-secondary">Click or drag & drop</p>
+                                      <p className="font-sans text-xs text-text-muted mt-0.5">{label.split(' ')[0]} image</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {formError && (
+                          <div className="flex items-start gap-2.5 p-3 rounded-md text-sm font-sans"
+                            style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="font-semibold mb-0.5">Could not add coin</p>
+                              <p>{formError}</p>
+                            </div>
+                            <button onClick={() => setFormError(null)} className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                        )}
+
                         <div className="flex gap-3 pt-2">
                           <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-border-strong transition-colors">Cancel</button>
                           <button onClick={handleAddToCollection} disabled={adding || !selectedCollection}

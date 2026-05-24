@@ -254,7 +254,7 @@ Content-Type: application/json
 
 ## Coins — `/api/coins`
 
-The coin catalog is read-only for regular users. Admins can create entries.
+The coin catalog is read-only for regular users. Admins can create entries. The catalog supports Roman Republican and Imperial material.
 
 Coin IDs are string slugs (e.g. `ric_2_1(2)_dom_1`), not MongoDB ObjectIds.
 
@@ -291,12 +291,12 @@ BC years are stored as negative integers in `coinage.date.from` / `.to`.
 ### List / search coins
 
 ```http
-GET /api/coins?issuer=domitian&material=silver&denomination=denarius&mint=rome&startYear=-100&endYear=200&limit=20&page=1&search=denarius
+GET /api/coins?issuer=domitian&era=imperial&material=silver&denomination=denarius&mint=rome&startYear=-100&endYear=200&limit=20&page=1&keyword=denarius
 ```
 
-All query parameters are optional. BC years are negative integers.
+All query parameters are optional. BC years are negative integers. `era` accepts `imperial` or `republican`; omit it to search both catalogs.
 
-Returns `{ coins: [...], total, page, pages }`.
+Returns `{ results: [...], total, page, limit, pages }`.
 
 ### Get a single coin
 
@@ -320,7 +320,7 @@ Returns a random selection from the catalog.
 GET /api/coins/filter-options
 ```
 
-Returns distinct values for emperor, material, period, and denomination — used
+Returns distinct values for issuer, material, period, and denomination — used
 to populate the browse-page filter dropdowns. Rate-limited to 10 req/min per IP.
 
 ### Get date ranges
@@ -496,12 +496,55 @@ Content-Type: application/json
   "coin": "<coinSlugId>",
   "weight": 3.2,
   "diameter": 19.5,
-  "grade": "Very Fine (VF)",
-  "notes": "..."
+  "grade": "Very Fine",
+  "axis": "6h",
+  "thickness": 2.1,
+  "shape": "Round",
+  "patina": "Dark green",
+  "rarity": "Scarce",
+  "authenticityStatus": "Authentic",
+  "acquisitionDate": "2026-05-24",
+  "purchasePrice": { "amount": 120, "currency": "EUR" },
+  "estimatedValue": { "amount": 180, "currency": "EUR" },
+  "seller": "Dealer name",
+  "auctionHouse": "Auction house",
+  "lotNumber": "123",
+  "invoiceReferenceNumber": "INV-001",
+  "sourceType": "Auction",
+  "provenance": "...",
+  "storageLocation": "Tray A",
+  "tags": "silver, augustus",
+  "notes": "...",
+  "conditionNotes": "...",
+  "catalogReferences": { "other": "Private reference" }
 }
 ```
 
-`coin` is the string slug ID of the catalog coin (e.g. `ric_2_1(2)_dom_1`). All fields except `coin` are optional.
+`coin` is the string slug ID of the catalog coin (e.g. `ric_2_1(2)_dom_1`). All fields except `coin` are optional. Multiple collection entries can reference the same catalog coin, so duplicate specimens are supported.
+
+### Duplicate, move, or copy a collection entry
+
+```http
+POST /api/collections/:collectionId/entries/:entryId/duplicate
+POST /api/collections/:collectionId/entries/:entryId/transfer
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "targetCollectionId": "<collectionId>", "mode": "move" }
+```
+
+`mode` accepts `move` or `copy` for transfer.
+
+### Import / export collections
+
+```http
+GET /api/collections/:collectionId/export?format=csv&includeStatistics=true
+POST /api/collections/:collectionId/import/preview
+POST /api/collections/:collectionId/import
+Authorization: Bearer <token>
+```
+
+Import accepts parsed CSV/JSON content and can preview duplicate/validation issues before writing rows.
 
 ### Update coin metadata in a collection
 
@@ -526,6 +569,51 @@ All fields optional; only provided fields are updated.
 DELETE /api/collections/:collectionId/coins/:coinId
 Authorization: Bearer <token>
 ```
+
+---
+
+## Wishlist — `/api/wishlist`
+
+Wishlist endpoints require authentication. Catalog-backed entries can include `coinId`; the frontend uses it to route wanted coins back to `/coin-detail?id=<coinId>`.
+
+### List wishlist entries
+
+```http
+GET /api/wishlist?status=Wanted
+```
+
+Optional filters: `status`, `collection`.
+
+### Create wishlist entry
+
+```http
+POST /api/wishlist
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "coinId": "ric_1_aug_10",
+  "name": "RIC I Augustus 10",
+  "emperor": "augustus",
+  "mint": "emerita",
+  "material": "silver",
+  "denomination": "denarius",
+  "references": "RIC I 10",
+  "status": "Wanted"
+}
+```
+
+### Update or remove wishlist entry
+
+```http
+PUT /api/wishlist/:entryId
+DELETE /api/wishlist/:entryId
+POST /api/wishlist/:entryId/acquired
+POST /api/wishlist/:entryId/convert
+Authorization: Bearer <token>
+```
+
+`convert` requires `{ "collectionId": "...", "coinId": "..." }`, adds the wanted coin to the target collection, and marks the wishlist entry acquired.
 
 ---
 

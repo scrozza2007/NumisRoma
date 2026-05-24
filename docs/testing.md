@@ -4,7 +4,7 @@
 
 ## Backend unit tests
 
-Tests run against `mongodb-memory-server` — no real MongoDB or Redis required.
+Tests run against `mongodb-memory-server` — no real MongoDB or Redis required. In environments configured with `MONGOMS_SYSTEM_BINARY`, that binary must exist; for example, if it points at `/usr/bin/mongod`, install MongoDB there or unset the variable so `mongodb-memory-server` can manage its own binary.
 
 ```bash
 cd backend
@@ -19,7 +19,7 @@ npx jest tests/unit/coinController.test.js   # run a single file
 | File | Covers |
 |------|--------|
 | `authController.test.js` | register, login, logout, changePassword, changeUsername, updateProfile, checkSession |
-| `collectionController.test.js` | CRUD, public/private access control, addCoin, removeCoin |
+| `collectionController.test.js` | CRUD, public/private access control, addCoin, removeCoin, entry metadata |
 | `sessionController.test.js` | createSession, getActiveSessions, terminateSession, terminateAll, updateSessionActivity |
 | `tokenManager.test.js` | hashToken, generateTokenPair, refreshAccessToken, revokeRefreshToken, revokeAllRefreshTokens |
 | `infraMiddleware.test.js` | requestId, requestTimeout (including 503 path), metrics, errorHandler |
@@ -119,7 +119,7 @@ BASE_URL=https://numisroma.example.com k6 run k6/load.js
 
 Stages: 0→20 VUs (1 min) → 50 VUs (2 min) → hold (1 min) → ramp down (30 s)
 
-Hits: `GET /api/coins?emperor=<random>`, `/api/coins/filter-options`, `/api/coins/random`
+Hits: `GET /api/coins?issuer=<random>`, `/api/coins/filter-options`, `/api/coins/random`
 
 ### Auth-flow stress test
 

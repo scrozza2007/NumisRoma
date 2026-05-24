@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
 import { fmt, fmtPeriod } from '../utils/formatters';
+import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -28,6 +29,7 @@ const sanitizeCoin = (coin) => {
 };
 
 const inputCls = 'w-full px-3 py-2 font-sans text-sm bg-surface border border-border rounded outline-none focus:border-amber transition-colors duration-150 text-text-primary';
+const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchasePrice', 'estimatedValue']);
 
 const AddCoinToCollectionPage = () => {
   const router = useRouter();
@@ -49,7 +51,12 @@ const AddCoinToCollectionPage = () => {
   const [addingCoin, setAddingCoin] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
-  const [coinDetails, setCoinDetails] = useState({ weight: '', diameter: '', grade: '', notes: '' });
+  const [coinDetails, setCoinDetails] = useState({
+    weight: '', diameter: '', axis: '', thickness: '', shape: '', grade: '',
+    patina: '', conditionNotes: '', rarity: '', authenticityStatus: 'Unknown',
+    acquisitionDate: '', purchasePrice: '', estimatedValue: '', seller: '', auctionHouse: '', lotNumber: '',
+    invoiceReferenceNumber: '', sourceType: '', provenance: '', storageLocation: '', tags: '', notes: '', otherReferences: ''
+  });
   const [selectedObverseImage, setSelectedObverseImage] = useState(null);
   const [selectedReverseImage, setSelectedReverseImage] = useState(null);
   const [obversePreview, setObversePreview] = useState(null);
@@ -116,13 +123,14 @@ const AddCoinToCollectionPage = () => {
     setSelectedCoin(coin);
     setFormError(null);
     setImageError(null);
-    setCoinDetails({ weight: '', diameter: '', grade: '', notes: '' });
+    setCoinDetails(prev => Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: key === 'authenticityStatus' ? 'Unknown' : '' }), {}));
     setSelectedObverseImage(null); setSelectedReverseImage(null);
     setObversePreview(null); setReversePreview(null);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    if (nonNegativeFields.has(name) && Number(value) < 0) return;
     setCoinDetails(prev => ({ ...prev, [name]: value }));
   };
 
@@ -154,10 +162,10 @@ const AddCoinToCollectionPage = () => {
       // Step 2: add coin to collection
       const updatedCollection = await apiClient.post(`/api/collections/${id}/coins`, {
         coin: selectedCoin._id,
-        weight: coinDetails.weight || undefined,
-        diameter: coinDetails.diameter || undefined,
-        grade: coinDetails.grade || undefined,
-        notes: coinDetails.notes || undefined
+        ...coinDetails,
+        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency: 'EUR' } : undefined,
+        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency: 'EUR' } : undefined,
+        catalogReferences: coinDetails.otherReferences ? { other: coinDetails.otherReferences } : undefined
       });
 
       // Step 3: upload images (already validated — should not fail)
@@ -185,7 +193,7 @@ const AddCoinToCollectionPage = () => {
     setSelectedCoin(null);
     setFormError(null);
     setImageError(null);
-    setCoinDetails({ weight: '', diameter: '', grade: '', notes: '' });
+    setCoinDetails(prev => Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: key === 'authenticityStatus' ? 'Unknown' : '' }), {}));
     setSelectedObverseImage(null); setSelectedReverseImage(null);
     setObversePreview(null); setReversePreview(null);
   };
@@ -424,7 +432,31 @@ const AddCoinToCollectionPage = () => {
 
                 <form onSubmit={handleAddCoin} className="space-y-4">
                   <h3 className="font-sans font-semibold text-sm text-text-primary">
-                    Collection Details <span className="font-normal text-text-muted">(Optional)</span>
+                    Catalog Match
+                  </h3>
+
+                  <div className="p-3 rounded bg-surface-alt border border-border">
+                    <div className="grid grid-cols-2 gap-3 font-sans text-xs">
+                      {[
+                        ['Name', selectedCoin._title],
+                        ['Authority', selectedCoin.authority?.issuer],
+                        ['Dynasty', selectedCoin.authority?.dynasty],
+                        ['Period', selectedCoin._period],
+                        ['Mint', selectedCoin.classification?.mint],
+                        ['Denomination', selectedCoin.classification?.denomination],
+                        ['Material', selectedCoin.classification?.material],
+                        ['Reference', selectedCoin.reference ? `${selectedCoin.reference.system || ''} ${selectedCoin.reference.series || ''} ${selectedCoin.reference.number || ''}${selectedCoin.reference.suffix || ''}`.trim() : '']
+                      ].map(([label, value]) => (
+                        <div key={label}>
+                          <p className="text-text-muted">{label}</p>
+                          <p className="font-medium text-text-primary">{fmt(value) || '-'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <h3 className="font-sans font-semibold text-sm text-text-primary">
+                    Your Specimen Details <span className="font-normal text-text-muted">(Optional)</span>
                   </h3>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -435,7 +467,7 @@ const AddCoinToCollectionPage = () => {
                       <div key={fid}>
                         <label htmlFor={fid} className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
                         <input
-                          type={type} id={fid} name={fid} step={step} placeholder={placeholder}
+                          type={type} id={fid} name={fid} step={step} min="0" placeholder={placeholder}
                           value={coinDetails[fid]} onChange={handleInputChange}
                           className={inputCls}
                         />
@@ -456,6 +488,59 @@ const AddCoinToCollectionPage = () => {
                     </select>
                   </div>
 
+                  <div className="pt-2 border-t border-border">
+                    <h3 className="font-sans font-semibold text-sm mb-3 text-text-primary">Additional Collection Fields</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        ['axis', 'Axis'], ['thickness', 'Thickness'], ['shape', 'Shape'], ['patina', 'Patina'],
+                        ['rarity', 'Rarity'], ['storageLocation', 'Storage location'], ['tags', 'Tags'], ['seller', 'Seller'],
+                        ['auctionHouse', 'Auction house'], ['lotNumber', 'Lot number'], ['invoiceReferenceNumber', 'Invoice/reference'], ['acquisitionDate', 'Acquisition date']
+                      ].map(([fid, label]) => (
+                        <div key={fid}>
+                          <label htmlFor={fid} className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
+                          <input
+                            id={fid}
+                            name={fid}
+                            type={fid === 'acquisitionDate' ? 'date' : ['thickness'].includes(fid) ? 'number' : 'text'}
+                            min={fid === 'thickness' ? '0' : undefined}
+                            value={coinDetails[fid] || ''}
+                            onChange={handleInputChange}
+                            className={inputCls}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label htmlFor="purchasePrice" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Purchase price</label>
+                        <input id="purchasePrice" name="purchasePrice" type="number" min="0" step="0.01" value={coinDetails.purchasePrice} onChange={handleInputChange} className={inputCls} />
+                      </div>
+                      <div>
+                        <label htmlFor="estimatedValue" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Estimated value</label>
+                        <input id="estimatedValue" name="estimatedValue" type="number" min="0" step="0.01" value={coinDetails.estimatedValue} onChange={handleInputChange} className={inputCls} />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label htmlFor="otherReferences" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Additional private references</label>
+                      <input id="otherReferences" name="otherReferences" value={coinDetails.otherReferences} onChange={handleInputChange} className={inputCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label htmlFor="sourceType" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Source type</label>
+                        <select id="sourceType" name="sourceType" value={coinDetails.sourceType} onChange={handleInputChange} className={inputCls}>
+                          <option value="">Select source…</option>
+                          {['Auction', 'Dealer', 'Private seller', 'Personally found', 'Inherited', 'Gift'].map(source => <option key={source} value={source}>{source}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="authenticityStatus" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Authenticity</label>
+                        <select id="authenticityStatus" name="authenticityStatus" value={coinDetails.authenticityStatus} onChange={handleInputChange} className={inputCls}>
+                          {['Unknown', 'Authentic', 'Likely authentic', 'Questionable', 'Replica', 'Forgery'].map(status => <option key={status} value={status}>{status}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label htmlFor="notes" className="block font-sans text-xs font-medium mb-1 text-text-secondary">Personal Notes</label>
                     <textarea
@@ -464,6 +549,17 @@ const AddCoinToCollectionPage = () => {
                       placeholder="Add personal notes about this coin…"
                       className={`${inputCls} resize-none`}
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {[
+                      ['conditionNotes', 'Condition notes'], ['provenance', 'Provenance']
+                    ].map(([fid, label]) => (
+                      <div key={fid}>
+                        <label htmlFor={fid} className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
+                        <textarea id={fid} name={fid} rows={2} value={coinDetails[fid] || ''} onChange={handleInputChange} className={`${inputCls} resize-none`} />
+                      </div>
+                    ))}
                   </div>
 
                   {/* Custom images */}
@@ -531,10 +627,8 @@ const AddCoinToCollectionPage = () => {
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center justify-center py-5 px-3 pointer-events-none">
-                                <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#b8843a' }}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                              <div className="flex flex-col items-center justify-center py-3 px-3 pointer-events-none">
+                                <CoinImagePlaceholder className="w-20 h-20 rounded mb-2" />
                                 <p className="font-sans text-xs font-medium text-text-secondary">Click or drag & drop</p>
                                 <p className="font-sans text-xs text-text-muted mt-0.5">{label.split(' ')[0]} image</p>
                               </div>

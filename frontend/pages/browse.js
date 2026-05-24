@@ -18,6 +18,28 @@ const getPrimaryImage = (coin) => {
   return null;
 };
 
+const formatCoinCount = (count) => {
+  if (!Number.isFinite(count)) return 'the full catalog';
+  return `${count.toLocaleString()} documented coins`;
+};
+
+const defaultFilters = {
+  keyword: '', material: '', issuer: '', dynasty: '',
+  denomination: '', mint: '', portrait: '', subject: '',
+  startYear: undefined, endYear: undefined, catalogEras: ['imperial', 'republican'], sortBy: 'title', order: 'asc'
+};
+
+const normalizeSavedFilters = (savedFilters) => {
+  const parsed = { ...defaultFilters, ...savedFilters };
+  if (!Array.isArray(parsed.catalogEras)) {
+    parsed.catalogEras = parsed.era && parsed.era !== 'both'
+      ? [parsed.era]
+      : ['imperial', 'republican'];
+  }
+  delete parsed.era;
+  return parsed;
+};
+
 const Browse = () => {
   const router = useRouter();
   const [coins, setCoins] = useState([]);
@@ -25,12 +47,10 @@ const Browse = () => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [catalogTotal, setCatalogTotal] = useState(null);
+  const [resultTotal, setResultTotal] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    keyword: '', material: '', issuer: '', dynasty: '',
-    denomination: '', mint: '', portrait: '', subject: '',
-    startYear: undefined, endYear: undefined, sortBy: 'title', order: 'asc'
-  });
+  const [filters, setFilters] = useState(defaultFilters);
   const [filterOptions, setFilterOptions] = useState({
     materials: [], issuers: [], dynasties: [], denominations: [], mints: [], portraits: []
   });
@@ -63,17 +83,28 @@ const Browse = () => {
     } catch {}
   }, []);
 
+  const fetchCatalogTotal = useCallback(async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/coins?limit=1`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Number.isFinite(data.total)) setCatalogTotal(data.total);
+    } catch {}
+  }, []);
+
   const fetchCoins = useCallback(async (page = 1, filterParams = {}) => {
     setLoading(true);
     setError(null);
     try {
       let url = `${process.env.NEXT_PUBLIC_API_URL}/api/coins?page=${page}&limit=12`;
-      const skipKeys = new Set(['sortBy', 'order']);
+      const selectedEras = Array.isArray(filterParams.catalogEras) ? filterParams.catalogEras : defaultFilters.catalogEras;
+      const skipKeys = new Set(['sortBy', 'order', 'catalogEras']);
       Object.keys(filterParams).forEach(key => {
         if (filterParams[key] !== undefined && filterParams[key] !== '' && !skipKeys.has(key)) {
           url += `&${key}=${encodeURIComponent(filterParams[key])}`;
         }
       });
+      if (selectedEras.length === 1) url += `&era=${encodeURIComponent(selectedEras[0])}`;
       if (filterParams.sortBy) url += `&sortBy=${encodeURIComponent(filterParams.sortBy)}`;
       if (filterParams.order)  url += `&order=${encodeURIComponent(filterParams.order)}`;
 
@@ -83,6 +114,13 @@ const Browse = () => {
       setCoins(data.results);
       setTotalPages(data.pages);
       setCurrentPage(data.page);
+      setResultTotal(data.total);
+      const hasActiveFilters = Object.entries(filterParams).some(([key, value]) => {
+        if (['sortBy', 'order'].includes(key)) return false;
+        if (key === 'catalogEras') return Array.isArray(value) && value.length === 1;
+        return value !== undefined && value !== '';
+      });
+      if (!hasActiveFilters && Number.isFinite(data.total)) setCatalogTotal(data.total);
     } catch {
       setError('An error occurred while loading the coins. Please try again later.');
     } finally {
@@ -90,7 +128,10 @@ const Browse = () => {
     }
   }, []);
 
-  useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
+  useEffect(() => {
+    fetchFilterOptions();
+    fetchCatalogTotal();
+  }, [fetchFilterOptions, fetchCatalogTotal]);
 
   useEffect(() => {
     const handleRouteChange = (url) => {
@@ -113,7 +154,7 @@ const Browse = () => {
         const savedFilters    = localStorage.getItem('coinFilters');
         const savedPage       = localStorage.getItem('coinCurrentPage');
         if (lastVisitedPage === 'coin-detail' && savedFilters) {
-          const parsedFilters = JSON.parse(savedFilters);
+          const parsedFilters = normalizeSavedFilters(JSON.parse(savedFilters));
           setFilters(parsedFilters);
           await fetchCoins(savedPage ? parseInt(savedPage, 10) : 1, parsedFilters);
         } else {
@@ -168,12 +209,18 @@ const Browse = () => {
     applyFilters(next, 'period');
   };
 
+  const handleEraToggle = (era) => {
+    const current = Array.isArray(filters.catalogEras) ? filters.catalogEras : defaultFilters.catalogEras;
+    const nextEras = current.includes(era)
+      ? current.filter(item => item !== era)
+      : [...current, era];
+    const next = { ...filters, catalogEras: nextEras.length ? nextEras : defaultFilters.catalogEras };
+    setFilters(next);
+    applyFilters(next, 'catalogEras');
+  };
+
   const handleFilterReset = () => {
-    const reset = {
-      keyword: '', material: '', issuer: '', dynasty: '',
-      denomination: '', mint: '', portrait: '', subject: '',
-      startYear: undefined, endYear: undefined, sortBy: 'title', order: 'asc'
-    };
+    const reset = defaultFilters;
     setFilters(reset);
     setCurrentPage(1);
     localStorage.removeItem('coinFilters');
@@ -185,7 +232,7 @@ const Browse = () => {
     <div className="bg-canvas min-h-screen">
       <Head>
         <title>Browse Coins — NumisRoma</title>
-        <meta name="description" content="Browse the comprehensive catalog of Roman Imperial coins" />
+        <meta name="description" content="Browse the comprehensive catalog of Roman Republican and Imperial coins" />
       </Head>
 
       <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6">
@@ -195,10 +242,10 @@ const Browse = () => {
             The Catalog
           </p>
           <h1 className="font-display font-semibold text-3xl sm:text-4xl mb-2 text-text-primary">
-            Roman Imperial Coins
+            Roman Republican and Imperial Coins
           </h1>
           <p className="font-sans text-sm text-text-muted">
-            Search and filter across 40,000+ documented coins
+            Search and filter across {formatCoinCount(catalogTotal)}
           </p>
         </div>
 
@@ -240,6 +287,29 @@ const Browse = () => {
                 </div>
 
                 <div className="space-y-5">
+                  <div>
+                    <label className="font-sans text-sm font-medium text-text-primary block mb-2">Catalog</label>
+                    <div className="grid grid-cols-2 gap-1 rounded-md bg-surface-alt border border-border p-1">
+                      {[
+                        { value: 'imperial', label: 'Imperial' },
+                        { value: 'republican', label: 'Republican' },
+                      ].map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => handleEraToggle(value)}
+                          className={`px-2 py-2 rounded font-sans text-xs font-medium transition-colors duration-150 ${
+                            filters.catalogEras.includes(value)
+                              ? 'bg-card text-text-primary shadow-sm'
+                              : 'text-text-muted hover:text-text-primary'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Keyword */}
                   <div>
                     <label className="font-sans text-sm font-medium text-text-primary block mb-1.5">Keyword</label>
@@ -328,6 +398,19 @@ const Browse = () => {
 
           {/* Results */}
           <div className="lg:col-span-3">
+            {!loading && !error && resultTotal !== null && (
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="font-sans text-sm text-text-muted">
+                  {resultTotal.toLocaleString()} {resultTotal === 1 ? 'coin' : 'coins'} found
+                </p>
+                {filters.catalogEras.length === 1 && (
+                  <span className="font-sans text-xs font-medium px-2.5 py-1 rounded bg-amber-bg text-amber">
+                    {filters.catalogEras[0] === 'imperial' ? 'Imperial' : 'Republican'}
+                  </span>
+                )}
+              </div>
+            )}
+
             {loading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-10 w-10 border-2 border-amber border-t-transparent" />

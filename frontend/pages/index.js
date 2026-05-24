@@ -5,9 +5,16 @@ import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { fmt, fmtPeriod } from '../utils/formatters';
 
+const formatCatalogCount = (count) => {
+  if (!Number.isFinite(count)) return 'Thousands';
+  if (count >= 1000) return `${Math.floor(count / 1000).toLocaleString()}k+`;
+  return count.toLocaleString();
+};
+
 const Home = () => {
   const { user } = useContext(AuthContext);
   const [featuredCoins, setFeaturedCoins] = useState([]);
+  const [catalogTotal, setCatalogTotal] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,6 +27,7 @@ const Home = () => {
         if (!res.ok) throw new Error();
         const data = await res.json();
         setFeaturedCoins(data.results || []);
+        if (Number.isFinite(data.total)) setCatalogTotal(data.total);
       } catch {
         setFeaturedCoins([]);
       } finally {
@@ -32,10 +40,10 @@ const Home = () => {
   return (
     <div className="bg-canvas">
       <Head>
-        <title>NumisRoma — 40,000+ Roman Imperial Coins Cataloged</title>
+        <title>NumisRoma — Roman Republican and Imperial Coins Cataloged</title>
         <meta
           name="description"
-          content="Browse over 40,000 documented Roman Imperial coins. Search by emperor, dynasty, mint, and more. Build your collection and connect with serious collectors — free."
+          content="Browse documented Roman Republican and Imperial coins. Search by issuer, dynasty, mint, and more. Build your collection and connect with serious collectors — free."
         />
         <link rel="icon" href="/favicon.ico" />
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -52,20 +60,20 @@ const Home = () => {
               {/* Left: editorial heading */}
               <div className="animate-fade-up">
                 <p className="font-sans text-xs font-medium tracking-widest uppercase mb-6 text-amber">
-                  Roman Imperial Coinage
+                  Roman Republican and Imperial Coinage
                 </p>
                 <h1
                   className="font-display font-semibold leading-none mb-8 text-text-primary"
                   style={{ fontSize: 'clamp(48px, 6vw, 80px)' }}
                 >
-                  Every Emperor.
+                  Every Issuer.
                   <br />
                   Every Coin.
                   <br />
                   <span className="text-amber">One Catalog.</span>
                 </h1>
                 <p className="font-sans text-lg mb-10 max-w-md text-text-secondary" style={{ lineHeight: '1.7' }}>
-                  Browse over 40,000 documented Roman Imperial coins. Search by emperor, dynasty, mint, and material. Build your collection. Connect with serious collectors.
+                  Browse documented Roman Republican and Imperial coins. Search by issuer, dynasty, mint, and material. Build your collection. Connect with serious collectors.
                 </p>
 
                 <div className="flex flex-wrap gap-3">
@@ -86,8 +94,8 @@ const Home = () => {
                 {/* Social proof */}
                 <div className="flex flex-wrap items-center gap-6 sm:gap-8 mt-12 pt-8 border-t border-border">
                   {[
-                    { value: '40,000+', label: 'coins documented' },
-                    { value: '27 BC',   label: 'to 476 AD covered' },
+                    { value: formatCatalogCount(catalogTotal), label: 'coins documented' },
+                    { value: 'Republic', label: 'to Empire covered' },
                     { value: 'Free',    label: 'forever' },
                   ].map(({ value, label }) => (
                     <div key={label}>
@@ -147,7 +155,7 @@ const Home = () => {
                 href="/browse"
                 className="font-sans text-sm font-medium text-amber hover:text-amber-hover transition-colors duration-200 hidden sm:block"
               >
-                View all 40,000+ coins →
+                View all coins →
               </Link>
             </div>
 
@@ -192,7 +200,7 @@ const Home = () => {
 
             <div className="text-center mt-8 sm:hidden">
               <Link href="/browse" className="font-sans text-sm font-medium text-amber">
-                View all 40,000+ coins →
+                View all coins →
               </Link>
             </div>
           </div>
@@ -218,13 +226,13 @@ const Home = () => {
           <div className="absolute inset-0 flex items-center z-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6">
               <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
-                27 BC — 476 AD
+                Republic — Empire
               </p>
               <h2
                 className="font-display font-semibold mb-4 max-w-xl text-text-primary"
                 style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', lineHeight: '1.15' }}
               >
-                From Augustus to the fall of Rome
+                From the Republic to the fall of Rome
               </h2>
               <p className="font-sans text-base max-w-sm text-text-secondary" style={{ lineHeight: '1.7' }}>
                 Every dynasty. Every mint. Every deity. All documented.
@@ -241,7 +249,7 @@ const Home = () => {
                 {
                   n: '01',
                   title: 'Find any coin in seconds',
-                  body: 'Search across all 40,000+ coins by emperor, dynasty, mint, material, or date range. Combine filters to narrow across the full arc of Imperial Rome.',
+                  body: 'Search the live catalog by issuer, dynasty, mint, material, or date range. Combine filters to narrow across the full arc of Roman coinage.',
                 },
                 {
                   n: '02',

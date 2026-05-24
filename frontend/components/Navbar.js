@@ -43,10 +43,9 @@ const Navbar = () => {
   const { user, logout, isLoading } = useContext(AuthContext);
   const router = useRouter();
   const isAuthPage = router.pathname === '/login' || router.pathname === '/register';
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isAccountSidebarOpen, setIsAccountSidebarOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBellOpen, setIsBellOpen] = useState(false);
-  const timeoutRef = useRef(null);
   const bellTimeoutRef = useRef(null);
   const bellRef = useRef(null);
 
@@ -135,22 +134,21 @@ const Navbar = () => {
     };
   }, [user, isAuthPage, fetchCounts]);
 
-  useEffect(() => { setIsDropdownOpen(false); }, [user]);
+  useEffect(() => { setIsAccountSidebarOpen(false); }, [user]);
   useEffect(() => () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (bellTimeoutRef.current) clearTimeout(bellTimeoutRef.current);
   }, []);
 
   useEffect(() => {
-    const close = () => { setIsMobileMenuOpen(false); setIsBellOpen(false); };
+    const close = () => { setIsMobileMenuOpen(false); setIsBellOpen(false); setIsAccountSidebarOpen(false); };
     router.events.on('routeChangeStart', close);
     return () => router.events.off('routeChangeStart', close);
   }, [router.events]);
 
   useEffect(() => {
-    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
+    document.body.style.overflow = isMobileMenuOpen || isAccountSidebarOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, isAccountSidebarOpen]);
 
   // Close bell dropdown on outside click.
   useEffect(() => {
@@ -166,14 +164,6 @@ const Navbar = () => {
   const handleLogout = async () => {
     await logout();
     router.push('/login');
-  };
-
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsDropdownOpen(true);
-  };
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => setIsDropdownOpen(false), 250);
   };
 
   const handleBellClick = () => {
@@ -244,6 +234,13 @@ const Navbar = () => {
   ];
 
   const isActive = (href) => router.pathname === href;
+  const accountLinks = user ? [
+    { label: 'Profile', href: `/profile?id=${user._id}`, icon: 'M5.121 17.804A9.004 9.004 0 0112 15a9.004 9.004 0 016.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
+    { label: 'Messages', href: '/messages', icon: 'M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.83L3 20l1.35-3.6A7.18 7.18 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+    { label: 'Wishlist', href: '/wishlist', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-4-7 4V5z' },
+    { label: 'Notifications', href: '/notifications', badge: notifCount, icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
+    { label: 'Settings', href: '/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+  ] : [];
 
   return (
     <header className="sticky top-0 z-50 bg-surface border-b border-border">
@@ -379,9 +376,13 @@ const Navbar = () => {
                 )}
               </div>
 
-              {/* User dropdown */}
-              <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                <button className="flex items-center focus:outline-none">
+              {/* Account sidebar trigger */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsAccountSidebarOpen(true)}
+                  aria-label="Open account menu"
+                  className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber/30 rounded-full"
+                >
                   {user.profileImage ? (
                     <Image
                       src={user.profileImage}
@@ -396,37 +397,6 @@ const Navbar = () => {
                     </div>
                   )}
                 </button>
-
-                {isDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 rounded-md py-1 z-50 animate-fade-in bg-card border border-border shadow-md">
-                    <div className="px-4 py-2.5 border-b border-border">
-                      <p className="font-sans text-sm font-medium truncate text-text-primary">{user.username}</p>
-                      <p className="font-sans text-xs truncate mt-0.5 text-text-muted">{user.email}</p>
-                    </div>
-                    {[
-                      { label: 'Profile',  href: `/profile?id=${user._id}` },
-                      { label: 'Messages', href: '/messages' },
-                      { label: 'Settings', href: '/settings' },
-                    ].map(({ label, href }) => (
-                      <Link
-                        key={label}
-                        href={href}
-                        onClick={() => setIsDropdownOpen(false)}
-                        className="flex items-center px-4 py-2 font-sans text-sm text-text-secondary hover:bg-surface-alt hover:text-text-primary transition-colors duration-150"
-                      >
-                        {label}
-                      </Link>
-                    ))}
-                    <div className="border-t border-border mt-1 pt-1">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 font-sans text-sm text-red-700 hover:bg-red-50 transition-colors duration-150"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             </>
           ) : (
@@ -464,6 +434,91 @@ const Navbar = () => {
           </button>
         </div>
       </div>
+
+      {/* Account sidebar overlay */}
+      {isAccountSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-[rgba(46,40,32,0.4)]"
+          onClick={() => setIsAccountSidebarOpen(false)}
+        />
+      )}
+
+      {/* Account sidebar */}
+      {isAccountSidebarOpen && user && !isAuthPage && (
+        <aside
+          className="fixed top-0 right-0 h-full w-[min(360px,calc(100vw-32px))] z-50 flex flex-col bg-surface border-l border-border shadow-xl animate-fade-in"
+        >
+          <div className="flex items-center justify-between px-5 h-16 border-b border-border shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              {user.profileImage ? (
+                <Image
+                  src={user.profileImage}
+                  alt="Profile"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full flex items-center justify-center font-sans font-semibold text-sm bg-amber text-[#fdf8f0]">
+                  {getUserInitial()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="font-sans text-sm font-semibold truncate text-text-primary">{user.username}</p>
+                <p className="font-sans text-xs truncate mt-0.5 text-text-muted">{user.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsAccountSidebarOpen(false)}
+              aria-label="Close account menu"
+              className="w-9 h-9 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-surface-alt transition-colors duration-150"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-1">
+            {accountLinks.map(({ label, href, badge, icon }) => (
+              <Link
+                key={label}
+                href={href}
+                onClick={() => setIsAccountSidebarOpen(false)}
+                className={`flex items-center justify-between gap-3 px-4 py-3 rounded-md font-sans text-sm transition-colors duration-150 ${
+                  isActive(href)
+                    ? 'bg-amber-bg text-amber'
+                    : 'text-text-secondary hover:bg-surface-alt hover:text-text-primary'
+                }`}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={icon} />
+                  </svg>
+                  <span className="truncate">{label}</span>
+                </span>
+                {badge > 0 && (
+                  <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white font-sans font-bold text-[10px] px-1">
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="px-4 py-4 border-t border-border shrink-0">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-md font-sans text-sm text-red-700 hover:bg-red-50 transition-colors duration-150"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+              </svg>
+              Sign out
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Mobile drawer overlay */}
       {isMobileMenuOpen && (
@@ -534,6 +589,7 @@ const Navbar = () => {
                 { label: 'Notifications', href: '/notifications', badge: notifCount },
                 { label: 'Profile',  href: `/profile?id=${user._id}` },
                 { label: 'Messages', href: '/messages' },
+                { label: 'Wishlist', href: '/wishlist' },
                 { label: 'Settings', href: '/settings' },
               ].map(({ label, href, badge }) => (
                 <Link

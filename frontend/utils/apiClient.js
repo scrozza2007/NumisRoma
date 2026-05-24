@@ -259,6 +259,18 @@ export const api = {
       apiClient.delete(`/api/collections/${collectionId}/coins/${coinId}`),
   },
 
+  wishlist: {
+    getAll: (params = {}) => {
+      const queryString = new URLSearchParams(params).toString();
+      return apiClient.get(`/api/wishlist${queryString ? `?${queryString}` : ''}`);
+    },
+    create: (data) => apiClient.post('/api/wishlist', data),
+    update: (id, data) => apiClient.put(`/api/wishlist/${id}`, data),
+    delete: (id) => apiClient.delete(`/api/wishlist/${id}`),
+    markAcquired: (id) => apiClient.post(`/api/wishlist/${id}/acquired`),
+    convert: (id, data) => apiClient.post(`/api/wishlist/${id}/convert`, data),
+  },
+
   // Users endpoints
   users: {
     getProfile: (id) => apiClient.get(`/api/users/${id}/profile`),

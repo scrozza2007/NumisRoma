@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
+import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const inputCls = 'w-full px-3.5 py-2.5 font-sans text-sm bg-card border border-border rounded-md outline-none focus:border-amber transition-colors duration-150 text-text-primary';
 
@@ -18,7 +19,7 @@ const NewCollectionPage = () => {
     if (!authLoading && !user) router.push('/login?message=You must be logged in to access community features');
   }, [user, authLoading, router]);
 
-  const [formData, setFormData] = useState({ name: '', description: '', isPublic: true });
+  const [formData, setFormData] = useState({ name: '', description: '', visibility: 'Private' });
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +63,7 @@ const NewCollectionPage = () => {
         const fd = new FormData();
         fd.append('name', formData.name);
         fd.append('description', formData.description);
-        fd.append('isPublic', formData.isPublic);
+        fd.append('visibility', formData.visibility);
         fd.append('image', selectedImage);
         data = await apiClient.postFormData('/api/collections', fd);
       } else {
@@ -171,9 +172,7 @@ const NewCollectionPage = () => {
                   className="flex flex-col items-center justify-center h-32 cursor-pointer transition-colors duration-150 rounded-md hover:border-amber"
                   style={{ border: '2px dashed var(--color-border)', backgroundColor: 'var(--color-canvas)' }}
                 >
-                  <svg className="w-8 h-8 mb-2 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                  </svg>
+                  <CoinImagePlaceholder className="w-20 h-20 rounded mb-2" />
                   <p className="font-sans text-sm text-text-muted">Click to upload <span className="text-amber">or drag & drop</span></p>
                   <p className="font-sans text-xs mt-1 text-text-muted">JPEG, PNG, WebP · min 400×400px · max 15 MB</p>
                   <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
@@ -186,13 +185,14 @@ const NewCollectionPage = () => {
               <label className="block font-sans text-sm font-medium mb-3 text-text-primary">Visibility</label>
               <div className="space-y-3">
                 {[
-                  { val: true,  label: 'Public',  desc: 'Other users can view and discover your collection' },
-                  { val: false, label: 'Private', desc: 'Only you can view this collection' },
+                  { val: 'Private', label: 'Private', desc: 'Only you can view this collection' },
+                  { val: 'Public',  label: 'Public',  desc: 'Other users can view and discover your collection' },
+                  { val: 'Shared',  label: 'Shared',  desc: 'Prepared for private sharing workflows' },
                 ].map(({ val, label, desc }) => (
                   <label key={label} className="flex items-start gap-3 cursor-pointer">
                     <input
-                      type="radio" name="isPublic" checked={formData.isPublic === val}
-                      onChange={() => setFormData(prev => ({ ...prev, isPublic: val }))}
+                      type="radio" name="visibility" checked={formData.visibility === val}
+                      onChange={() => setFormData(prev => ({ ...prev, visibility: val }))}
                       className="mt-0.5 accent-amber"
                     />
                     <div>

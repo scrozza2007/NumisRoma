@@ -26,6 +26,7 @@ const oauthRoutes = require('./routes/oauth');
 const authRoutes = require('./routes/auth');
 const coinRoutes = require('./routes/coins');
 const collectionRoutes = require('./routes/collections');
+const wishlistRoutes = require('./routes/wishlist');
 const userRoutes = require('./routes/users');
 const contactRoutes = require('./routes/contact');
 const sessionRoutes = require('./routes/sessions');
@@ -190,6 +191,7 @@ app.get('/', (req, res) => {
       coins: '/api/coins',
       users: '/api/users',
       collections: '/api/collections',
+      wishlist: '/api/wishlist',
       messages: '/api/messages',
       sessions: '/api/sessions',
       contact: '/api/contact',
@@ -235,6 +237,7 @@ apiV1.use('/auth/oauth', authLimiter, oauthRoutes);
 apiV1.use('/contact', contactLimiter, contactRoutes);
 apiV1.use('/coins', coinRoutes);
 apiV1.use('/collections', collectionRoutes);
+apiV1.use('/wishlist', wishlistRoutes);
 apiV1.use('/users', userRoutes);
 apiV1.use('/sessions', sessionRoutes);
 apiV1.use('/messages', messageRoutes);

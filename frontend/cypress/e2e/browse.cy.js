@@ -4,7 +4,7 @@ describe("Browse Coins", () => {
   });
 
   it("loads the browse page", () => {
-    cy.contains("Roman Imperial").should("exist");
+    cy.contains("Roman Republican and Imperial").should("exist");
   });
 
   it("displays a list of coins", () => {

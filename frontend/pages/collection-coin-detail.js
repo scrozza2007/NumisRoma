@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { semantic } from '../utils/tokens';
 import { fmt, fmtPeriod } from '../utils/formatters';
+import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const buildSpecimens = (images = [], customImages = {}) => {
   const specs = images.map((img, idx) => {
@@ -23,10 +24,20 @@ const buildSpecimens = (images = [], customImages = {}) => {
   return specs;
 };
 
+const emptyEditDetails = {
+  weight: '', diameter: '', axis: '', thickness: '', shape: '', grade: '',
+  patina: '', conditionNotes: '', rarity: '', authenticityStatus: 'Unknown',
+  acquisitionDate: '', purchasePrice: '', estimatedValue: '', seller: '',
+  auctionHouse: '', lotNumber: '', invoiceReferenceNumber: '', sourceType: '',
+  provenance: '', storageLocation: '', tags: '', notes: '', otherReferences: ''
+};
+
+const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchasePrice', 'estimatedValue']);
+
 const CollectionCoinDetail = () => {
   const router = useRouter();
   const { user, isLoading: authLoading } = useContext(AuthContext);
-  const { id, collectionId, entryId, weight, diameter, grade, notes } = router.query;
+  const { id, collectionId, entryId } = router.query;
 
   const [coin, setCoin] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,10 +59,7 @@ const CollectionCoinDetail = () => {
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const [editWeight, setEditWeight] = useState('');
-  const [editDiameter, setEditDiameter] = useState('');
-  const [editGrade, setEditGrade] = useState('');
-  const [editNotes, setEditNotes] = useState('');
+  const [editDetails, setEditDetails] = useState(emptyEditDetails);
 
   const [showImageEditModal, setShowImageEditModal] = useState(false);
   const [selectedObverseImage, setSelectedObverseImage] = useState(null);
@@ -134,6 +142,11 @@ const CollectionCoinDetail = () => {
     }
   }, [entryId]);
 
+  const getCurrentEntry = useCallback(() => {
+    const entries = collectionData?.coins || [];
+    return entries.find(e => e._id === entryId) || entries.find(e => (e.coin?._id || e.coin) === id) || null;
+  }, [collectionData, entryId, id]);
+
   useEffect(() => {
     if (router.query.id && collectionId) {
       setCustomImages({ obverse: null, reverse: null });
@@ -147,38 +160,71 @@ const CollectionCoinDetail = () => {
   }, [router.query.id, collectionId, entryId]);
 
   const handleEditCoin = () => {
-    setEditWeight(weight || '');
-    setEditDiameter(diameter || '');
-    setEditGrade(grade || '');
-    setEditNotes(notes || '');
+    const entry = getCurrentEntry();
+    setEditDetails({
+      ...emptyEditDetails,
+      weight: entry?.weight ?? '',
+      diameter: entry?.diameter ?? '',
+      axis: entry?.axis || '',
+      thickness: entry?.thickness ?? '',
+      shape: entry?.shape || '',
+      grade: entry?.grade || '',
+      patina: entry?.patina || '',
+      conditionNotes: entry?.conditionNotes || '',
+      rarity: entry?.rarity || '',
+      authenticityStatus: entry?.authenticityStatus || 'Unknown',
+      acquisitionDate: entry?.acquisitionDate ? new Date(entry.acquisitionDate).toISOString().slice(0, 10) : '',
+      purchasePrice: entry?.purchasePrice?.amount ?? '',
+      estimatedValue: entry?.estimatedValue?.amount ?? '',
+      seller: entry?.seller || '',
+      auctionHouse: entry?.auctionHouse || '',
+      lotNumber: entry?.lotNumber || '',
+      invoiceReferenceNumber: entry?.invoiceReferenceNumber || '',
+      sourceType: entry?.sourceType || '',
+      provenance: entry?.provenance || '',
+      storageLocation: entry?.storageLocation || '',
+      tags: (entry?.tags || []).join(', '),
+      notes: entry?.notes || '',
+      otherReferences: entry?.catalogReferences?.other || ''
+    });
     setShowEditModal(true);
+  };
+
+  const handleEditFieldChange = (name, value) => {
+    if (nonNegativeFields.has(name) && Number(value) < 0) return;
+    setEditDetails(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveEdit = async () => {
     if (!coin || !coin._id) return;
+    const targetId = entryId || coin._id;
+    setEditLoading(true);
     try {
-      await apiClient.put(`/api/collections/${collectionId}/coins/${coin._id}`, {
-        weight: editWeight || undefined,
-        diameter: editDiameter || undefined,
-        grade: editGrade || undefined,
-        notes: editNotes || undefined
+      await apiClient.put(`/api/collections/${collectionId}/coins/${targetId}`, {
+        ...editDetails,
+        purchasePrice: editDetails.purchasePrice ? { amount: Number(editDetails.purchasePrice), currency: 'EUR' } : undefined,
+        estimatedValue: editDetails.estimatedValue ? { amount: Number(editDetails.estimatedValue), currency: 'EUR' } : undefined,
+        catalogReferences: editDetails.otherReferences ? { other: editDetails.otherReferences } : undefined
       });
       setShowEditModal(false);
+      await fetchCollectionData();
       await fetchCustomImages();
       setNotification({ type: 'success', message: 'Data updated successfully' });
       router.replace({
         pathname: router.pathname,
-        query: { id, collectionId, weight: editWeight || undefined, diameter: editDiameter || undefined, grade: editGrade || undefined, notes: editNotes || undefined }
+        query: { id, collectionId, entryId }
       }, undefined, { shallow: true });
-    } catch {
-      setNotification({ type: 'error', message: 'Error while updating' });
+    } catch (err) {
+      setNotification({ type: 'error', message: err.message || 'Error while updating' });
+    } finally {
+      setEditLoading(false);
     }
   };
 
   const handleDeleteCoin = async () => {
     setDeleteLoading(true);
     try {
-      await apiClient.delete(`/api/collections/${collectionId}/coins/${id}`);
+      await apiClient.delete(`/api/collections/${collectionId}/coins/${entryId || id}`);
       router.push(`/collection-detail?id=${collectionId}`);
     } catch (err) {
       setNotification({ show: true, message: err.message || 'Error removing coin from collection', type: 'error' });
@@ -250,6 +296,7 @@ const CollectionCoinDetail = () => {
 
   const specimens = coin ? buildSpecimens([], customImages) : [];
   const active = specimens[activeIdx] || null;
+  const collectionEntry = getCurrentEntry();
 
   const hasValidData = (data) => data && data !== '' && data !== 'N/A' && data !== 'n/a' && data !== null && data !== undefined;
 
@@ -498,10 +545,7 @@ const CollectionCoinDetail = () => {
         {/* No-image placeholder when no custom images have been uploaded */}
         {specimens.length === 0 && (
           <div className="bg-card border border-border rounded-md mb-6 p-8 flex flex-col items-center justify-center gap-3" style={{ minHeight: 200 }}>
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#9a8e80' }}>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="font-sans text-sm text-text-muted">No images uploaded</p>
+            <CoinImagePlaceholder className="w-44 h-44 rounded" />
             <button
               onClick={() => setShowImageEditModal(true)}
               className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
@@ -512,14 +556,32 @@ const CollectionCoinDetail = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {(weight || diameter || grade || notes) && (
+          {collectionEntry && (
             <div className="p-5 bg-card border border-border rounded-md">
               <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Your Details</h2>
               <div className="grid grid-cols-2 gap-3">
-                {renderField('Weight', weight ? `${weight} g` : null)}
-                {renderField('Diameter', diameter ? `${diameter} mm` : null)}
-                {renderField('Grade', grade)}
-                {renderField('Notes', notes)}
+                {renderField('Weight', collectionEntry.weight ? `${collectionEntry.weight} g` : null)}
+                {renderField('Diameter', collectionEntry.diameter ? `${collectionEntry.diameter} mm` : null)}
+                {renderField('Thickness', collectionEntry.thickness ? `${collectionEntry.thickness} mm` : null)}
+                {renderField('Axis', collectionEntry.axis)}
+                {renderField('Shape', fmt(collectionEntry.shape))}
+                {renderField('Grade', fmt(collectionEntry.grade))}
+                {renderField('Patina', fmt(collectionEntry.patina))}
+                {renderField('Authenticity', fmt(collectionEntry.authenticityStatus))}
+                {renderField('Rarity', fmt(collectionEntry.rarity))}
+                {renderField('Purchase price', collectionEntry.purchasePrice?.amount ? `EUR ${collectionEntry.purchasePrice.amount}` : null)}
+                {renderField('Estimated value', collectionEntry.estimatedValue?.amount ? `EUR ${collectionEntry.estimatedValue.amount}` : null)}
+                {renderField('Acquisition date', collectionEntry.acquisitionDate ? new Date(collectionEntry.acquisitionDate).toLocaleDateString() : null)}
+                {renderField('Seller', collectionEntry.seller)}
+                {renderField('Auction house', collectionEntry.auctionHouse)}
+                {renderField('Lot number', collectionEntry.lotNumber)}
+                {renderField('Invoice/reference', collectionEntry.invoiceReferenceNumber)}
+                {renderField('Source type', fmt(collectionEntry.sourceType))}
+                {renderField('Storage location', collectionEntry.storageLocation)}
+                {renderField('Tags', (collectionEntry.tags || []).map(fmt).join(', '))}
+                {renderField('Condition notes', collectionEntry.conditionNotes)}
+                {renderField('Provenance', collectionEntry.provenance)}
+                {renderField('Personal notes', collectionEntry.notes)}
               </div>
             </div>
           )}
@@ -573,34 +635,105 @@ const CollectionCoinDetail = () => {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(46,40,32,0.6)]">
-          <div className="w-full max-w-md bg-card border border-border rounded-md">
+          <div className="w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-card border border-border rounded-md">
             <div className="p-5 border-b border-border">
               <h2 className="font-display font-semibold text-xl text-text-primary">Edit Coin Details</h2>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: 'Weight (g)', value: editWeight, setter: setEditWeight, type: 'number', step: '0.01' },
-                  { label: 'Diameter (mm)', value: editDiameter, setter: setEditDiameter, type: 'number', step: '0.1' },
-                ].map(({ label, value, setter, type, step }) => (
+                  ['weight', 'Weight (g)', 'number', '0.01'],
+                  ['diameter', 'Diameter (mm)', 'number', '0.01'],
+                  ['thickness', 'Thickness (mm)', 'number', '0.01'],
+                  ['axis', 'Axis', 'text'],
+                  ['shape', 'Shape', 'text'],
+                  ['patina', 'Patina', 'text'],
+                  ['rarity', 'Rarity', 'text'],
+                  ['storageLocation', 'Storage', 'text']
+                ].map(([name, label, type, step]) => (
                   <div key={label}>
                     <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
-                    <input type={type} step={step} value={value} onChange={e => setter(e.target.value)} className={inputCls} />
+                    <input
+                      type={type}
+                      step={step}
+                      min={nonNegativeFields.has(name) ? '0' : undefined}
+                      value={editDetails[name] || ''}
+                      onChange={e => handleEditFieldChange(name, e.target.value)}
+                      className={inputCls}
+                    />
                   </div>
                 ))}
               </div>
-              <div>
-                <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Grade</label>
-                <select value={editGrade} onChange={e => setEditGrade(e.target.value)} className={selectCls}>
-                  <option value="">Select grade…</option>
-                  {['Poor (P)','Fair (F)','Very Good (VG)','Fine (F)','Very Fine (VF)','Extremely Fine (EF)','About Uncirculated (AU)','Uncirculated (UNC)'].map(g => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Grade</label>
+                  <select value={editDetails.grade} onChange={e => handleEditFieldChange('grade', e.target.value)} className={selectCls}>
+                    <option value="">Select grade…</option>
+                    {['Poor','Fair','About Good','Good','Very Good','Fine','Very Fine','Extremely Fine','About Uncirculated','Uncirculated'].map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Source type</label>
+                  <select value={editDetails.sourceType} onChange={e => handleEditFieldChange('sourceType', e.target.value)} className={selectCls}>
+                    <option value="">Select source…</option>
+                    {['Auction', 'Dealer', 'Private seller', 'Personally found', 'Inherited', 'Gift'].map(source => <option key={source} value={source}>{source}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Authenticity</label>
+                  <select value={editDetails.authenticityStatus} onChange={e => handleEditFieldChange('authenticityStatus', e.target.value)} className={selectCls}>
+                    {['Unknown', 'Authentic', 'Likely authentic', 'Questionable', 'Replica', 'Forgery'].map(status => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </div>
               </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  ['acquisitionDate', 'Acquisition date', 'date'],
+                  ['purchasePrice', 'Purchase price', 'number'],
+                  ['estimatedValue', 'Estimated value', 'number'],
+                  ['seller', 'Seller', 'text'],
+                  ['auctionHouse', 'Auction house', 'text'],
+                  ['lotNumber', 'Lot number', 'text'],
+                  ['invoiceReferenceNumber', 'Invoice/reference', 'text'],
+                  ['tags', 'Tags', 'text']
+                ].map(([name, label, type]) => (
+                  <div key={name}>
+                    <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">{label}</label>
+                    <input
+                      type={type}
+                      min={nonNegativeFields.has(name) ? '0' : undefined}
+                      step={type === 'number' ? '0.01' : undefined}
+                      value={editDetails[name] || ''}
+                      onChange={e => handleEditFieldChange(name, e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Additional private references</label>
+                <input value={editDetails.otherReferences} onChange={e => handleEditFieldChange('otherReferences', e.target.value)} className={inputCls} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Condition notes</label>
+                  <textarea value={editDetails.conditionNotes} onChange={e => handleEditFieldChange('conditionNotes', e.target.value)} rows={3} className={inputCls + ' resize-none'} />
+                </div>
+                <div>
+                  <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Provenance</label>
+                  <textarea value={editDetails.provenance} onChange={e => handleEditFieldChange('provenance', e.target.value)} rows={3} className={inputCls + ' resize-none'} />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-sans text-xs font-medium mb-1 text-text-secondary">Notes</label>
-                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={3} className={inputCls + ' resize-none'} />
+                <textarea value={editDetails.notes} onChange={e => handleEditFieldChange('notes', e.target.value)} rows={3} className={inputCls + ' resize-none'} />
               </div>
               <div className="flex gap-3 pt-2">
                 <button
@@ -717,10 +850,8 @@ const CollectionCoinDetail = () => {
                           <p className="mt-2 font-sans text-xs font-medium" style={{ color: semantic.success.text }}>Image selected</p>
                         </div>
                       ) : (
-                        <div>
-                          <svg className="w-10 h-10 mx-auto mb-2 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
+                        <div className="flex flex-col items-center">
+                          <CoinImagePlaceholder className="w-24 h-24 rounded mb-2" />
                           <p className="font-sans text-xs text-text-muted">Click or drag to upload {side} image</p>
                         </div>
                       )}

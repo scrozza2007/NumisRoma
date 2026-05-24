@@ -11,7 +11,14 @@ const {
   getCollectionById,
   getUserCollections,
   deleteCollection,
-  updateCollection
+  updateCollection,
+  reorderCollections,
+  reorderCollectionCoins,
+  duplicateCoinEntry,
+  moveOrCopyCoinEntry,
+  exportCollection,
+  previewImport,
+  importCollection
 } = require('../controllers/collectionController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const optionalAuthMiddleware = require('../middlewares/optionalAuthMiddleware');
@@ -70,13 +77,17 @@ router.post(
         allowedProtocols: ['https:', 'http:'],
         performDnsCheck: true 
       })),
-    body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
+    body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean'),
+    body('visibility').optional().isIn(['Private', 'Public', 'Shared']).withMessage('Invalid visibility')
   ],
   createCollectionWrapper
 );
 
 // Return all personal collections of logged user
 router.get('/', authMiddleware, getMyCollections);
+
+// Reorder personal collections
+router.put('/reorder', authMiddleware, reorderCollections);
 
 // Return all public collections (no authentication required)
 router.get('/public', getPublicCollections);
@@ -206,13 +217,18 @@ router.put(
         allowedProtocols: ['https:', 'http:'],
         performDnsCheck: true 
       })),
-    body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean')
+    body('isPublic').optional().isBoolean().withMessage('isPublic must be a boolean'),
+    body('visibility').optional().isIn(['Private', 'Public', 'Shared']).withMessage('Invalid visibility')
   ],
   updateCollectionWrapper
 );
 
 // Delete a collection
 router.delete('/:collectionId', validateObjectId('collectionId'), authMiddleware, deleteCollection);
+
+router.get('/:collectionId/export', validateObjectId('collectionId'), authMiddleware, exportCollection);
+router.post('/:collectionId/import/preview', validateObjectId('collectionId'), authMiddleware, previewImport);
+router.post('/:collectionId/import', validateObjectId('collectionId'), authMiddleware, importCollection);
 
 // Add a coin to a personal collection
 router.post(
@@ -226,6 +242,10 @@ router.post(
   ],
   addCoinToCollection
 );
+
+router.put('/:collectionId/coins/reorder', validateObjectId('collectionId'), authMiddleware, reorderCollectionCoins);
+router.post('/:collectionId/entries/:entryId/duplicate', validateObjectId('collectionId'), validateObjectId('entryId'), authMiddleware, duplicateCoinEntry);
+router.post('/:collectionId/entries/:entryId/transfer', validateObjectId('collectionId'), validateObjectId('entryId'), authMiddleware, moveOrCopyCoinEntry);
 
 // Update the user-supplied metadata of a coin inside a collection
 router.put('/:collectionId/coins/:coinId', validateObjectId('collectionId'), validateObjectId('coinId', { allowString: true }), authMiddleware, updateCoinInCollection);
