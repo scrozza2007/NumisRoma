@@ -42,6 +42,7 @@ const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchaseP
 const CoinDetail = () => {
   const router = useRouter();
   const { user } = useContext(AuthContext);
+  const currency = 'EUR';
   const { id } = router.query;
 
   const [coin, setCoin]       = useState(null);
@@ -153,8 +154,8 @@ const CoinDetail = () => {
       const updatedCollection = await apiClient.post(`/api/collections/${selectedCollection}/coins`, {
         coin: id,
         ...coinDetails,
-        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency: 'EUR' } : undefined,
-        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency: 'EUR' } : undefined,
+        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency } : undefined,
+        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency } : undefined,
         catalogReferences: coinDetails.otherReferences ? { other: coinDetails.otherReferences } : undefined
       });
 

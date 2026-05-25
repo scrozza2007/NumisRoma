@@ -43,7 +43,7 @@ const Home = () => {
         <title>NumisRoma — Roman Republican and Imperial Coins Cataloged</title>
         <meta
           name="description"
-          content="Browse documented Roman Republican and Imperial coins. Search by issuer, dynasty, mint, and more. Build your collection and connect with serious collectors — free."
+          content="NumisRoma is a modern platform for Roman numismatics. Browse Roman Republican and Imperial coins, document your collection, and connect study with digital tools."
         />
         <link rel="icon" href="/favicon.ico" />
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
@@ -66,14 +66,14 @@ const Home = () => {
                   className="font-display font-semibold leading-none mb-8 text-text-primary"
                   style={{ fontSize: 'clamp(48px, 6vw, 80px)' }}
                 >
-                  Every Issuer.
+                  Roman Coins.
                   <br />
-                  Every Coin.
+                  Carefully Managed.
                   <br />
-                  <span className="text-amber">One Catalog.</span>
+                  <span className="text-amber">Digitally Organized.</span>
                 </h1>
                 <p className="font-sans text-lg mb-10 max-w-md text-text-secondary" style={{ lineHeight: '1.7' }}>
-                  Browse documented Roman Republican and Imperial coins. Search by issuer, dynasty, mint, and material. Build your collection. Connect with serious collectors.
+                  Catalog and study Roman Republican and Imperial coins with structured records for rulers, denominations, mints, dates, materials, references, provenance, and photographs.
                 </p>
 
                 <div className="flex flex-wrap gap-3">
@@ -89,6 +89,12 @@ const Home = () => {
                   >
                     Browse the catalog →
                   </Link>
+                  <Link
+                    href="/donate"
+                    className="font-sans font-medium px-6 py-3 text-sm rounded border border-border-strong text-text-secondary hover:border-amber hover:text-text-primary transition-colors duration-200"
+                  >
+                    Support NumisRoma
+                  </Link>
                 </div>
 
                 {/* Social proof */}
@@ -96,7 +102,7 @@ const Home = () => {
                   {[
                     { value: formatCatalogCount(catalogTotal), label: 'coins documented' },
                     { value: 'Republic', label: 'to Empire covered' },
-                    { value: 'Free',    label: 'forever' },
+                    { value: 'Modern', label: 'numismatic tools' },
                   ].map(({ value, label }) => (
                     <div key={label}>
                       <p className="font-display font-semibold text-2xl text-text-primary">{value}</p>
@@ -232,10 +238,10 @@ const Home = () => {
                 className="font-display font-semibold mb-4 max-w-xl text-text-primary"
                 style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', lineHeight: '1.15' }}
               >
-                From the Republic to the fall of Rome
+                A digital home for Roman numismatics
               </h2>
               <p className="font-sans text-base max-w-sm text-text-secondary" style={{ lineHeight: '1.7' }}>
-                Every dynasty. Every mint. Every deity. All documented.
+                Built for collectors, enthusiasts, and researchers who want ancient coins documented with clarity and depth.
               </p>
             </div>
           </div>
@@ -248,18 +254,18 @@ const Home = () => {
               {[
                 {
                   n: '01',
-                  title: 'Find any coin in seconds',
-                  body: 'Search the live catalog by issuer, dynasty, mint, material, or date range. Combine filters to narrow across the full arc of Roman coinage.',
+                  title: 'Study Roman coinage',
+                  body: 'Search Roman Republican and Imperial coin records by issuer, dynasty, mint, material, denomination, and date range.',
                 },
                 {
                   n: '02',
-                  title: "Know what you're holding",
-                  body: 'Every coin includes obverse and reverse descriptions, historical context, rarity notes, mint details, and die information — everything a serious collector needs.',
+                  title: 'Document your collection',
+                  body: 'Create detailed entries with measurements, references, provenance, photographs, condition notes, and personal observations.',
                 },
                 {
                   n: '03',
-                  title: 'Your collection. Your way.',
-                  body: 'Build private or public collections, follow other collectors, and share the pieces that matter to you. Free, forever.',
+                  title: 'Connect with a community',
+                  body: 'Share public collections, follow other collectors, and help build a focused space for Roman history and numismatics.',
                 },
               ].map(({ n, title, body }) => (
                 <div key={n} className="flex flex-col gap-4">
@@ -284,10 +290,10 @@ const Home = () => {
                 className="font-display font-semibold mb-4 text-text-primary"
                 style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}
               >
-                The largest Roman coin archive online.
+                Bring your Roman coin collection online.
               </h2>
               <p className="font-sans text-lg mb-10 mx-auto max-w-md text-text-secondary">
-                Free to use. No credit card. No ads.
+                A clean, structured workspace for documenting, studying, and sharing ancient Roman coins.
               </p>
               <Link
                 href="/register"

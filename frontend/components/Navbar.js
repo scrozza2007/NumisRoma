@@ -231,6 +231,7 @@ const Navbar = () => {
     { label: 'Browse',      href: '/browse'      },
     { label: 'Community',   href: '/community'   },
     { label: 'Collections', href: '/collections' },
+    { label: 'Donate',      href: '/donate'      },
   ];
 
   const isActive = (href) => router.pathname === href;

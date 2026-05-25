@@ -1,5 +1,6 @@
 const Contact = require('../models/Contact');
 const { validationResult } = require('express-validator');
+const { sendContactNotificationEmail } = require('../utils/emailService');
 const logger = require('../utils/logger');
 
 // Send a new contact message
@@ -9,7 +10,7 @@ exports.sendContactMessage = async (req, res) => {
     return res.status(400).json({ 
       error: 'Validation failed',
       details: errors.array().map(err => ({
-        field: err.param,
+        field: err.path || err.param,
         message: err.msg
       }))
     });
@@ -26,6 +27,13 @@ exports.sendContactMessage = async (req, res) => {
     });
 
     await contact.save();
+    await sendContactNotificationEmail({
+      name,
+      email,
+      subject,
+      message,
+      contactId: contact._id
+    });
 
     res.status(201).json({ 
       message: 'Message sent successfully',

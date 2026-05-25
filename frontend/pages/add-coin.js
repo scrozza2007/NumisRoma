@@ -9,6 +9,7 @@ import { fmt, fmtPeriod } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const DEFAULT_CURRENCY = 'EUR';
 
 // Returns the primary image src from the new images[] array
 const getPrimaryImageSrc = (coin) => {
@@ -163,8 +164,8 @@ const AddCoinToCollectionPage = () => {
       const updatedCollection = await apiClient.post(`/api/collections/${id}/coins`, {
         coin: selectedCoin._id,
         ...coinDetails,
-        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency: 'EUR' } : undefined,
-        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency: 'EUR' } : undefined,
+        purchasePrice: coinDetails.purchasePrice ? { amount: Number(coinDetails.purchasePrice), currency: DEFAULT_CURRENCY } : undefined,
+        estimatedValue: coinDetails.estimatedValue ? { amount: Number(coinDetails.estimatedValue), currency: DEFAULT_CURRENCY } : undefined,
         catalogReferences: coinDetails.otherReferences ? { other: coinDetails.otherReferences } : undefined
       });
 

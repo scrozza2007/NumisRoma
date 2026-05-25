@@ -31,6 +31,9 @@ Fill in all required values. Production-specific variables:
 | `JWT_SECRET` | ≥ 64-char random string |
 | `REFRESH_TOKEN_SECRET` | ≥ 64-char random string, different from `JWT_SECRET` |
 | `CSRF_SECRET` | ≥ 64-char random string, different from both above |
+| `SUPPORT_EMAIL` | Inbox that receives contact form submissions; defaults to `support@numisroma.com` |
+| `NEXT_PUBLIC_KOFI_URL` | Ko-fi page linked from the donation experience |
+| `NEXT_PUBLIC_KOFI_USERNAME` | Ko-fi page name used by the embedded and floating widgets |
 
 Generate secrets with:
 ```bash
@@ -90,7 +93,12 @@ The frontend and backend containers are not exposed on any host port — all ext
 
 ## Frontend build and NEXT_PUBLIC_API_URL
 
-`NEXT_PUBLIC_API_URL` is a **build-time** variable in Next.js — it gets baked into the JavaScript bundle at image build time. In production this is automatically set to `https://api.$DOMAIN` by `docker-compose.prod.yml`. You do not need to set it manually.
+`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_KOFI_URL`, and `NEXT_PUBLIC_KOFI_USERNAME`
+are **build-time** variables in Next.js and are baked into the JavaScript
+bundle when the frontend image is built. In production,
+`NEXT_PUBLIC_API_URL` is automatically set to `https://api.$DOMAIN` by
+`docker-compose.prod.yml`; configure the optional Ko-fi values in `.env`
+before building if the account name or page URL differs from the defaults.
 
 For local development (`docker compose up` without the prod overlay), it defaults to `http://localhost:4000` via the `NEXT_PUBLIC_API_URL` variable in your root `.env`.
 

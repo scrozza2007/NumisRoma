@@ -15,6 +15,14 @@ const getClient = () => {
 
 const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL || 'NumisRoma <noreply@numisroma.com>';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@numisroma.com';
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 
 // ─── Brand tokens (mirrors globals.css / tailwind.config.js) ────────────────
 const C = {
@@ -235,6 +243,27 @@ const passwordResetEmailHtml = (resetUrl, expiryMinutes) =>
     'If you did not request a password reset, no action is needed — your account is safe.'
   );
 
+const contactNotificationHtml = ({ name, email, subject, message, contactId }) =>
+  baseTemplate(
+    `New NumisRoma contact message: ${escapeHtml(subject)}`,
+    `
+    <h1>New contact message</h1>
+    <p>A visitor submitted the NumisRoma contact form.</p>
+
+    <ul>
+      <li><strong>Name:</strong> ${escapeHtml(name)}</li>
+      <li><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></li>
+      <li><strong>Subject:</strong> ${escapeHtml(subject)}</li>
+      <li><strong>Contact ID:</strong> ${escapeHtml(contactId)}</li>
+    </ul>
+
+    <hr class="divider" />
+
+    <p style="white-space:pre-line;">${escapeHtml(message)}</p>
+    `,
+    'Reply directly to the sender from your support inbox.'
+  );
+
 // ─── Send helpers ────────────────────────────────────────────────────────────
 
 exports.sendOtpEmail = async ({ to, otp, expiryMinutes = 10 }) => {
@@ -291,6 +320,53 @@ exports.sendPasswordResetEmail = async ({ to, resetUrl, expiryMinutes = 15 }) =>
     return result;
   } catch (err) {
     logger.error('Failed to send password reset email', { to, error: err.message });
+    throw err;
+  }
+};
+
+exports.sendContactNotificationEmail = async ({ name, email, subject, message, contactId }) => {
+  try {
+    const client = getClient();
+    const result = await client.emails.send({
+      from: FROM_ADDRESS,
+      to: SUPPORT_EMAIL,
+      replyTo: email,
+      subject: `[NumisRoma contact] ${subject}`,
+      html: contactNotificationHtml({ name, email, subject, message, contactId }),
+      text: [
+        'New NumisRoma contact message',
+        '',
+        `Name: ${name}`,
+        `Email: ${email}`,
+        `Subject: ${subject}`,
+        `Contact ID: ${contactId}`,
+        '',
+        message
+      ].join('\n')
+    });
+
+    if (result.error) {
+      logger.error('Resend rejected contact notification email', {
+        to: SUPPORT_EMAIL,
+        resendError: result.error
+      });
+      const err = new Error(result.error.message || 'Resend API error');
+      err.resendError = result.error;
+      throw err;
+    }
+
+    logger.info('Contact notification email sent', {
+      to: SUPPORT_EMAIL,
+      messageId: result.data?.id,
+      contactId
+    });
+    return result;
+  } catch (err) {
+    logger.error('Failed to send contact notification email', {
+      to: SUPPORT_EMAIL,
+      contactId,
+      error: err.message
+    });
     throw err;
   }
 };

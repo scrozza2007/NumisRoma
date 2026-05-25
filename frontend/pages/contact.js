@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import { semantic } from '../utils/tokens';
+import { apiClient } from '../utils/apiClient';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const SUPPORT_EMAIL = 'support@numisroma.com';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
@@ -36,25 +37,18 @@ const Contact = () => {
     setError(null);
     setSuccess(false);
     try {
-      const res = await fetch(`${API_URL}/api/contact`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.details) {
-          const ve = {};
-          data.details.forEach(e => { ve[e.field] = e.message; });
-          setErrors(ve);
-        } else throw new Error(data.message || 'Something went wrong');
-        return;
-      }
+      await apiClient.post('/api/contact', formData);
       setFormData({ name: '', email: '', subject: '', message: '' });
       setErrors({});
       setSuccess(true);
     } catch (err) {
-      setError(err.message || 'Failed to send message. Please try again.');
+      if (err.details) {
+        const ve = {};
+        err.details.forEach(e => { ve[e.field] = e.message; });
+        setErrors(ve);
+      } else {
+        setError(err.message || 'Failed to send message. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -91,18 +85,9 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-sans text-sm font-medium text-text-primary">Email</p>
-                    <p className="font-sans text-sm text-text-muted">info@numisroma.com</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 bg-amber-bg">
-                    <svg className="w-4 h-4 text-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-sans text-sm font-medium text-text-primary">Phone</p>
-                    <p className="font-sans text-sm text-text-muted">+39 0783 515 123</p>
+                    <a href={`mailto:${SUPPORT_EMAIL}`} className="font-sans text-sm text-text-muted hover:text-amber transition-colors duration-150">
+                      {SUPPORT_EMAIL}
+                    </a>
                   </div>
                 </div>
               </div>

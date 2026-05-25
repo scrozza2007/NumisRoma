@@ -37,6 +37,7 @@ const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchaseP
 const CollectionCoinDetail = () => {
   const router = useRouter();
   const { user, isLoading: authLoading } = useContext(AuthContext);
+  const currency = 'EUR';
   const { id, collectionId, entryId } = router.query;
 
   const [coin, setCoin] = useState(null);
@@ -202,8 +203,8 @@ const CollectionCoinDetail = () => {
     try {
       await apiClient.put(`/api/collections/${collectionId}/coins/${targetId}`, {
         ...editDetails,
-        purchasePrice: editDetails.purchasePrice ? { amount: Number(editDetails.purchasePrice), currency: 'EUR' } : undefined,
-        estimatedValue: editDetails.estimatedValue ? { amount: Number(editDetails.estimatedValue), currency: 'EUR' } : undefined,
+        purchasePrice: editDetails.purchasePrice ? { amount: Number(editDetails.purchasePrice), currency } : undefined,
+        estimatedValue: editDetails.estimatedValue ? { amount: Number(editDetails.estimatedValue), currency } : undefined,
         catalogReferences: editDetails.otherReferences ? { other: editDetails.otherReferences } : undefined
       });
       setShowEditModal(false);

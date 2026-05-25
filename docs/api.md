@@ -978,6 +978,13 @@ Content-Type: application/json
 
 Rate-limited. No authentication required.
 
+The submission is stored and a notification email is sent to the inbox
+configured by `SUPPORT_EMAIL` (default `support@numisroma.com`), with the
+visitor email as the reply-to address.
+
+Returns `201` with the saved contact summary on success or `400` with
+field validation details for an invalid request.
+
 ---
 
 ## Cache management — `/api/cache`

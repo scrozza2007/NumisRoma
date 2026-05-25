@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { fmtYear } from '../utils/formatters';
 
 const PeriodRangeSlider = ({
   startYear,
@@ -19,7 +20,7 @@ const PeriodRangeSlider = ({
     setLocalEndYear(endYear || maxYear);
   }, [startYear, endYear, minYear, maxYear]);
 
-  const formatYear = (year) => year < 0 ? `${Math.abs(year)} BCE` : `${year} CE`;
+  const formatYear = fmtYear;
 
   const handleStartYearChange = (e) => {
     const newStart = parseInt(e.target.value) || minYear;

@@ -8,6 +8,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Project and policy pages** — public mission, research, contributors, terms, and privacy pages now describe NumisRoma's focus and policies.
+- **Ko-fi support experience** — `/donate` includes an embedded Ko-fi panel with an external fallback, and a floating Ko-fi support button is available site-wide.
+- **Contact support delivery** — contact submissions are delivered to the configurable `SUPPORT_EMAIL` inbox with the visitor address set as reply-to.
+
+### Changed
+- **Navigation and homepage content** — public navigation and homepage messaging now point to the mission, research, legal, contact, and donation experiences.
+- **Public-page authentication bootstrap** — an unavailable local API no longer raises a development error overlay on public pages while the user session cannot be confirmed.
+
+### Removed
+- **Starter Next.js API route** — removed the unused `/api/hello` placeholder endpoint.
+
+### Added
 - **Image upload validation system** — all user-uploaded images are now validated server-side before being persisted. Two upload types with separate rule sets:
   - **Coin photos** (`coin`): minimum 600×600 px, Laplacian blur score ≥ 20, average brightness ≥ 20, Google Vision AI coin-presence check (ancient/archaeological labels accepted; modern currency rejected).
   - **Collection thumbnails** (`thumbnail`): minimum 400×400 px, blur score ≥ 60, brightness ≥ 25, max aspect ratio 3:1 (no panoramas/portraits), Google Vision SafeSearch NSFW rejection, incoherent-content rejection (food, pets, selfies, screenshots, etc.), coherent-content allowlist (coins, artefacts, ancient history, sculptures, etc.).

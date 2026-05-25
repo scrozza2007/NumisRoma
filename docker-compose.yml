@@ -4,6 +4,8 @@ services:
       context: ./frontend
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        - NEXT_PUBLIC_KOFI_URL=${NEXT_PUBLIC_KOFI_URL:-https://ko-fi.com/numisroma}
+        - NEXT_PUBLIC_KOFI_USERNAME=${NEXT_PUBLIC_KOFI_USERNAME:-numisroma}
     ports:
       - "3000:3000"
     depends_on:
@@ -30,6 +32,7 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - RESEND_API_KEY=${RESEND_API_KEY:?RESEND_API_KEY is required}
       - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-NumisRoma <noreply@numisroma.com>}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL:-support@numisroma.com}
       - ABSTRACT_EMAIL_API_KEY=${ABSTRACT_EMAIL_API_KEY:-}
       - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
       - AWS_REGION=${AWS_REGION:-}

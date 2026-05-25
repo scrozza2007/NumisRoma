@@ -160,10 +160,12 @@ export const AuthProvider = ({ children }) => {
         setToken(null);
         setUser(null);
       }
-    } catch (error) {
+    } catch {
       // Network errors don't mean the session is invalid, just unreachable.
       // Leave existing state intact so a brief connectivity blip doesn't log the user out.
-      console.error('Network error fetching user data:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Authentication API unavailable; continuing without a confirmed session.');
+      }
     }
   }, []);
 

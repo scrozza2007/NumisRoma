@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Layout from '../components/Layout';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ProtectedRoute from '../components/ProtectedRoute';
+import KofiWidget from '../components/KofiWidget';
 
 // Pages that require a valid session — any other route is public.
 const PROTECTED_ROUTES = new Set([
@@ -33,6 +34,7 @@ function MyApp({ Component, pageProps, router }) {
       <ErrorBoundary>
         <AuthProvider>
           {Component.getLayout(content)}
+          <KofiWidget />
         </AuthProvider>
       </ErrorBoundary>
     );
@@ -44,6 +46,7 @@ function MyApp({ Component, pageProps, router }) {
         <Layout>
           {content}
         </Layout>
+        <KofiWidget />
       </AuthProvider>
     </ErrorBoundary>
   );

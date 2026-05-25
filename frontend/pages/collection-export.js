@@ -8,8 +8,14 @@ import { fmt, fmtPeriod, fmtReference, fmtSubjects } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-const money = (value) => `EUR ${Number(value || 0).toFixed(2)}`;
+const formatCurrency = (value, options = {}) => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: options.currency || 'EUR',
+  }).format(amount);
+};
+const formatDate = (value) => new Intl.DateTimeFormat('en-US').format(new Date(value));
 
 export default function CollectionExportPage() {
   const router = useRouter();
@@ -93,9 +99,9 @@ export default function CollectionExportPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
               {[
                 ['Coins', stats.totalCoins],
-                ['Estimated value', money(stats.totalEstimatedValue)],
-                ['Purchase cost', money(stats.totalPurchaseCost)],
-                ['Average value', money(stats.averageCoinValue)]
+                ['Estimated value', formatCurrency(stats.totalEstimatedValue)],
+                ['Purchase cost', formatCurrency(stats.totalPurchaseCost)],
+                ['Average value', formatCurrency(stats.averageCoinValue)]
               ].map(([label, value]) => (
                 <div key={label} className="p-3 border border-border bg-surface rounded">
                   <div className="font-display text-2xl text-amber">{value || 0}</div>
@@ -146,7 +152,7 @@ export default function CollectionExportPage() {
                     <td className="p-3 border border-border">{fmt(entry.coin?.classification?.denomination || entry.denomination)}</td>
                     <td className="p-3 border border-border">{fmt(entry.coin?.classification?.material || entry.material)}</td>
                     <td className="p-3 border border-border">{fmt(entry.grade) || '-'}</td>
-                    <td className="p-3 border border-border">{entry.estimatedValue?.amount ? money(entry.estimatedValue.amount) : '-'}</td>
+                    <td className="p-3 border border-border">{entry.estimatedValue?.amount ? formatCurrency(entry.estimatedValue.amount, { currency: entry.estimatedValue.currency || undefined }) : '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -276,9 +282,9 @@ export default function CollectionExportPage() {
                         <h4 className="font-sans text-sm font-semibold mb-2 text-text-primary">Acquisition & Collection Data</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 font-sans text-xs">
                           {fieldRows([
-                            ['Acquisition date', entry.acquisitionDate ? new Date(entry.acquisitionDate).toLocaleDateString() : ''],
-                            ['Purchase price', entry.purchasePrice?.amount ? money(entry.purchasePrice.amount) : ''],
-                            ['Estimated value', entry.estimatedValue?.amount ? money(entry.estimatedValue.amount) : ''],
+                            ['Acquisition date', entry.acquisitionDate ? formatDate(entry.acquisitionDate) : ''],
+                            ['Purchase price', entry.purchasePrice?.amount ? formatCurrency(entry.purchasePrice.amount, { currency: entry.purchasePrice.currency }) : ''],
+                            ['Estimated value', entry.estimatedValue?.amount ? formatCurrency(entry.estimatedValue.amount, { currency: entry.estimatedValue.currency }) : ''],
                             ['Seller', entry.seller],
                             ['Auction house', entry.auctionHouse],
                             ['Lot number', entry.lotNumber],

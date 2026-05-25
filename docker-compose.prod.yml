@@ -20,6 +20,8 @@ services:
       context: ./frontend
       args:
         - NEXT_PUBLIC_API_URL=https://api.${DOMAIN:?DOMAIN is required}
+        - NEXT_PUBLIC_KOFI_URL=${NEXT_PUBLIC_KOFI_URL:-https://ko-fi.com/numisroma}
+        - NEXT_PUBLIC_KOFI_USERNAME=${NEXT_PUBLIC_KOFI_USERNAME:-numisroma}
     restart: unless-stopped
     # Port not exposed to host — Caddy handles all external traffic
     expose:

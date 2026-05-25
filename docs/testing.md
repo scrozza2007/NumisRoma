@@ -25,6 +25,7 @@ npx jest tests/unit/coinController.test.js   # run a single file
 | `infraMiddleware.test.js` | requestId, requestTimeout (including 503 path), metrics, errorHandler |
 | `coinController.test.js` | coin catalog endpoints |
 | `userController.test.js` | user profile endpoints |
+| `contactController.test.js` | contact validation, storage, and support inbox notification |
 
 ### Coverage thresholds
 

@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node.js-18%2B-339933)](https://nodejs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000)](https://nextjs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-8.0-47A248)](https://www.mongodb.com/)
 
 ---
@@ -19,7 +19,12 @@
 - ⭐ Save wanted catalog coins to a wishlist and jump back to their detail pages
 - 👥 Follow other collectors, explore their collections, and send direct messages
 - 🖼️ Upload custom photos for coins in your collection
+- 📖 Read the project mission, research standards, contributor guidance, terms, and privacy information
+- ☕ Support ongoing development through the embedded and floating Ko-fi integrations
+- ✉️ Contact support through the working contact form and `support@numisroma.com`
 - 🔐 Manage your account with full session control across devices
+
+The current user interface is provided in English only.
 
 ---
 
@@ -54,6 +59,11 @@
 - 🛡️ CSRF double-submit cookie protection on all mutating requests
 - 🚦 Rate limiting on all routes (Redis-backed, fail-open)
 - 🧱 Helmet security headers + SSRF protection on external URL inputs
+
+### Public Site & Support
+- 📚 Mission, research, contributors, terms, and privacy pages explain the project and its policies
+- ☕ `/donate` embeds Ko-fi and a site-wide floating Ko-fi control provides quick access to support
+- ✉️ `/contact` stores validated inquiries and sends notifications to the configured support inbox
 
 ---
 
@@ -119,10 +129,10 @@ numisroma/
 │       ├── unit/
 │       └── integration/
 ├── frontend/                 Next.js (Pages Router)
-│   ├── components/          Layout, Navbar, dropdowns, sliders, toasts
+│   ├── components/          Layout, Navbar, Ko-fi widgets, dropdowns, sliders, toasts
 │   ├── context/             AuthContext (global auth state)
 │   ├── cypress/             E2E tests (auth, browse, coin detail)
-│   ├── pages/               browse, collections, wishlist, profile, messages, settings…
+│   ├── pages/               browse, collections, donate, contact, mission, legal, profile, messages…
 │   └── utils/               apiClient, csrf, tokens, passwordValidation
 ├── docs/                    API reference, deployment guide, testing guide
 ├── scripts/                 MongoDB backup script
@@ -154,6 +164,9 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `AWS_ENDPOINT` | optional | R2 only: `https://ACCOUNT_ID.r2.cloudflarestorage.com` |
 | `RESEND_API_KEY` | required | Transactional email (OTP, welcome, password reset) via Resend |
 | `RESEND_FROM_EMAIL` | optional | Sender address; must be a verified Resend domain |
+| `SUPPORT_EMAIL` | optional | Inbox that receives contact form submissions; defaults to `support@numisroma.com` |
+| `NEXT_PUBLIC_KOFI_URL` | optional | Ko-fi donation page used by `/donate`; defaults to `https://ko-fi.com/numisroma` |
+| `NEXT_PUBLIC_KOFI_USERNAME` | optional | Ko-fi page name used by the embedded panel and floating widget; defaults to `numisroma` |
 | `ABSTRACT_EMAIL_API_KEY` | optional | Mailbox deliverability check before sending OTPs; fails open when unset |
 | `GOOGLE_CLIENT_ID` | optional | Google OAuth app client ID |
 | `GOOGLE_CLIENT_SECRET` | optional | Google OAuth app client secret |
@@ -217,6 +230,9 @@ See `backend/.env.example` and `.env.example` for the full list.
 - `POST /api/messages/:conversationId` — Send message *(auth)*
 - `PUT /api/messages/:conversationId/read` — Mark conversation as read *(auth)*
 
+### Contact
+- `POST /api/contact` — Validate and save a support inquiry, then notify `SUPPORT_EMAIL`
+
 📖 **Full API documentation:** [docs/api.md](docs/api.md)
 
 ---
@@ -225,7 +241,7 @@ See `backend/.env.example` and `.env.example` for the full list.
 
 | Component | Technology |
 |-----------|------------|
-| **Frontend** | Next.js 15 (Pages Router), Tailwind CSS v4 |
+| **Frontend** | Next.js 16 (Pages Router), Tailwind CSS v4 |
 | **Backend** | Node.js 18+, Express.js |
 | **Database** | MongoDB 8.0, Mongoose |
 | **Cache** | Redis (optional, in-memory fallback) |
@@ -317,6 +333,8 @@ cd frontend && npm run cypress:run
 | **Images not loading** | Verify `FRONTEND_URL` matches your frontend origin exactly |
 | **Rate limit errors** | Redis may be unavailable — check `REDIS_URL` or restart Redis |
 | **MongoDB connection failed** | Verify `MONGODB_URI` and that MongoDB is running |
+| **Public page shows no signed-in state locally** | Start the backend on `http://localhost:4000`; public pages remain usable while authentication cannot be confirmed |
+| **Docker reports port 3000 already in use** | Stop a standalone `npm run dev` frontend before starting Compose, or free port `3000` |
 
 ---
 

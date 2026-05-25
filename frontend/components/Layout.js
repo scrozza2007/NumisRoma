@@ -1,14 +1,15 @@
 import React from 'react';
+import Link from 'next/link';
 import Navbar from './Navbar';
 
 const FooterLink = ({ href, children }) => (
   <li>
-    <a
+    <Link
       href={href}
       className="font-sans text-sm text-text-muted hover:text-amber transition-colors duration-200"
     >
       {children}
-    </a>
+    </Link>
   </li>
 );
 
@@ -26,8 +27,7 @@ const SocialIcon = ({ href, label, children }) => (
   </a>
 );
 
-const Layout = ({ children }) => {
-  return (
+const Layout = ({ children }) => (
     <div className="min-h-screen flex flex-col bg-canvas">
       <Navbar />
       <main className="flex-grow">
@@ -39,28 +39,28 @@ const Layout = ({ children }) => {
             <div>
               <h3 className="font-display text-lg font-semibold mb-6 text-text-secondary">About NumisRoma</h3>
               <ul className="space-y-3">
-                <FooterLink href="#">Our Mission</FooterLink>
-                <FooterLink href="#">Research</FooterLink>
-                <FooterLink href="#">Publications</FooterLink>
-                <FooterLink href="#">Contributors</FooterLink>
+                <FooterLink href="/mission">Our Mission</FooterLink>
+                <FooterLink href="/research">Research</FooterLink>
+                <FooterLink href="/contributors">Contributors</FooterLink>
+                <FooterLink href="/donate">Support NumisRoma</FooterLink>
               </ul>
             </div>
             <div>
               <h3 className="font-display text-lg font-semibold mb-6 text-text-secondary">Resources</h3>
               <ul className="space-y-3">
-                <FooterLink href="#">Coin Database</FooterLink>
-                <FooterLink href="#">Historical Maps</FooterLink>
-                <FooterLink href="#">Timeline</FooterLink>
-                <FooterLink href="#">Bibliography</FooterLink>
+                <FooterLink href="/browse">Coin Catalog</FooterLink>
+                <FooterLink href="/collections">Collections</FooterLink>
+                <FooterLink href="/wishlist">Wishlist</FooterLink>
+                <FooterLink href="/contact">Contact</FooterLink>
               </ul>
             </div>
             <div>
               <h3 className="font-display text-lg font-semibold mb-6 text-text-secondary">Community</h3>
               <ul className="space-y-3">
-                <FooterLink href="#">Forum</FooterLink>
-                <FooterLink href="#">Events</FooterLink>
-                <FooterLink href="#">Newsletter</FooterLink>
-                <FooterLink href="#">Contact</FooterLink>
+                <FooterLink href="/community">Community</FooterLink>
+                <FooterLink href="/register">Create Account</FooterLink>
+                <FooterLink href="/terms">Terms of Use</FooterLink>
+                <FooterLink href="/privacy">Privacy Policy</FooterLink>
               </ul>
             </div>
           </div>
@@ -88,6 +88,5 @@ const Layout = ({ children }) => {
       </footer>
     </div>
   );
-};
 
 export default Layout;

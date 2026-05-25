@@ -14,14 +14,21 @@ fs.mkdirSync(mongoBinaryDir, { recursive: true });
 process.env.MONGOMS_DOWNLOAD_DIR = mongoBinaryDir;
 process.env.MONGOMS_DISTRO = process.env.MONGOMS_DISTRO || 'ubuntu-20.04';
 
-const systemMongod = process.env.MONGOMS_SYSTEM_BINARY || '/usr/bin/mongod';
-process.env.MONGOMS_SYSTEM_BINARY = systemMongod;
+const defaultSystemMongod = '/usr/bin/mongod';
+const systemMongod = process.env.MONGOMS_SYSTEM_BINARY || (
+  fs.existsSync(defaultSystemMongod) ? defaultSystemMongod : null
+);
+if (systemMongod) {
+  process.env.MONGOMS_SYSTEM_BINARY = systemMongod;
+} else {
+  delete process.env.MONGOMS_SYSTEM_BINARY;
+}
 
 // Avoid "Possible version conflict" when MONGOMS_VERSION does not match the
 // system binary (e.g. 7.0.12 requested vs 6.0.x on PATH).
 if (!process.env.MONGOMS_VERSION) {
   try {
-    if (fs.existsSync(systemMongod)) {
+    if (systemMongod && fs.existsSync(systemMongod)) {
       const out = execFileSync(systemMongod, ['--version'], {
         encoding: 'utf8',
         timeout: 5000
