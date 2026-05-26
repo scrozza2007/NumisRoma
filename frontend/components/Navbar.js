@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import Image from 'next/image';
 import { apiClient } from '../utils/apiClient';
+import BrandLockup from './BrandLockup';
 
 const POLL_INTERVAL_MS = 30000;
 
@@ -248,16 +249,8 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
 
         {/* Logo */}
-        <Link href="/" className="flex items-center flex-shrink-0">
-          <Image
-            src="/images/logo.png"
-            alt="NumisRoma"
-            width={120}
-            height={40}
-            priority
-            sizes="120px"
-            className="h-9 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity duration-200"
-          />
+        <Link href="/" className="flex items-center flex-shrink-0 opacity-90 hover:opacity-100 transition-opacity duration-200">
+          <BrandLockup priority />
         </Link>
 
         {/* Nav links — desktop only */}
@@ -537,16 +530,8 @@ const Navbar = () => {
       >
         {/* Drawer header */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-border shrink-0">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)}>
-            <Image
-              src="/images/logo.png"
-              alt="NumisRoma"
-              width={120}
-              height={40}
-              priority
-              sizes="120px"
-              className="h-9 w-auto object-contain opacity-90"
-            />
+          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="opacity-90">
+            <BrandLockup priority />
           </Link>
           <button
             onClick={() => setIsMobileMenuOpen(false)}

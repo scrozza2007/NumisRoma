@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
 import { fmt, fmtPeriod, fmtReference, fmtSubjects } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
+import { BrandMonogram } from '../components/BrandLockup';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const formatCurrency = (value, options = {}) => {
@@ -90,10 +91,13 @@ export default function CollectionExportPage() {
       <main className="print-sheet max-w-6xl mx-auto my-8 bg-card border border-border rounded-md overflow-hidden shadow-sm">
         <section className="grid grid-cols-1 md:grid-cols-[240px_1fr] border-b border-border">
           <div className="h-56 bg-surface-alt flex items-center justify-center">
-            {coverSrc ? <img src={coverSrc} alt={collection.name} className="w-full h-full object-cover" /> : <div className="font-display text-5xl text-amber">NR</div>}
+            {coverSrc ? <img src={coverSrc} alt={collection.name} className="w-full h-full object-cover" /> : <BrandMonogram className="h-24 w-24" />}
           </div>
           <div className="p-8">
-            <p className="font-sans text-xs uppercase tracking-[0.2em] text-amber">NumisRoma Collection Archive</p>
+            <div className="flex items-center gap-3">
+              <BrandMonogram className="h-9 w-9" />
+              <p className="font-sans text-xs uppercase tracking-[0.2em] text-amber">NumisRoma Collection Archive</p>
+            </div>
             <h1 className="font-display font-semibold text-5xl mt-3 text-text-primary">{collection.name}</h1>
             {collection.description && <p className="font-sans text-sm mt-4 max-w-3xl text-text-secondary">{collection.description}</p>}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">

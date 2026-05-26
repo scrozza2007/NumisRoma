@@ -11,9 +11,22 @@ const formatCatalogCount = (count) => {
   return count.toLocaleString();
 };
 
+const primaryCoinImage = (coin) =>
+  coin?.images?.[0]?.files?.obverse || coin?.images?.[0]?.files?.unified || null;
+
+const obverseBackdropImage = (coin) =>
+  coin?.images?.find((image) => image.layout === 'split' && image.files?.obverse)?.files.obverse || null;
+
+const backdropSlots = [
+  { position: 'w-[53%] right-[1%] top-[18%]', opacity: 0.8 },
+  { position: 'w-[43%] right-[36%] top-[4%]', opacity: 0.56 },
+  { position: 'w-[46%] right-[34%] bottom-[0%]', opacity: 0.62 },
+];
+
 const Home = () => {
   const { user } = useContext(AuthContext);
   const [featuredCoins, setFeaturedCoins] = useState([]);
+  const [backdropCoins, setBackdropCoins] = useState([]);
   const [catalogTotal, setCatalogTotal] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,15 +34,24 @@ const Home = () => {
     const fetchRandomCoins = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-        const res = await fetch(`${apiUrl}/api/coins/random?limit=4`, {
-          headers: { Accept: 'application/json' },
-        });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setFeaturedCoins(data.results || []);
+        const [featuredRes, backdropRes] = await Promise.all([
+          fetch(`${apiUrl}/api/coins/random?limit=4`, {
+            headers: { Accept: 'application/json' },
+          }),
+          fetch(`${apiUrl}/api/coins/random?limit=3&layout=split`, {
+            headers: { Accept: 'application/json' },
+          }),
+        ]);
+        if (!featuredRes.ok || !backdropRes.ok) throw new Error();
+        const [data, backdropData] = await Promise.all([featuredRes.json(), backdropRes.json()]);
+        const imageCoins = (data.results || []).filter(primaryCoinImage);
+        const backdropEligibleCoins = (backdropData.results || []).filter(obverseBackdropImage);
+        setFeaturedCoins(imageCoins.slice(0, 4));
+        setBackdropCoins(backdropEligibleCoins.slice(0, 3));
         if (Number.isFinite(data.total)) setCatalogTotal(data.total);
       } catch {
         setFeaturedCoins([]);
+        setBackdropCoins([]);
       } finally {
         setLoading(false);
       }
@@ -45,7 +67,6 @@ const Home = () => {
           name="description"
           content="NumisRoma is a modern platform for Roman numismatics. Browse Roman Republican and Imperial coins, document your collection, and connect study with digital tools."
         />
-        <link rel="icon" href="/favicon.ico" />
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
@@ -59,9 +80,19 @@ const Home = () => {
 
               {/* Left: editorial heading */}
               <div className="animate-fade-up">
-                <p className="font-sans text-xs font-medium tracking-widest uppercase mb-6 text-amber">
-                  Roman Republican and Imperial Coinage
-                </p>
+                <div className="flex items-center gap-4 mb-7">
+                  <Image
+                    src="/brand/numisroma-monogram.svg"
+                    alt=""
+                    width={56}
+                    height={56}
+                    aria-hidden="true"
+                    className="shrink-0 w-14 h-14 object-contain"
+                  />
+                  <p className="font-sans text-xs font-medium tracking-widest uppercase text-amber">
+                    Roman Republican and Imperial Coinage
+                  </p>
+                </div>
                 <h1
                   className="font-display font-semibold leading-none mb-8 text-text-primary"
                   style={{ fontSize: 'clamp(48px, 6vw, 80px)' }}
@@ -125,7 +156,7 @@ const Home = () => {
                         className="group relative aspect-square rounded-md overflow-hidden bg-surface border border-border"
                       >
                         <Image
-                          src={coin.images?.[0]?.files?.obverse || coin.images?.[0]?.files?.unified || '/images/coin-placeholder.svg'}
+                          src={primaryCoinImage(coin) || '/images/coin-placeholder.svg'}
                           alt={coin.title?.en || coin.name || 'Coin'}
                           fill
                           className="object-contain p-5 mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
@@ -181,7 +212,7 @@ const Home = () => {
                   >
                     <div className="aspect-square relative bg-surface">
                       <Image
-                        src={coin.images?.[0]?.files?.obverse || coin.images?.[0]?.files?.unified || '/images/coin-placeholder.svg'}
+                        src={primaryCoinImage(coin) || '/images/coin-placeholder.svg'}
                         alt={coin.title?.en || coin.name || 'Coin'}
                         fill
                         className="object-contain p-5 mix-blend-multiply"
@@ -213,24 +244,35 @@ const Home = () => {
         </section>
 
         {/* ── Coins image section ───────────────────────────────────── */}
-        <section className="relative overflow-hidden h-[300px] sm:h-[380px] md:h-[480px]">
+        <section className="relative overflow-hidden h-[300px] sm:h-[380px] md:h-[480px] bg-surface">
           <div
             className="absolute inset-0 z-10"
-            style={{ background: 'linear-gradient(to right, rgba(253,248,240,0.88) 38%, rgba(253,248,240,0.4) 65%, transparent)' }}
+            style={{ background: 'linear-gradient(to right, #fdf8f0 0%, #fdf8f0 43%, rgba(253,248,240,0.94) 51%, rgba(253,248,240,0.38) 68%, rgba(253,248,240,0.08) 83%)' }}
           />
-          <Image
-            src="/images/coins-bg.jpg"
-            alt="Ancient Roman coins"
-            fill
-            className="object-cover"
-            style={{
-              objectPosition: 'center center',
-              transform: 'scale(1.2)',
-              transformOrigin: 'center center',
-            }}
-          />
+          <div className="absolute inset-0 bg-surface-alt" aria-hidden="true">
+            <div className="absolute hidden sm:block inset-y-0 right-[0%] w-[60%] md:right-[2%] md:w-[57%] lg:right-[max(calc((100vw-80rem)/2 + 10px),10px)] lg:w-[56%]">
+              {backdropCoins.map((coin, index) => (
+                <div
+                  key={coin._id}
+                  className={`absolute aspect-square ${backdropSlots[index].position}`}
+                >
+                  <Image
+                    src={obverseBackdropImage(coin)}
+                    alt=""
+                    fill
+                    unoptimized
+                    className="object-contain mix-blend-multiply"
+                    style={{
+                      filter: 'sepia(0.06) saturate(0.9) contrast(1.04)',
+                      opacity: backdropSlots[index].opacity,
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="absolute inset-0 flex items-center z-20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
               <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
                 Republic — Empire
               </p>

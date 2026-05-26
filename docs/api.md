@@ -314,6 +314,13 @@ GET /api/coins/random?limit=6
 
 Returns a random selection from the catalog.
 
+Use `layout=split` to return only coins with a separate obverse image, suitable
+for single-coin decorative displays:
+
+```http
+GET /api/coins/random?limit=3&layout=split
+```
+
 ### Get filter options
 
 ```http

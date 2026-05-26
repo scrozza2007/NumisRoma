@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Navbar from './Navbar';
+import BrandLockup from './BrandLockup';
 
 const FooterLink = ({ href, children }) => (
   <li>
@@ -37,6 +38,9 @@ const Layout = ({ children }) => (
         <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div>
+              <Link href="/" className="inline-block mb-7 opacity-90 hover:opacity-100 transition-opacity duration-200">
+                <BrandLockup />
+              </Link>
               <h3 className="font-display text-lg font-semibold mb-6 text-text-secondary">About NumisRoma</h3>
               <ul className="space-y-3">
                 <FooterLink href="/mission">Our Mission</FooterLink>

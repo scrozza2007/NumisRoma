@@ -92,10 +92,20 @@ exports.getRandomCoins = async (req, res) => {
   try {
     const requestedLimit = parseInt(req.query.limit) || QUERY_LIMITS.DEFAULT_RANDOM_COINS;
     const limit = Math.min(Math.max(requestedLimit, 1), QUERY_LIMITS.MAX_RANDOM_COINS);
+    const imageMatch = req.query.layout === 'split'
+      ? {
+          images: {
+            $elemMatch: {
+              layout: 'split',
+              'files.obverse': { $exists: true, $nin: ['', null] }
+            }
+          }
+        }
+      : { 'images.0': { $exists: true } };
 
     const total = await Coin.countDocuments();
     const randomCoins = await Coin.aggregate([
-      { $match: { 'images.0': { $exists: true } } },
+      { $match: imageMatch },
       { $sample: { size: limit } },
     ]);
 

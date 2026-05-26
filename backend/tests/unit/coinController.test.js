@@ -110,7 +110,14 @@ describe('Coin Controller', () => {
 
   describe('GET /api/coins/random', () => {
     beforeEach(async () => {
-      await Coin.insertMany(coinFixtures.multipleCoinsBatch);
+      await Coin.insertMany([
+        coinFixtures.validCoin,
+        {
+          ...coinFixtures.validCoin,
+          _id: 'ric_1_aug_11',
+          title: { en: 'RIC I (second edition) Augustus 11' }
+        }
+      ]);
     });
 
     test('should return random coins with default limit', async () => {
@@ -137,6 +144,31 @@ describe('Coin Controller', () => {
       const r2 = await request(app).get('/api/coins/random?limit=1');
       expect(r1.body.results).toHaveLength(1);
       expect(r2.body.results).toHaveLength(1);
+    });
+
+    test('should exclude unified-only specimens when split layout is requested', async () => {
+      await Coin.deleteMany({});
+      await Coin.insertMany([
+        coinFixtures.validCoin,
+        {
+          ...coinFixtures.validCoin,
+          _id: 'ric_1_aug_unified',
+          title: { en: 'RIC I Augustus Unified Specimen' },
+          images: [{
+            index: 1,
+            layout: 'unified',
+            files: { unified: 'https://example.com/unified.jpg' }
+          }]
+        }
+      ]);
+
+      const response = await request(app)
+        .get('/api/coins/random?limit=3&layout=split')
+        .expect(200);
+
+      expect(response.body.results).toHaveLength(1);
+      expect(response.body.results[0]._id).toBe(coinFixtures.validCoin._id);
+      expect(response.body.results[0].images[0].layout).toBe('split');
     });
   });
 
@@ -210,7 +242,8 @@ describe('Coin Controller', () => {
         select() { return this; },
         skip()   { return this; },
         limit()  { return this; },
-        sort()   { return Promise.reject(dbError); }
+        sort()   { return this; },
+        lean()   { return Promise.reject(dbError); }
       });
 
       try {

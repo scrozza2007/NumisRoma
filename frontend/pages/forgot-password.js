@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
-import Image from 'next/image';
 import { getCsrfHeader } from '../utils/csrf';
+import BrandLockup from '../components/BrandLockup';
 
 const apiUrl = () => process.env.NEXT_PUBLIC_API_URL;
 
@@ -65,7 +65,7 @@ const ForgotPassword = () => {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-6">
-            <Image src="/images/logo.png" alt="NumisRoma" width={120} height={40} priority sizes="120px" className="h-10 w-auto mx-auto" />
+            <BrandLockup stacked priority />
           </Link>
           <h2 className="font-display font-semibold text-3xl mb-2 text-text-primary">Reset your password</h2>
           {!submitted && (
