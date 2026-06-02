@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
-import { semantic } from '../utils/tokens';
+import { CircleAlert, CircleCheck, LoaderCircle, Mail } from 'lucide-react';
 import { apiClient } from '../utils/apiClient';
 
 const SUPPORT_EMAIL = 'support@numisroma.com';
@@ -55,7 +55,7 @@ const Contact = () => {
   };
 
   const fieldCls = (hasError) =>
-    `w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none focus:border-amber transition-colors duration-150 text-text-primary ${hasError ? 'border border-[#fecaca]' : 'border border-border'}`;
+    `w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none focus:border-amber transition-colors duration-150 text-text-primary ${hasError ? 'border border-error-border' : 'border border-border'}`;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -79,9 +79,7 @@ const Contact = () => {
               <div className="space-y-5">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 bg-amber-bg">
-                    <svg className="w-4 h-4 text-amber" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                    <Mail className="w-4 h-4 text-amber" />
                   </div>
                   <div>
                     <p className="font-sans text-sm font-medium text-text-primary">Email</p>
@@ -100,15 +98,15 @@ const Contact = () => {
               <h2 className="font-display font-semibold text-xl mb-6 text-text-primary">Send a Message</h2>
 
               {success && (
-                <div className="mb-5 p-3.5 rounded-md flex items-start gap-3 text-sm animate-fade-in" style={{ backgroundColor: semantic.success.bg, border: '1px solid #bbf7d0', color: semantic.success.text }}>
-                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div className="mb-5 p-3.5 rounded-md flex items-start gap-3 text-sm animate-fade-in bg-success-bg border border-success-border text-success-text">
+                  <CircleCheck className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="font-sans">Message sent! We&apos;ll get back to you soon.</span>
                 </div>
               )}
 
               {error && (
-                <div className="mb-5 p-3.5 rounded-md flex items-start gap-3 text-sm" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
-                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div className="mb-5 p-3.5 rounded-md flex items-start gap-3 text-sm bg-error-bg border border-error-border text-error-text">
+                  <CircleAlert className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="font-sans">{error}</span>
                 </div>
               )}
@@ -125,7 +123,7 @@ const Contact = () => {
                       type={type} id={id} name={id} value={formData[id]} onChange={handleChange} placeholder={placeholder}
                       className={fieldCls(errors[id])}
                     />
-                    {errors[id] && <p className="mt-1 font-sans text-xs" style={{ color: semantic.error.border }}>{errors[id]}</p>}
+                    {errors[id] && <p className="mt-1 font-sans text-xs text-error-border">{errors[id]}</p>}
                   </div>
                 ))}
 
@@ -136,7 +134,7 @@ const Contact = () => {
                     placeholder="Your message (min. 20 characters)…"
                     className={`${fieldCls(errors.message)} resize-none`}
                   />
-                  {errors.message && <p className="mt-1 font-sans text-xs" style={{ color: semantic.error.border }}>{errors.message}</p>}
+                  {errors.message && <p className="mt-1 font-sans text-xs text-error-border">{errors.message}</p>}
                 </div>
 
                 <button
@@ -144,7 +142,7 @@ const Contact = () => {
                   className="w-full py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 rounded-md bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
-                    <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Sending…</>
+                    <><LoaderCircle className="animate-spin h-4 w-4" />Sending…</>
                   ) : 'Send Message'}
                 </button>
               </form>

@@ -35,6 +35,7 @@ const notificationRoutes = require('./routes/notifications');
 const e2eeRoutes = require('./routes/e2ee');
 const healthRoutes = require('./routes/health');
 const cacheRoutes = require('./routes/cache');
+const { scheduleDataExportCleanup } = require('./controllers/dataExportController');
 const logger = require('./utils/logger');
 
 // Fail-fast env validation — must run before anything reads these.
@@ -278,6 +279,7 @@ setupDatabaseMonitoring();
 connectDatabase()
   .then(() => {
     dbLogger.logConnection('connected');
+    scheduleDataExportCleanup();
   })
   .catch((err) => {
     logger.error('MongoDB connection error', { error: err.message });

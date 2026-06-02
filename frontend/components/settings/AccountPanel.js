@@ -2,7 +2,6 @@ import React, { useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../../context/AuthContext';
 import { apiClient } from '../../utils/apiClient';
-import { semantic } from '../../utils/tokens';
 
 const validatePassword = (pw) => {
   const errs = {};
@@ -17,11 +16,92 @@ const validatePassword = (pw) => {
 const inputCls = (editing, errored) =>
   `w-full px-3.5 py-2.5 font-sans text-sm rounded-md outline-none focus:border-amber transition-colors duration-150 ${
     errored
-      ? 'border border-[#fecaca] bg-card text-text-primary'
+      ? 'border border-error-border bg-card text-text-primary'
       : editing
       ? 'border border-border bg-card text-text-primary cursor-text'
       : 'border border-border bg-surface-alt text-text-muted cursor-not-allowed'
   }`;
+
+const FieldError = ({ msg }) => msg ? (
+  <p className="mt-1.5 font-sans text-xs flex items-center gap-1 text-error-border">
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    {msg}
+  </p>
+) : null;
+
+const SectionHeader = ({ title }) => (
+  <h3 className="font-display font-semibold text-xl mb-4 text-text-primary">{title}</h3>
+);
+
+const Label = ({ children, htmlFor }) => (
+  <label htmlFor={htmlFor} className="block font-sans text-sm font-medium mb-1.5 text-text-primary">{children}</label>
+);
+
+const DataExportDialog = ({ open, loading, onCancel, onConfirm }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label="Close data export confirmation"
+        className="absolute inset-0 bg-[#1f1b16]/45 backdrop-blur-sm"
+        onClick={loading ? undefined : onCancel}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="data-export-title"
+        className="relative w-full max-w-lg rounded-xl bg-card border border-border shadow-2xl p-6"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-bg flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </div>
+          <div>
+            <h3 id="data-export-title" className="font-display text-xl font-semibold text-text-primary">
+              Request your NumisRoma data?
+            </h3>
+            <p className="font-sans text-sm text-text-muted mt-2 leading-6">
+              We will prepare a ZIP archive of your account data and email you a secure download link when it is ready.
+            </p>
+            <div className="mt-4 rounded-lg bg-surface-alt border border-border p-3">
+              <p className="font-sans text-xs text-text-muted leading-5">
+                For security, the link is temporary and data export requests are limited to once every 24 hours.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={loading}
+            className="px-4 py-2 font-sans text-sm border border-border rounded-md bg-card text-text-secondary hover:border-border-strong transition-colors duration-150 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-5 py-2 font-sans text-sm font-semibold rounded-md bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />
+                Requesting…
+              </span>
+            ) : 'Request export'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function AccountPanel({ onSuccess }) {
   const { user, changePassword, changeUsername, updateProfile, checkUsernameAvailability } = useContext(AuthContext);
@@ -48,6 +128,8 @@ export default function AccountPanel({ onSuccess }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRequestingDataExport, setIsRequestingDataExport] = useState(false);
+  const [showDataExportDialog, setShowDataExportDialog] = useState(false);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -198,29 +280,28 @@ export default function AccountPanel({ onSuccess }) {
     }
   };
 
+  const handleRequestDataExport = async () => {
+    setIsRequestingDataExport(true);
+    setErrors({});
+    try {
+      const result = await apiClient.post('/api/users/me/data-export');
+      setShowDataExportDialog(false);
+      onSuccess(result.message || 'Your data export request has been received. We will email you when it is ready.');
+    } catch (error) {
+      setErrors({ general: error.message || 'Unable to request your data export right now.' });
+    } finally {
+      setIsRequestingDataExport(false);
+    }
+  };
+
   if (!user) return null;
-
-  const FieldError = ({ msg }) => msg ? (
-    <p className="mt-1.5 font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
-      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      {msg}
-    </p>
-  ) : null;
-
-  const SectionHeader = ({ title }) => (
-    <h3 className="font-display font-semibold text-xl mb-4 text-text-primary">{title}</h3>
-  );
-
-  const Label = ({ children, htmlFor }) => (
-    <label htmlFor={htmlFor} className="block font-sans text-sm font-medium mb-1.5 text-text-primary">{children}</label>
-  );
 
   return (
     <div className="space-y-8">
       <h2 className="font-display font-semibold text-2xl text-text-primary">Account Settings</h2>
 
       {errors.general && (
-        <div className="p-3.5 rounded-md flex items-start gap-3 text-sm" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
+        <div className="p-3.5 rounded-md flex items-start gap-3 text-sm bg-error-bg border border-error-border text-error-text">
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span className="font-sans">{errors.general}</span>
         </div>
@@ -285,7 +366,7 @@ export default function AccountPanel({ onSuccess }) {
       {user.hasPassword && <div>
         <SectionHeader title="Change Password" />
         {passwordErrors.general && (
-          <div className="mb-4 p-3.5 rounded-md flex items-start gap-3 text-sm" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
+          <div className="mb-4 p-3.5 rounded-md flex items-start gap-3 text-sm bg-error-bg border border-error-border text-error-text">
             <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span className="font-sans">{passwordErrors.general}</span>
           </div>
@@ -310,7 +391,7 @@ export default function AccountPanel({ onSuccess }) {
                     [passwordErrors.validation?.number,    'One number'],
                     [passwordErrors.validation?.special,   'One special character (!@#$%^&*)'],
                   ].map(([hasErr, label]) => (
-                    <p key={label} className="font-sans text-xs flex items-center gap-1" style={{ color: hasErr ? semantic.error.border : semantic.success.text }}>
+                    <p key={label} className={`font-sans text-xs flex items-center gap-1 ${hasErr ? 'text-error-border' : 'text-success-text'}`}>
                       <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         {hasErr
                           ? <circle cx="12" cy="12" r="2" fill="currentColor" />
@@ -366,23 +447,23 @@ export default function AccountPanel({ onSuccess }) {
               <svg className="w-4 h-4 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               <h4 className="font-sans text-sm font-semibold text-text-primary">Download Your Data</h4>
             </div>
-            <p className="font-sans text-sm mb-4 text-text-muted">Get a copy of your profile, activities, and preferences.</p>
+            <p className="font-sans text-sm mb-4 text-text-muted">Request a ZIP archive of your NumisRoma data. We&apos;ll email you a secure link when it&apos;s ready.</p>
             <button
-              className="w-full py-2 font-sans text-sm font-medium border border-border rounded-md bg-canvas text-text-secondary hover:border-border-strong transition-colors duration-150"
-              onClick={() => {}}
+              className="w-full py-2 font-sans text-sm font-medium border border-border rounded-md bg-canvas text-text-secondary hover:border-border-strong transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowDataExportDialog(true)}
+              disabled={isRequestingDataExport}
             >
-              Download Data
+              {isRequestingDataExport ? 'Requesting export…' : 'Request Data Download'}
             </button>
           </div>
-          <div className="p-5 rounded-lg" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca' }}>
+          <div className="p-5 rounded-lg bg-error-bg border border-error-border">
             <div className="flex items-center gap-2 mb-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: semantic.error.text }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-              <h4 className="font-sans text-sm font-semibold" style={{ color: semantic.error.text }}>Delete Account</h4>
+              <svg className="w-4 h-4 text-error-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <h4 className="font-sans text-sm font-semibold text-error-text">Delete Account</h4>
             </div>
-            <p className="font-sans text-sm mb-4" style={{ color: semantic.error.text, opacity: 0.8 }}>Permanently delete your account. This cannot be undone.</p>
+            <p className="font-sans text-sm mb-4 text-error-text opacity-80">Permanently delete your account. This cannot be undone.</p>
             <button
-              className="w-full py-2 font-sans text-sm font-medium rounded-md transition-colors duration-150"
-              style={{ border: '1px solid #fecaca', backgroundColor: semantic.error.bg, color: semantic.error.text }}
+              className="w-full py-2 font-sans text-sm font-medium rounded-md border border-error-border bg-error-bg text-error-text transition-colors duration-150"
               onClick={() => router.push('/delete-account')}
             >
               Delete Account
@@ -390,6 +471,13 @@ export default function AccountPanel({ onSuccess }) {
           </div>
         </div>
       </div>
+
+      <DataExportDialog
+        open={showDataExportDialog}
+        loading={isRequestingDataExport}
+        onCancel={() => setShowDataExportDialog(false)}
+        onConfirm={handleRequestDataExport}
+      />
     </div>
   );
 }

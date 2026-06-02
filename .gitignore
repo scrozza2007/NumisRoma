@@ -56,6 +56,13 @@ temp/
 # MongoDB backup archives
 backups/
 
+# Locally mounted MaxMind databases (license-managed downloads)
+geoip/
+
 # Uploads (if using filesystem storage)
 uploads/
 !uploads/.gitkeep
+
+# Private temporary GDPR data export archives
+backend/src/private/
+data-exports/

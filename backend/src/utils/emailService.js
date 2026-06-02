@@ -24,7 +24,7 @@ const escapeHtml = (value = '') => String(value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
-// ─── Brand tokens (mirrors globals.css / tailwind.config.js) ────────────────
+// ─── Brand tokens (mirrors frontend globals.css) ────────────────────────────
 const C = {
   canvas:      '#fdf8f0',
   surface:     '#faf4ea',
@@ -243,6 +243,69 @@ const passwordResetEmailHtml = (resetUrl, expiryMinutes) =>
     'If you did not request a password reset, no action is needed — your account is safe.'
   );
 
+const accountDeletionEmailHtml = (username) =>
+  baseTemplate(
+    'Your NumisRoma account has been deleted',
+    `
+    <h1>Your account has been deleted</h1>
+    <p>Hello <strong>${escapeHtml(username)}</strong>, your NumisRoma account has been permanently deleted as requested.</p>
+
+    <p>Your profile and collection data are no longer available through NumisRoma. There is nothing else you need to do.</p>
+
+    <p>If you did not request this deletion or believe it happened in error, please contact us at <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
+    `,
+    'This confirmation was sent because the NumisRoma account registered to this email address was deleted.'
+  );
+
+const securityAlertEmailHtml = ({ username, device, location, riskFlags }) =>
+  baseTemplate(
+    'Security alert for your NumisRoma account',
+    `
+    <h1>New sign-in noticed</h1>
+    <p>Hello <strong>${escapeHtml(username)}</strong>, we noticed a sign-in that deserves your attention.</p>
+
+    <ul>
+      <li><strong>Device:</strong> ${escapeHtml(device)}</li>
+      <li><strong>Approximate location:</strong> ${escapeHtml(location)}</li>
+      <li><strong>Reason:</strong> ${escapeHtml(riskFlags.join(', ').replace(/_/g, ' '))}</li>
+    </ul>
+
+    <p>IP-based locations are approximate. If this was not you, open your security settings and revoke the unfamiliar session immediately, then change your password.</p>
+
+    <div class="cta-wrapper">
+      <a href="${FRONTEND_URL}/settings" class="cta">Review sessions</a>
+    </div>
+    `,
+    'This automated security notice was sent because NumisRoma identified an unusual or new sign-in.'
+  );
+
+const dataExportReadyEmailHtml = ({ username, downloadUrl, expiresAt, fileSize }) =>
+  baseTemplate(
+    'Your NumisRoma data download is ready',
+    `
+    <h1>Your data download is ready</h1>
+    <p>Hello <strong>${escapeHtml(username)}</strong>, the NumisRoma data archive you requested is ready.</p>
+
+    <p>The ZIP archive contains structured JSON files for your profile, collections, saved coin entries, conversations, followers/following, support requests, and uploaded images available from NumisRoma storage.</p>
+
+    <ul>
+      <li><strong>File size:</strong> ${escapeHtml(formatBytes(fileSize))}</li>
+      <li><strong>Expires:</strong> ${escapeHtml(formatDate(expiresAt))}</li>
+      <li><strong>Link type:</strong> Single-use, signed download link</li>
+    </ul>
+
+    <div class="cta-wrapper">
+      <a href="${downloadUrl}" class="cta">Download your archive</a>
+    </div>
+
+    <p style="font-size:13px;color:${C.textMuted};">If the button doesn't work, copy and paste this link into your browser:<br/>
+    <a href="${downloadUrl}" style="color:${C.amber};word-break:break-all;">${downloadUrl}</a></p>
+
+    <p>If you did not request this export, please review your active sessions and change your password.</p>
+    `,
+    'This email was sent because you requested a copy of your NumisRoma data.'
+  );
+
 const contactNotificationHtml = ({ name, email, subject, message, contactId }) =>
   baseTemplate(
     `New NumisRoma contact message: ${escapeHtml(subject)}`,
@@ -322,6 +385,103 @@ exports.sendPasswordResetEmail = async ({ to, resetUrl, expiryMinutes = 15 }) =>
     logger.error('Failed to send password reset email', { to, error: err.message });
     throw err;
   }
+};
+
+exports.sendAccountDeletionEmail = async ({ to, username }) => {
+  try {
+    const client = getClient();
+    const result = await client.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject: 'Your NumisRoma account has been deleted',
+      html: accountDeletionEmailHtml(username),
+      text: `Hello ${username},\n\nYour NumisRoma account has been permanently deleted as requested. Your profile and collection data are no longer available through NumisRoma.\n\nIf you did not request this deletion or believe it happened in error, contact us at ${SUPPORT_EMAIL}.`
+    });
+
+    if (result.error) {
+      logger.error('Resend rejected account deletion email', { to, resendError: result.error });
+      const err = new Error(result.error.message || 'Resend API error');
+      err.resendError = result.error;
+      throw err;
+    }
+
+    logger.info('Account deletion email sent', { to, messageId: result.data?.id });
+    return result;
+  } catch (err) {
+    logger.error('Failed to send account deletion email', { to, error: err.message });
+    throw err;
+  }
+};
+
+exports.sendSecurityAlertEmail = async ({ to, username, device, location, riskFlags }) => {
+  const client = getClient();
+  const reasons = riskFlags.map(flag => flag.replace(/_/g, ' ')).join(', ');
+  const result = await client.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: 'Security alert: new sign-in to NumisRoma',
+    html: securityAlertEmailHtml({ username, device, location, riskFlags }),
+    text: `Hello ${username},\n\nWe noticed a sign-in to your NumisRoma account.\nDevice: ${device}\nApproximate location: ${location}\nReason: ${reasons}\n\nIP-based locations are approximate. Review active sessions at ${FRONTEND_URL}/settings and revoke any session you do not recognize.`
+  });
+  if (result.error) throw new Error(result.error.message || 'Resend API error');
+  logger.info('Security alert email sent', { to, messageId: result.data?.id });
+  return result;
+};
+
+const formatBytes = (bytes = 0) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 'Unknown';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+};
+
+const formatDate = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '7 days from request';
+  return d.toLocaleString('en', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'UTC',
+    timeZoneName: 'short'
+  });
+};
+
+exports.sendDataExportReadyEmail = async ({ to, username, downloadUrl, expiresAt, fileSize }) => {
+  const client = getClient();
+  const result = await client.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: 'Your NumisRoma data download is ready',
+    html: dataExportReadyEmailHtml({ username, downloadUrl, expiresAt, fileSize }),
+    text: [
+      `Hello ${username},`,
+      '',
+      'The NumisRoma data archive you requested is ready.',
+      `Download link: ${downloadUrl}`,
+      `Expires: ${formatDate(expiresAt)}`,
+      `File size: ${formatBytes(fileSize)}`,
+      '',
+      'This is a single-use, signed download link. If you did not request this export, review your active sessions and change your password.'
+    ].join('\n')
+  });
+
+  if (result.error) {
+    logger.error('Resend rejected data export ready email', { to, resendError: result.error });
+    const err = new Error(result.error.message || 'Resend API error');
+    err.resendError = result.error;
+    throw err;
+  }
+
+  logger.info('Data export ready email sent', { to, messageId: result.data?.id });
+  return result;
 };
 
 exports.sendContactNotificationEmail = async ({ name, email, subject, message, contactId }) => {

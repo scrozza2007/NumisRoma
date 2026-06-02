@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, X } from 'lucide-react';
 
 // options may be plain strings or { label, value } objects.
 // When { label, value } is used, label is shown in the UI and value is passed to onChange.
@@ -95,32 +96,23 @@ const AutocompleteDropdown = ({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full font-sans text-sm bg-card text-text-primary outline-none px-3 py-2 pr-9 transition-colors duration-150"
-          style={{
-            border: `1px solid ${isOpen ? '#b8843a' : '#e8e0d0'}`,
-            borderRadius: 6,
-          }}
+          className={`w-full font-sans text-sm bg-card text-text-primary outline-none px-3 py-2 pr-9 border rounded transition-colors duration-150 ${isOpen ? 'border-amber' : 'border-border'}`}
         />
         {value ? (
           <button
             onClick={() => { setSearchTerm(''); onChange(''); inputRef.current?.focus(); }}
             className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity text-text-muted"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         ) : (
-          <svg className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" />
         )}
       </div>
 
       {isOpen && (
         <div
-          className="absolute z-50 w-full mt-1 overflow-y-auto bg-card border border-border rounded"
-          style={{ boxShadow: '0 8px 16px rgba(46,40,32,0.08)', maxHeight: 240 }}
+          className="absolute z-50 w-full mt-1 max-h-60 overflow-y-auto bg-card border border-border rounded shadow-[0_8px_16px_rgba(46,40,32,0.08)]"
         >
           {filteredOptions.length > 0 ? (
             filteredOptions.map((option, index) => (
@@ -128,8 +120,7 @@ const AutocompleteDropdown = ({
                 key={option.value}
                 onClick={() => handleOptionSelect(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
-                className="px-3 py-2 cursor-pointer font-sans text-sm text-text-secondary transition-colors duration-100 border-b border-border last:border-0"
-                style={{ backgroundColor: index === highlightedIndex ? '#f0e8d4' : 'transparent' }}
+                className={`px-3 py-2 cursor-pointer font-sans text-sm text-text-secondary transition-colors duration-100 border-b border-border last:border-0 ${index === highlightedIndex ? 'bg-amber-bg' : 'bg-transparent'}`}
               >
                 {option.label}
               </div>

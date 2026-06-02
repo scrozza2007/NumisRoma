@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # ------------------------------------------------------------
 # Dependency install stage — includes dev deps for the build.
 # ------------------------------------------------------------

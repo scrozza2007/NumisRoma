@@ -3,10 +3,10 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Check, ChevronLeft, CircleCheck, ImageUp, LockKeyhole, UsersRound } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import NotificationToast from '../components/NotificationToast';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -176,9 +176,7 @@ const EditCollectionPage = () => {
               href={`/collection-detail?id=${id}`}
               className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm border border-border rounded-md bg-card text-text-secondary hover:border-border-strong transition-colors duration-150"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
+              <ChevronLeft className="w-4 h-4" />
               Back
             </Link>
           </div>
@@ -189,7 +187,7 @@ const EditCollectionPage = () => {
               {/* Name */}
               <div>
                 <label htmlFor="name" className="block font-sans text-sm font-medium mb-1.5 text-text-primary">
-                  Collection Name <span style={{ color: semantic.error.border }}>*</span>
+                  Collection Name <span className="text-error-border">*</span>
                 </label>
                 <input
                   type="text" id="name" name="name" value={formData.name}
@@ -220,7 +218,7 @@ const EditCollectionPage = () => {
                   <div className="mb-3 p-3 rounded-md bg-surface-alt border border-border">
                     <div className="flex items-center justify-between mb-2">
                       <p className="font-sans text-xs font-medium text-text-secondary">Current Image</p>
-                      <button type="button" onClick={removeImage} className="font-sans text-xs" style={{ color: semantic.error.text }}>Remove</button>
+                      <button type="button" onClick={removeImage} className="font-sans text-xs text-error-text">Remove</button>
                     </div>
                     <div className="w-full h-40 overflow-hidden rounded bg-canvas">
                       <Image
@@ -238,13 +236,10 @@ const EditCollectionPage = () => {
                 )}
 
                 <div
-                  className={`flex flex-col items-center justify-center p-8 text-center cursor-pointer transition-colors duration-150 rounded-md ${dragActive ? 'border-amber bg-amber-bg' : 'hover:border-amber'}`}
-                  style={{ border: `2px dashed var(--color-${dragActive ? 'amber' : 'border'})` }}
+                  className={`flex flex-col items-center justify-center p-8 text-center cursor-pointer transition-colors duration-150 rounded-md border-2 border-dashed ${dragActive ? 'border-amber bg-amber-bg' : 'border-border hover:border-amber'}`}
                   onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
                 >
-                  <svg className={`w-10 h-10 mb-3 ${dragActive ? 'text-amber' : 'text-text-muted'}`} fill="none" stroke="currentColor" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <ImageUp className={`w-10 h-10 mb-3 ${dragActive ? 'text-amber' : 'text-text-muted'}`} />
                   <label htmlFor="image-upload" className="cursor-pointer font-sans text-sm font-medium text-amber">
                     {currentImageUrl || imagePreview ? 'Change image' : 'Upload an image'}
                     <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
@@ -259,10 +254,10 @@ const EditCollectionPage = () => {
                 <h3 className="font-sans font-semibold text-sm mb-4 text-text-primary">Visibility</h3>
                 <div className="space-y-3">
                   {[
-                    { value: 'Public', label: 'Public', desc: 'Visible to all users in the public collections section', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' },
-                    { value: 'Private', label: 'Private', desc: 'Visible only to you in your profile', icon: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM15.1 8H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z' },
-                    { value: 'Shared', label: 'Shared', desc: 'Prepared for private sharing workflows', icon: 'M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m0-4a4 4 0 100-8 4 4 0 000 8zm8 0a4 4 0 100-8 4 4 0 000 8z' },
-                  ].map(({ value, label, desc, icon }) => (
+                    { value: 'Public', label: 'Public', desc: 'Visible to all users in the public collections section', Icon: CircleCheck },
+                    { value: 'Private', label: 'Private', desc: 'Visible only to you in your profile', Icon: LockKeyhole },
+                    { value: 'Shared', label: 'Shared', desc: 'Prepared for private sharing workflows', Icon: UsersRound },
+                  ].map(({ value, label, desc, Icon }) => (
                     <label key={label} className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="radio" name="isPublic"
@@ -272,9 +267,7 @@ const EditCollectionPage = () => {
                       />
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" style={{ color: value === 'Public' ? semantic.success.text : 'var(--color-text-muted)' }}>
-                            <path d={icon} />
-                          </svg>
+                          <Icon className={`w-4 h-4 ${value === 'Public' ? 'text-success-text' : 'text-text-muted'}`} />
                           <span className="font-sans text-sm font-medium text-text-primary">{label}</span>
                         </div>
                         <p className="font-sans text-xs mt-0.5 text-text-muted">{desc}</p>
@@ -299,7 +292,7 @@ const EditCollectionPage = () => {
                   {saving ? (
                     <><div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent" />Saving…</>
                   ) : (
-                    <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>Save Changes</>
+                    <><Check className="w-4 h-4" />Save Changes</>
                   )}
                 </button>
               </div>

@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { Check, ChevronLeft, CircleAlert, LoaderCircle, Mail } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { getCsrfHeader } from '../utils/csrf';
 import BrandLockup from '../components/BrandLockup';
@@ -165,7 +166,7 @@ const RegistrationForm = ({ onSuccess }) => {
               <div key={key} className={`flex items-center gap-1 font-sans text-xs ${passwordChecks[key] ? 'text-green-600' : 'text-text-muted'}`}>
                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {passwordChecks[key]
-                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                    ? <Check className="w-3.5 h-3.5" />
                     : <circle cx="12" cy="12" r="2" fill="currentColor" />}
                 </svg>
                 {label}
@@ -185,9 +186,7 @@ const RegistrationForm = ({ onSuccess }) => {
 
       {errors.form && (
         <div className="p-3.5 rounded flex items-start gap-3 text-sm bg-red-50 border border-red-200 text-red-700">
-          <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <CircleAlert className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="font-sans">{errors.form}</span>
         </div>
       )}
@@ -199,10 +198,7 @@ const RegistrationForm = ({ onSuccess }) => {
       >
         {isLoading ? (
           <>
-            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
+            <LoaderCircle className="animate-spin h-4 w-4" />
             <span>Sending code…</span>
           </>
         ) : 'Continue'}
@@ -344,9 +340,7 @@ const OtpStep = ({ email, username, onVerified, onBack }) => {
     <div>
       <div className="text-center mb-6">
         <div className="w-12 h-12 bg-amber/10 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-6 h-6 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
+          <Mail className="w-6 h-6 text-amber" />
         </div>
         <h2 className="font-display font-semibold text-2xl mb-2 text-text-primary">Check your email</h2>
         <p className="font-sans text-sm text-text-muted">
@@ -381,9 +375,7 @@ const OtpStep = ({ email, username, onVerified, onBack }) => {
 
       {error && (
         <div className="mb-4 p-3 rounded flex items-start gap-2.5 text-sm bg-red-50 border border-red-200 text-red-700">
-          <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <CircleAlert className="w-4 h-4 shrink-0 mt-0.5" />
           <span className="font-sans">{error}</span>
         </div>
       )}
@@ -399,10 +391,7 @@ const OtpStep = ({ email, username, onVerified, onBack }) => {
       >
         {isVerifying ? (
           <>
-            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
+            <LoaderCircle className="animate-spin h-4 w-4" />
             <span>Verifying…</span>
           </>
         ) : 'Verify and create account'}
@@ -413,9 +402,7 @@ const OtpStep = ({ email, username, onVerified, onBack }) => {
           onClick={() => onBack(null)}
           className="hover:text-text-primary transition-colors duration-150 flex items-center gap-1"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="w-3.5 h-3.5" />
           Back
         </button>
 
@@ -452,8 +439,8 @@ const Register = () => {
   };
 
   const handleVerified = async (data) => {
-    if (data.token && data.user) {
-      await login(data.token, data.user);
+    if (data.authenticated && data.user) {
+      await login(data.user);
       router.push('/welcome');
     }
   };
@@ -483,9 +470,7 @@ const Register = () => {
 
             {backError && (
               <div className="mb-5 p-3.5 rounded flex items-start gap-3 text-sm bg-amber-50 border border-amber-200 text-amber-800">
-                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <CircleAlert className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="font-sans">{backError}</span>
               </div>
             )}

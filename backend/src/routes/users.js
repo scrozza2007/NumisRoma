@@ -10,6 +10,8 @@ const Conversation = require('../models/Conversation');
 const logger = require('../utils/logger');
 const { createNotification, pushCountsToUser } = require('../controllers/notificationController');
 const Notification = require('../models/Notification');
+const { authLifecycleLimiter } = require('../middlewares/security');
+const { requestDataExport, downloadDataExport } = require('../controllers/dataExportController');
 
 const escapeRegex = (str) => {
   if (!str || typeof str !== 'string') return '';
@@ -548,6 +550,10 @@ router.put('/me/privacy', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Error updating privacy setting' });
   }
 });
+
+// Data export requests create a temporary ZIP and email a signed download link.
+router.post('/me/data-export', authLifecycleLimiter, authMiddleware, requestDataExport);
+router.get('/me/data-export/:requestId/download', downloadDataExport);
 
 // PUT /api/users/me/e2ee-keys — register keypair on first login (write-once for publicKey).
 // Stores the encrypted private key blob so the user can restore on any new device.

@@ -32,13 +32,22 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * Attempt a silent token refresh via the httpOnly refreshToken cookie.
  * Returns true if the refresh succeeded (new access token cookie is set).
  */
-const tryRefreshToken = async () => {
+const tryRefreshToken = async (csrfRetried = false) => {
   try {
+    const csrfHeader = await getCsrfHeader('POST');
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...csrfHeader }
     });
+    if (res.ok) invalidateCsrfToken();
+    if (res.status === 403 && !csrfRetried) {
+      const data = await res.json().catch(() => ({}));
+      if (data.code === 'CSRF_INVALID') {
+        invalidateCsrfToken();
+        return tryRefreshToken(true);
+      }
+    }
     return res.ok;
   } catch {
     return false;

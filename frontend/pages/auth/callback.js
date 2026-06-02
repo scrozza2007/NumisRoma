@@ -16,19 +16,14 @@ const OAuthCallback = () => {
   useEffect(() => {
     if (!router.isReady) return;
 
-    const { token, isNew, error: oauthError } = router.query;
+    const { isNew, error: oauthError } = router.query;
 
     if (oauthError) {
       setError(ERROR_MESSAGES[oauthError] || 'Sign-in failed. Please try again.');
       return;
     }
 
-    if (!token) {
-      setError('Sign-in failed: no token received. Please try again.');
-      return;
-    }
-
-    login(token, null).then(() => {
+    login().then(() => {
       if (isNew === '1') {
         router.replace('/welcome');
       } else {

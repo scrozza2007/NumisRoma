@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const inputCls = 'w-full px-3.5 py-2.5 font-sans text-sm bg-card border border-border rounded-md outline-none focus:border-amber transition-colors duration-150 text-text-primary';
@@ -98,12 +97,11 @@ const NewCollectionPage = () => {
 
       {notification.show && (
         <div
-          className="fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-md animate-fade-in shadow-md"
-          style={{
-            backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg,
-            border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`,
-            color: notification.type === 'success' ? semantic.success.text : semantic.error.text,
-          }}
+          className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-md border animate-fade-in shadow-md ${
+            notification.type === 'success'
+              ? 'bg-success-bg border-success-border text-success-text'
+              : 'bg-error-bg border-error-border text-error-text'
+          }`}
         >
           <span className="font-sans text-sm">{notification.message}</span>
         </div>
@@ -159,8 +157,7 @@ const NewCollectionPage = () => {
                   </div>
                   <button
                     type="button" onClick={removeImage}
-                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full"
-                    style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}
+                    className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-error-bg border border-error-border text-error-text"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
@@ -169,8 +166,7 @@ const NewCollectionPage = () => {
               ) : (
                 <label
                   htmlFor="image-upload"
-                  className="flex flex-col items-center justify-center h-32 cursor-pointer transition-colors duration-150 rounded-md hover:border-amber"
-                  style={{ border: '2px dashed var(--color-border)', backgroundColor: 'var(--color-canvas)' }}
+                  className="flex flex-col items-center justify-center h-32 cursor-pointer transition-colors duration-150 rounded-md border-2 border-dashed border-border bg-canvas hover:border-amber"
                 >
                   <CoinImagePlaceholder className="w-20 h-20 rounded mb-2" />
                   <p className="font-sans text-sm text-text-muted">Click to upload <span className="text-amber">or drag & drop</span></p>

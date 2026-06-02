@@ -6,6 +6,7 @@ const User = require('../../src/models/User');
 const Collection = require('../../src/models/Collection');
 const Coin = require('../../src/models/Coin');
 const collectionController = require('../../src/controllers/collectionController');
+const coinFixtures = require('../fixtures/coins');
 
 let seq = 0;
 const makeUser = async () => {
@@ -128,7 +129,7 @@ describe('Collection Controller', () => {
 
     test('any user can access a public collection', async () => {
       const other = await makeUser();
-      const col = await Collection.create({ user: other._id, name: 'TheirPub', isPublic: true });
+      const col = await Collection.create({ user: other._id, name: 'TheirPub', isPublic: true, visibility: 'Public' });
       const a = app1(user._id, 'get', '/collections/:collectionId', collectionController.getCollectionById);
       await request(a).get(`/collections/${col._id}`).expect(200);
     });
@@ -175,17 +176,13 @@ describe('Collection Controller', () => {
   describe('addCoinToCollection', () => {
     test('adds a coin to the owner\'s collection', async () => {
       const col = await Collection.create({ user: user._id, name: 'Holder', isPublic: true });
-      const coin = await Coin.create({
-        name: 'Denarius',
-        authority: { emperor: 'Tiberius' },
-        description: { date_range: '14-37 CE', material: 'Silver' },
-      });
+      const coin = await Coin.create({ ...coinFixtures.validCoin, _id: 'collection_add_coin' });
       const a = app1(user._id, 'post', '/collections/:collectionId/coins', collectionController.addCoinToCollection);
       const res = await request(a)
         .post(`/collections/${col._id}/coins`)
         .send({ coin: String(coin._id) })   // controller reads req.body.coin
         .expect(200);
-      const coinIds = res.body.coins.map(c => String(c.coin || c._id));
+      const coinIds = res.body.coins.map(c => String(c.coin?._id || c.coin || c._id));
       expect(coinIds).toContain(String(coin._id));
     });
   });
@@ -193,11 +190,7 @@ describe('Collection Controller', () => {
   // ── removeCoinFromCollection ───────────────────────────────────────────────
   describe('removeCoinFromCollection', () => {
     test('removes a coin that was in the collection', async () => {
-      const coin = await Coin.create({
-        name: 'Removable',
-        authority: { emperor: 'Nero' },
-        description: { date_range: '54-68 CE', material: 'Bronze' },
-      });
+      const coin = await Coin.create({ ...coinFixtures.validCoinRIC8, _id: 'collection_remove_coin' });
       const col = await Collection.create({
         user: user._id, name: 'WithCoin', isPublic: true,
         coins: [{ coin: coin._id }],

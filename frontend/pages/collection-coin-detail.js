@@ -4,8 +4,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
-import { fmt, fmtPeriod } from '../utils/formatters';
+import { fmt, fmtPeriod, fmtReference } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const buildSpecimens = (images = [], customImages = {}) => {
@@ -343,8 +342,11 @@ const CollectionCoinDetail = () => {
       </Head>
 
       {notification.show && (
-        <div className="fixed top-6 right-6 z-50 p-3.5 flex items-start gap-2 font-sans text-sm rounded"
-          style={{ backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg, border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`, color: notification.type === 'success' ? semantic.success.text : semantic.error.text, maxWidth: 320 }}>
+        <div className={`fixed top-6 right-6 z-50 p-3.5 flex items-start gap-2 font-sans text-sm rounded border max-w-[320px] ${
+          notification.type === 'success'
+            ? 'bg-success-bg border-success-border text-success-text'
+            : 'bg-error-bg border-error-border text-error-text'
+        }`}>
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={notification.type === 'success' ? 'M5 13l4 4L19 7' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'} />
           </svg>
@@ -378,6 +380,16 @@ const CollectionCoinDetail = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
               Back
+            </Link>
+            <Link
+              href={`/coin-detail?id=${coin._id}`}
+              className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-amber rounded bg-amber-bg text-amber hover:bg-amber hover:text-canvas transition-colors duration-150"
+              title="View matching catalog record"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5h5m0 0v5m0-5L10 14M5 7v12h12v-5" />
+              </svg>
+              View in Catalog
             </Link>
             <button
               onClick={handleEditCoin}
@@ -436,30 +448,27 @@ const CollectionCoinDetail = () => {
             {(() => {
               const sp = specimens[activeIdx] || specimens[0];
               return (
-                <div className="group relative cursor-zoom-in" style={{ backgroundColor: '#faf4ea' }}
+                <div className="group relative cursor-zoom-in bg-surface"
                   onClick={() => setZoomed(true)}>
                   {sp.unified ? (
-                    <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#faf4ea' }}>
+                    <div className="flex min-h-[260px] items-center justify-center bg-surface">
                       <img src={sp.unified} alt={sp.label}
-                        className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                        style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
+                        className="w-full max-h-[420px] object-contain p-8 mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.02]"
                         onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2" style={{ backgroundColor: '#faf4ea' }}>
+                    <div className="grid grid-cols-2 bg-surface">
                       {sp.obverse && (
-                        <div className="flex items-center justify-center" style={{ borderRight: '1px solid #e8e0d0', minHeight: 260, backgroundColor: '#faf4ea' }}>
+                        <div className="flex min-h-[260px] items-center justify-center bg-surface border-r border-border">
                           <img src={sp.obverse} alt="Obverse"
-                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                            style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
+                            className="w-full max-h-[420px] object-contain p-8 mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.02]"
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         </div>
                       )}
                       {sp.reverse && (
-                        <div className="flex items-center justify-center" style={{ minHeight: 260, backgroundColor: '#faf4ea' }}>
+                        <div className="flex min-h-[260px] items-center justify-center bg-surface">
                           <img src={sp.reverse} alt="Reverse"
-                            className="w-full object-contain p-8 transition-transform duration-300 group-hover:scale-[1.02]"
-                            style={{ maxHeight: 420, mixBlendMode: 'multiply' }}
+                            className="w-full max-h-[420px] object-contain p-8 mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.02]"
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                         </div>
                       )}
@@ -468,18 +477,16 @@ const CollectionCoinDetail = () => {
                   {/* Zoom hint */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none flex items-center justify-between px-4">
                     <div />
-                    <span className="font-sans text-xs px-3 py-1.5 rounded-full" style={{ color: '#fdf8f0', backgroundColor: 'rgba(46,40,32,0.55)' }}>Click to zoom</span>
+                    <span className="font-sans text-xs px-3 py-1.5 rounded-full text-canvas bg-[rgba(46,40,32,0.55)]">Click to zoom</span>
                     <div />
                   </div>
                   {specimens.length > 1 && (
                     <>
-                      <button className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100"
-                        style={{ backgroundColor: '#fefcf8', border: '1px solid #e8e0d0', color: '#5a5040' }}
+                      <button className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100 bg-card border border-border text-text-secondary"
                         onClick={e => { e.stopPropagation(); setActiveIdx(i => (i - 1 + specimens.length) % specimens.length); }}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                       </button>
-                      <button className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100"
-                        style={{ backgroundColor: '#fefcf8', border: '1px solid #e8e0d0', color: '#5a5040' }}
+                      <button className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full pointer-events-auto z-10 transition-opacity opacity-0 group-hover:opacity-100 bg-card border border-border text-text-secondary"
                         onClick={e => { e.stopPropagation(); setActiveIdx(i => (i + 1) % specimens.length); }}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
                       </button>
@@ -490,22 +497,22 @@ const CollectionCoinDetail = () => {
             })()}
 
             {/* Filmstrip + metadata bar */}
-            <div className="border-t flex items-stretch" style={{ borderColor: '#e8e0d0' }}>
+            <div className="border-t border-border flex items-stretch">
               {specimens.length > 1 && (
-                <div className="flex gap-0 overflow-x-auto shrink-0" style={{ borderRight: '1px solid #e8e0d0' }}>
+                <div className="flex gap-0 overflow-x-auto shrink-0 border-r border-border">
                   {specimens.map((sp, i) => {
                     const thumb = sp.obverse || sp.unified || sp.reverse;
                     return (
                       <button key={i} onClick={() => setActiveIdx(i)}
-                        className="relative shrink-0 transition-opacity"
-                        style={{ width: 72, height: 72, backgroundColor: '#faf4ea', borderRight: i < specimens.length - 1 ? '1px solid #e8e0d0' : 'none', opacity: i === activeIdx ? 1 : 0.55, outline: i === activeIdx ? '2px solid #b8843a' : 'none', outlineOffset: -2 }}>
+                        className={`relative w-[72px] h-[72px] shrink-0 bg-surface transition-opacity ${
+                          i < specimens.length - 1 ? 'border-r border-border' : ''
+                        } ${i === activeIdx ? 'opacity-100 outline-2 -outline-offset-2 outline-amber' : 'opacity-55 outline-none'}`}>
                         {thumb && (
-                          <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5"
-                            style={{ mixBlendMode: 'multiply' }}
+                          <img src={thumb} alt={sp.label} className="w-full h-full object-contain p-1.5 mix-blend-multiply"
                             onError={e => { e.currentTarget.style.display = 'none'; }} />
                         )}
                         {sp.isCustom && (
-                          <span className="absolute bottom-1 left-0 right-0 text-center font-sans" style={{ fontSize: 8, color: '#b8843a' }}>Custom</span>
+                          <span className="absolute bottom-1 left-0 right-0 text-center font-sans text-[8px] text-amber">Custom</span>
                         )}
                       </button>
                     );
@@ -519,11 +526,11 @@ const CollectionCoinDetail = () => {
                     const sp = specimens[activeIdx] || specimens[0];
                     return (
                       <>
-                        <span className="font-sans text-xs font-medium" style={{ color: '#9a8e80' }}>{sp?.label}</span>
-                        {sp?.meta?.copyright_holder && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>© {sp.meta.copyright_holder}</span>}
-                        {sp?.meta?.license && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>{sp.meta.license}</span>}
+                        <span className="font-sans text-xs font-medium text-text-muted">{sp?.label}</span>
+                        {sp?.meta?.copyright_holder && <span className="font-sans text-xs text-text-muted">© {sp.meta.copyright_holder}</span>}
+                        {sp?.meta?.license && <span className="font-sans text-xs text-text-muted">{sp.meta.license}</span>}
                         {specimens.length > 1 && (
-                          <span className="font-sans text-xs tabular-nums ml-auto" style={{ color: '#9a8e80' }}>{activeIdx + 1} / {specimens.length}</span>
+                          <span className="font-sans text-xs tabular-nums ml-auto text-text-muted">{activeIdx + 1} / {specimens.length}</span>
                         )}
                       </>
                     );
@@ -545,7 +552,7 @@ const CollectionCoinDetail = () => {
 
         {/* No-image placeholder when no custom images have been uploaded */}
         {specimens.length === 0 && (
-          <div className="bg-card border border-border rounded-md mb-6 p-8 flex flex-col items-center justify-center gap-3" style={{ minHeight: 200 }}>
+          <div className="bg-card border border-border rounded-md mb-6 min-h-[200px] p-8 flex flex-col items-center justify-center gap-3">
             <CoinImagePlaceholder className="w-44 h-44 rounded" />
             <button
               onClick={() => setShowImageEditModal(true)}
@@ -604,6 +611,40 @@ const CollectionCoinDetail = () => {
               {renderField('Mint',         fmt(coin.classification?.mint))}
             </div>
           </div>
+
+          {(coin.reference || coin.source_ocre_url) && (
+            <div className="p-5 bg-card border border-border rounded-md">
+              {coin.reference && (
+                <>
+                  <h2 className="font-display font-semibold text-xl mb-4 text-text-primary">Reference</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {renderField('Citation', fmtReference(coin.reference, coin.title?.en))}
+                  </div>
+                  {coin.references?.length > 1 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="font-sans text-xs font-medium text-amber">Additional references</p>
+                      {coin.references.slice(1).map((ref, i) => (
+                        <p key={i} className="font-sans text-xs text-text-secondary">
+                          {fmtReference(ref)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {coin.source_ocre_url && (
+                <div className={coin.reference ? 'pt-4 mt-4 border-t border-border' : ''}>
+                  <a href={coin.source_ocre_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 font-sans text-sm text-amber hover:text-amber-hover transition-colors">
+                    View on OCRE
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
 
           {['obverse', 'reverse'].map(side => {
             const desc = coin.descriptions?.[side];
@@ -804,8 +845,7 @@ const CollectionCoinDetail = () => {
               <p className="font-sans text-sm mb-4 text-text-muted">Upload your own photos of this coin. Min 600×600px · JPEG, PNG, WebP · Max 15 MB.</p>
 
               {imageModalError && (
-                <div className="flex items-start gap-2.5 p-3 mb-4 rounded-md text-sm font-sans"
-                  style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                <div className="flex items-start gap-2.5 p-3 mb-4 rounded-md text-sm font-sans bg-error-bg border border-error-border text-error-text">
                   <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -827,11 +867,9 @@ const CollectionCoinDetail = () => {
                   <div key={side}>
                     <h3 className="font-sans font-semibold text-sm mb-2 text-text-primary">{label}</h3>
                     <div
-                      className="relative p-5 text-center transition-colors duration-150 rounded"
-                      style={{
-                        border: `2px dashed ${da ? '#b8843a' : '#e8e0d0'}`,
-                        backgroundColor: da ? '#f0e8d4' : '#faf4ea',
-                      }}
+                      className={`relative p-5 text-center transition-colors duration-150 rounded border-2 border-dashed ${
+                        da ? 'border-amber bg-amber-bg' : 'border-border bg-surface'
+                      }`}
                       onDragEnter={e => { e.preventDefault(); sda(true); }}
                       onDragLeave={e => { e.preventDefault(); sda(false); }}
                       onDragOver={e => e.preventDefault()}
@@ -848,7 +886,7 @@ const CollectionCoinDetail = () => {
                       {preview ? (
                         <div>
                           <img src={preview} alt={`${side} preview`} className="w-full h-28 object-contain mx-auto rounded" />
-                          <p className="mt-2 font-sans text-xs font-medium" style={{ color: semantic.success.text }}>Image selected</p>
+                          <p className="mt-2 font-sans text-xs font-medium text-success-text">Image selected</p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center">
@@ -891,49 +929,42 @@ const CollectionCoinDetail = () => {
 
       {/* Zoom Modal */}
       {zoomed && active && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: '#faf4ea' }} onClick={() => setZoomed(false)}>
+        <div className="fixed inset-0 z-50 flex flex-col bg-surface" onClick={() => setZoomed(false)}>
           {/* Top bar */}
-          <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b"
-            style={{ backgroundColor: '#fefcf8', borderColor: '#e8e0d0' }}
+          <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-border bg-card"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               {specimens.length > 1 && (
                 <>
                   <button onClick={() => { setActiveIdx(i => (i - 1 + specimens.length) % specimens.length); handleZoomReset(); }}
-                    className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
-                    style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                    className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-secondary bg-canvas transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                   </button>
                   <button onClick={() => { setActiveIdx(i => (i + 1) % specimens.length); handleZoomReset(); }}
-                    className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
-                    style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                    className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-secondary bg-canvas transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
                   </button>
-                  <span className="font-sans text-xs ml-1" style={{ color: '#9a8e80' }}>{activeIdx + 1} / {specimens.length}</span>
+                  <span className="font-sans text-xs ml-1 text-text-muted">{activeIdx + 1} / {specimens.length}</span>
                 </>
               )}
-              <span className="font-sans text-xs ml-2" style={{ color: '#5a5040' }}>{active.label}</span>
+              <span className="font-sans text-xs ml-2 text-text-secondary">{active.label}</span>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
               <button onClick={handleZoomOut} disabled={zoomScale <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded border disabled:opacity-30 transition-colors"
-                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-secondary bg-canvas disabled:opacity-30 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"/></svg>
               </button>
               <button onClick={handleZoomReset}
-                className="font-sans text-xs min-w-[3rem] text-center tabular-nums px-2 py-1 rounded border transition-colors"
-                style={{ borderColor: '#e8e0d0', color: '#b8843a', backgroundColor: '#fdf8f0' }}>
+                className="font-sans text-xs min-w-[3rem] text-center tabular-nums px-2 py-1 rounded border border-border text-amber bg-canvas transition-colors">
                 {Math.round(zoomScale * 100)}%
               </button>
               <button onClick={handleZoomIn} disabled={zoomScale >= 4}
-                className="w-8 h-8 flex items-center justify-center rounded border disabled:opacity-30 transition-colors"
-                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-secondary bg-canvas disabled:opacity-30 transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>
               </button>
-              <div className="w-px h-5 mx-1" style={{ backgroundColor: '#e8e0d0' }} />
+              <div className="w-px h-5 mx-1 bg-border" />
               <button onClick={() => setZoomed(false)}
-                className="w-8 h-8 flex items-center justify-center rounded border transition-colors"
-                style={{ borderColor: '#e8e0d0', color: '#5a5040', backgroundColor: '#fdf8f0' }}>
+                className="w-8 h-8 flex items-center justify-center rounded border border-border text-text-secondary bg-canvas transition-colors">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -942,8 +973,7 @@ const CollectionCoinDetail = () => {
           {/* Image area */}
           <div
             ref={zoomContainerRef}
-            className="flex-1 overflow-hidden flex items-center justify-center"
-            style={{ cursor: zoomScale > 1 ? 'grab' : 'default', backgroundColor: '#faf4ea' }}
+            className={`flex-1 overflow-hidden flex items-center justify-center bg-surface ${zoomScale > 1 ? 'cursor-grab' : 'cursor-default'}`}
             onClick={e => e.stopPropagation()}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
@@ -956,27 +986,23 @@ const CollectionCoinDetail = () => {
               transformOrigin: 'center center',
               transition: isDragging.current ? 'none' : 'transform 0.15s ease-out',
               userSelect: 'none',
-              backgroundColor: '#faf4ea',
-            }} className="w-full flex items-center justify-center">
+            }} className="w-full flex items-center justify-center bg-surface">
               {active.unified ? (
                 <img src={active.unified} alt={active.label}
-                  className="max-h-[80vh] max-w-full object-contain pointer-events-none"
-                  style={{ mixBlendMode: 'multiply' }}
+                  className="max-h-[80vh] max-w-full object-contain pointer-events-none mix-blend-multiply"
                   draggable={false}
                   onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
               ) : (
-                <div className="flex gap-8 items-center justify-center px-8" style={{ backgroundColor: '#faf4ea' }}>
+                <div className="flex gap-8 items-center justify-center px-8 bg-surface">
                   {active.obverse && (
                     <img src={active.obverse} alt="Obverse"
-                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                      style={{ mixBlendMode: 'multiply' }}
+                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none mix-blend-multiply"
                       draggable={false}
                       onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                   )}
                   {active.reverse && (
                     <img src={active.reverse} alt="Reverse"
-                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none"
-                      style={{ mixBlendMode: 'multiply' }}
+                      className="max-h-[72vh] max-w-[44vw] object-contain pointer-events-none mix-blend-multiply"
                       draggable={false}
                       onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }} />
                   )}
@@ -987,11 +1013,10 @@ const CollectionCoinDetail = () => {
 
           {/* Bottom license bar */}
           {(active.meta?.copyright_holder || active.meta?.license) && (
-            <div className="shrink-0 px-5 py-2.5 flex flex-wrap gap-x-5 border-t"
-              style={{ backgroundColor: '#fefcf8', borderColor: '#e8e0d0' }}
+            <div className="shrink-0 px-5 py-2.5 flex flex-wrap gap-x-5 border-t border-border bg-card"
               onClick={e => e.stopPropagation()}>
-              {active.meta.copyright_holder && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>© {active.meta.copyright_holder}</span>}
-              {active.meta.license && <span className="font-sans text-xs" style={{ color: '#9a8e80' }}>{active.meta.license}</span>}
+              {active.meta.copyright_holder && <span className="font-sans text-xs text-text-muted">© {active.meta.copyright_holder}</span>}
+              {active.meta.license && <span className="font-sans text-xs text-text-muted">{active.meta.license}</span>}
             </div>
           )}
         </div>

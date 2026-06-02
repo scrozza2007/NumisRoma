@@ -159,8 +159,7 @@ const ProfileHeader = ({
             ].map(({ label, value, onClick }) => (
               <div
                 key={label}
-                className="text-center"
-                style={{ cursor: onClick ? 'pointer' : 'default' }}
+                className={`text-center ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={onClick}
               >
                 <div className="font-display font-semibold text-2xl text-amber">{value}</div>

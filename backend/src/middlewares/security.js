@@ -146,6 +146,21 @@ const authLimiter = failOpen(rateLimit({
   store: buildRedisStore('auth')
 }));
 
+// Counts successful lifecycle operations as well as failures. Refresh and
+// logout endpoints must not be usable as high-rate replay/oracle endpoints.
+const authLifecycleLimiter = failOpen(rateLimit({
+  windowMs: RATE_LIMITS.AUTH.windowMs,
+  max: 40,
+  message: {
+    error: 'Too many session operations, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  store: buildRedisStore('auth-lifecycle')
+}));
+
 // Contact form rate limiting
 const contactLimiter = failOpen(rateLimit({
   windowMs: RATE_LIMITS.CONTACT.windowMs,
@@ -190,6 +205,7 @@ module.exports = {
   securityHeaders,
   generalLimiter,
   authLimiter,
+  authLifecycleLimiter,
   contactLimiter,
   searchLimiter,
   e2eeLimiter,

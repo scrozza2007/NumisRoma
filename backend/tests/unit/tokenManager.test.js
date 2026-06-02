@@ -1,6 +1,7 @@
 const Session = require('../../src/models/Session');
 const User = require('../../src/models/User');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const {
   generateTokenPair,
   refreshAccessToken,
@@ -60,6 +61,30 @@ describe('generateTokenPair', () => {
     const raw = await Session.findOne({ refreshToken });
     expect(raw).toBeNull();
   });
+
+  test('stores device metadata in the session but not in bearer tokens', async () => {
+    const user = await makeUser('g4');
+    const { accessToken } = await generateTokenPair(user._id, {
+      sessionMetadata: {
+        deviceInfo: { type: 'mobile', operatingSystem: 'iOS', browser: 'Safari', deviceName: 'iOS - Safari' },
+        ipAddress: '203.0.113.9',
+        userAgent: 'Mobile browser'
+      }
+    });
+    const session = await Session.findOne({ token: hashToken(accessToken) });
+    const decoded = jwt.decode(accessToken);
+    expect(session.ipAddress).toBe('203.0.113.9');
+    expect(session.deviceInfo.browser).toBe('Safari');
+    expect(decoded.sessionMetadata).toBeUndefined();
+  });
+
+  test('creates longer-lived remembered sessions', async () => {
+    const user = await makeUser('g5');
+    const { accessToken } = await generateTokenPair(user._id, { rememberMe: true });
+    const session = await Session.findOne({ token: hashToken(accessToken) });
+    expect(session.rememberMe).toBe(true);
+    expect(session.absoluteExpiresAt.getTime() - Date.now()).toBeGreaterThan(20 * 24 * 60 * 60 * 1000);
+  });
 });
 
 describe('refreshAccessToken', () => {
@@ -83,6 +108,15 @@ describe('refreshAccessToken', () => {
       { expiresIn: '7d' }
     );
     await expect(refreshAccessToken(phantom, {})).rejects.toThrow();
+  });
+
+  test('rotates refresh tokens and revokes a family when an old token is reused', async () => {
+    const user = await makeUser('r3');
+    const { refreshToken } = await gen(user._id);
+    await refreshAccessToken(refreshToken, {});
+    await expect(refreshAccessToken(refreshToken, {})).rejects.toMatchObject({ code: 'REFRESH_TOKEN_REUSED' });
+    const active = await Session.find({ userId: user._id, isActive: true });
+    expect(active).toHaveLength(0);
   });
 });
 

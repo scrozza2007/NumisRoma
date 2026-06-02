@@ -1,8 +1,9 @@
+const crypto = require('crypto');
+const net = require('net');
 const Session = require('../models/Session');
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
 const { extractToken } = require('../middlewares/authMiddleware');
-const { hashToken } = require('../utils/tokenManager');
+const { hashToken, SESSION_CONFIG, recordAuditEvent } = require('../utils/tokenManager');
+const { resolveApproximateLocation } = require('../utils/sessionLocation');
 const logger = require('../utils/logger');
 
 // Derive a compact device fingerprint (type / OS / browser) from a User-Agent.
@@ -81,22 +82,59 @@ const detectDevice = (userAgent) => {
   };
 };
 
-// Resolve the best-effort client IP from an Express request.
-// Prefers Express's `req.ip` (which honours `app.set('trust proxy')`),
-// then falls back to raw socket addresses. This is defensive against
-// malformed `x-forwarded-for` headers that we would otherwise store verbatim.
+const normalizeIp = (ipAddress) => {
+  if (typeof ipAddress !== 'string') return 'unknown';
+  const ip = ipAddress.trim();
+  if (!ip) return 'unknown';
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+};
+
+const isPrivateIpv4 = (ipAddress) => {
+  const octets = ipAddress.split('.').map(Number);
+  if (octets.length !== 4 || octets.some(octet => !Number.isInteger(octet))) return false;
+  return octets[0] === 10
+    || octets[0] === 127
+    || (octets[0] === 169 && octets[1] === 254)
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+};
+
+const isPublicIp = (ipAddress) => {
+  if (!ipAddress || ipAddress === 'unknown') return false;
+  if (net.isIPv4(ipAddress)) return !isPrivateIpv4(ipAddress);
+  if (net.isIPv6(ipAddress)) {
+    if (ipAddress === '::1') return false;
+    return !(/^f[cd]/i.test(ipAddress) || /^fe[89ab]/i.test(ipAddress));
+  }
+  return false;
+};
+
+const shouldUseObservedIp = (storedIpAddress, observedIpAddress) => {
+  if (!observedIpAddress || observedIpAddress === 'unknown') return false;
+  if (!storedIpAddress || storedIpAddress === 'unknown') return true;
+  if (isPublicIp(observedIpAddress)) return true;
+  return !isPublicIp(storedIpAddress);
+};
+
+// Resolve the client IP through Express's trust-proxy policy. Do not read
+// forwarded headers directly here: accepting an untrusted header would let a
+// caller choose the address shown in their session history.
 const resolveIp = (req) => {
   if (!req) return 'unknown';
-  if (typeof req.ip === 'string' && req.ip.length > 0) return req.ip;
-  const xff = req.headers && req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.length > 0) {
-    // `x-forwarded-for` may be a comma-separated list — first entry is the
-    // original client. We only use this when trust-proxy is unset.
-    return xff.split(',')[0].trim();
-  }
-  return (req.connection && req.connection.remoteAddress)
+  return normalizeIp(
+    req.ip
+    || (req.connection && req.connection.remoteAddress)
     || (req.socket && req.socket.remoteAddress)
-    || 'unknown';
+  );
+};
+
+exports.getRequestSessionMetadata = (req) => {
+  const userAgent = req?.headers?.['user-agent'] || '';
+  return {
+    deviceInfo: detectDevice(userAgent),
+    ipAddress: resolveIp(req),
+    userAgent: userAgent || null
+  };
 };
 
 // Create a new session.
@@ -108,37 +146,30 @@ const resolveIp = (req) => {
 // `loginUser`) handle the thrown error by returning 500 and cleaning up
 // any half-created user.
 exports.createSession = async (userId, token, req) => {
-  let deviceInfo;
-  let ipAddress = 'unknown';
-  let location = 'Unknown';
-
-  if (req && typeof req === 'object') {
-    const userAgent = req.headers ? (req.headers['user-agent'] || '') : '';
-    deviceInfo = detectDevice(userAgent);
-    ipAddress = resolveIp(req);
-    if (req.body && typeof req.body.location === 'string') {
-      location = req.body.location.trim().slice(0, 100);
-    }
-  } else {
-    deviceInfo = {
-      type: 'unknown',
-      operatingSystem: 'unknown',
-      browser: 'unknown',
-      deviceName: 'Unknown Device'
-    };
-  }
-
+  const { deviceInfo, ipAddress } = exports.getRequestSessionMetadata(req);
+  const geoLocation = await resolveApproximateLocation(ipAddress);
+  const now = new Date();
   const session = new Session({
     userId,
     token: hashToken(token),
     deviceInfo,
     ipAddress,
-    location,
-    lastActive: new Date()
+    location: geoLocation.label,
+    geoLocation: { ...geoLocation, updatedAt: now },
+    lastActive: now,
+    idleExpiresAt: new Date(now.getTime() + SESSION_CONFIG.IDLE_TIMEOUT_MS),
+    absoluteExpiresAt: new Date(now.getTime() + SESSION_CONFIG.ABSOLUTE_TIMEOUT_MS)
   });
 
   try {
     await session.save();
+    await recordAuditEvent({
+      userId,
+      sessionId: session._id,
+      eventType: 'login',
+      ipAddress,
+      location: session.location
+    });
     return session;
   } catch (error) {
     logger.error('Failed to persist session', {
@@ -173,11 +204,52 @@ exports.getActiveSessions = async (req, res) => {
     // Authorization header. Using the shared helper handles both sources
     // safely, including the case where the caller has no token at all.
     const { token: currentToken } = extractToken(req);
+    const currentTokenHash = currentToken ? hashToken(currentToken) : null;
+    const currentIpAddress = resolveIp(req);
 
-    const sessionsWithCurrentFlag = sessions.map((session) => ({
-      ...session,
-      isCurrentSession: currentToken ? session.token === hashToken(currentToken) : false
+    const updateOperations = [];
+    const sessionsWithCurrentFlag = await Promise.all(sessions.map(async (session) => {
+      const isCurrentSession = currentTokenHash ? session.token === currentTokenHash : false;
+      const updates = {};
+      if (isCurrentSession && session.ipAddress !== currentIpAddress && shouldUseObservedIp(session.ipAddress, currentIpAddress)) {
+        session.ipAddress = currentIpAddress;
+        updates.ipAddress = currentIpAddress;
+      }
+
+      const geoLocation = await resolveApproximateLocation(session.ipAddress);
+      if (session.location !== geoLocation.label) {
+        updates.location = geoLocation.label;
+      }
+      if (!session.geoLocation?.source || session.location !== geoLocation.label || updates.ipAddress) {
+        updates.geoLocation = { ...geoLocation, updatedAt: new Date() };
+      }
+      const publicId = session.publicId || crypto.randomUUID();
+      if (!session.publicId) {
+        updates.publicId = publicId;
+      }
+      if (Object.keys(updates).length > 0) {
+        updateOperations.push(Session.updateOne(
+          { _id: session._id, userId, isActive: true },
+          { $set: updates }
+        ));
+      }
+
+      return {
+        id: publicId,
+        deviceInfo: session.deviceInfo,
+        ipAddress: session.ipAddress || 'unknown',
+        location: geoLocation.label,
+        geoLocation,
+        riskFlags: session.risk?.flags || [],
+        isActive: session.isActive,
+        lastActive: session.lastActive,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        isCurrentSession
+      };
     }));
+
+    await Promise.all(updateOperations);
 
     res.json({ sessions: sessionsWithCurrentFlag });
   } catch (error) {
@@ -198,7 +270,7 @@ exports.terminateSession = async (req, res) => {
     const userId = req.user.userId;
 
     // Fetch token only to check the "can't terminate current session" rule.
-    const session = await Session.findOne({ _id: sessionId, userId }).select('token');
+    const session = await Session.findOne({ publicId: sessionId, userId }).select('token');
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
@@ -212,9 +284,10 @@ exports.terminateSession = async (req, res) => {
     }
 
     await Session.updateOne(
-      { _id: sessionId, userId },
-      { $set: { isActive: false } }
+      { publicId: sessionId, userId },
+      { $set: { isActive: false, revokedAt: new Date(), revocationReason: 'user_revoked' } }
     );
+    await recordAuditEvent({ userId, sessionId: session._id, eventType: 'session_revoked', severity: 'info' });
 
     res.json({ message: 'Session terminated successfully' });
   } catch (error) {
@@ -244,10 +317,16 @@ exports.terminateAllOtherSessions = async (req, res) => {
     }
 
     // Find and deactivate all other active user sessions
-    await Session.updateMany(
+    const result = await Session.updateMany(
       { userId, isActive: true, token: { $ne: hashToken(currentToken) } },
-      { $set: { isActive: false } }
+      { $set: { isActive: false, revokedAt: new Date(), revocationReason: 'logout_other_devices' } }
     );
+    await recordAuditEvent({
+      userId,
+      eventType: 'logout_other_devices',
+      severity: 'info',
+      details: { revokedCount: result.modifiedCount }
+    });
 
     res.json({ message: 'All other sessions have been terminated successfully' });
   } catch (error) {
@@ -266,7 +345,12 @@ exports.updateSessionActivity = async (userId, token) => {
   try {
     await Session.updateOne(
       { userId, token, isActive: true },
-      { $set: { lastActive: new Date() } }
+      {
+        $set: {
+          lastActive: new Date(),
+          idleExpiresAt: new Date(Date.now() + SESSION_CONFIG.IDLE_TIMEOUT_MS)
+        }
+      }
     );
   } catch (error) {
     logger.debug('Failed to update session activity', {

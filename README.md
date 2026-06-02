@@ -23,6 +23,7 @@
 - ☕ Support ongoing development through the embedded and floating Ko-fi integrations
 - ✉️ Contact support through the working contact form and `support@numisroma.com`
 - 🔐 Manage your account with full session control across devices
+- 📦 Request a secure "Download Your Data" ZIP archive from account settings
 
 The current user interface is provided in English only.
 
@@ -53,6 +54,7 @@ The current user interface is provided in English only.
 ### Auth & Security
 - 🔑 JWT-based auth via httpOnly cookies (access token 15 min, refresh token 7 days)
 - 🔄 Refresh token rotation with per-device session management (max 5 sessions)
+- 🌍 Approximate session locations resolved only from local/self-hosted GeoIP databases
 - 📧 Email-verified registration — OTP sent via Resend, mailbox validated via Abstract API
 - 🔑 Forgot / reset password flow with single-use tokens (15 min TTL)
 - 🌐 Google OAuth sign-in with find-or-create account merging
@@ -120,7 +122,7 @@ numisroma/
 ├── backend/                  Express.js API (MVC)
 │   ├── src/
 │   │   ├── config/          validateEnv, database, constants, sentry
-│   │   ├── controllers/     auth, coins, collections, wishlist, users, messages, sessions, contact
+│   │   ├── controllers/     auth, coins, collections, wishlist, users, messages, sessions, contact, data export
 │   │   ├── middlewares/     auth, CSRF, upload, rate-limit, error handler
 │   │   ├── models/          Coin, Collection, User, Session, Message, Conversation, Follow…
 │   │   ├── routes/          one file per domain
@@ -171,6 +173,8 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `GOOGLE_CLIENT_ID` | optional | Google OAuth app client ID |
 | `GOOGLE_CLIENT_SECRET` | optional | Google OAuth app client secret |
 | `GOOGLE_VISION_API_KEY` | optional | Google Cloud Vision API key — enables AI coin detection on coin uploads and NSFW + incoherent-content rejection on thumbnails; skips AI checks when unset (free tier: 1 000 units/month) |
+| `MAXMIND_CITY_DB_PATH` | optional | Local/self-hosted GeoIP city database for approximate session locations. User IPs are never sent to hosted geolocation APIs; missing records show `Unknown location`. |
+| `MAXMIND_ASN_DB_PATH` | optional | Local/self-hosted GeoIP ASN database for session network names and risk checks. |
 | `SENTRY_DSN` | optional | Error tracking via Sentry |
 | `ADMIN_API_KEY` | optional | ≥ 32-char key to access cache-flush admin endpoints |
 

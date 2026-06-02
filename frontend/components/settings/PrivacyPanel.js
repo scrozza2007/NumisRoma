@@ -1,6 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
-import { semantic } from '../../utils/tokens';
 import { apiClient } from '../../utils/apiClient';
 
 const formatLastActive = (date) => {
@@ -15,6 +14,34 @@ const formatLastActive = (date) => {
     return `${days} days ago`;
   } catch { return 'unknown date'; }
 };
+
+const formatSessionLocation = (session) => {
+  const source = session.geoLocation?.source;
+  if (source === 'unavailable' || source === 'private_network' || source === 'local_development') return 'Unknown location';
+  return session.location || 'Unknown location';
+};
+const formatSessionIp = (session) => session.ipAddress || 'Unavailable';
+const getLocationHelp = (session) => {
+  const source = session.geoLocation?.source;
+  if (source === 'unavailable' || source === 'private_network' || source === 'local_development') {
+    return 'Approximate location could not be determined from our local geolocation data.';
+  }
+  return null;
+};
+const formatDateTime = (date) => date
+  ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(date))
+  : 'Unknown';
+const formatRiskFlag = (flag) => ({
+  new_device: 'New device',
+  new_country: 'New country',
+  impossible_travel: 'Impossible travel',
+  anonymous_network: 'Anonymous network',
+  vpn_detected: 'VPN detected',
+  proxy_detected: 'Proxy detected',
+  tor_detected: 'Tor detected',
+  ip_changed: 'IP changed',
+  user_agent_changed: 'Device signature changed'
+}[flag] || flag);
 
 const DeviceIcon = ({ type }) => {
   const iconPath = type === 'mobile'
@@ -31,20 +58,8 @@ const DeviceIcon = ({ type }) => {
   );
 };
 
-const Toggle = ({ checked }) => (
-  <div
-    className="relative inline-flex items-center h-5 rounded-full w-10"
-    style={{ backgroundColor: checked ? 'var(--color-amber)' : 'var(--color-border)' }}
-  >
-    <span
-      className="inline-block w-3.5 h-3.5 rounded-full bg-white"
-      style={{ transform: checked ? 'translateX(22px)' : 'translateX(3px)', transition: 'transform 0.2s' }}
-    />
-  </div>
-);
-
 const PrivacyPanel = ({ onSuccess }) => {
-  const { user, sessions, sessionsLoading, fetchSessions, terminateSession, terminateAllOtherSessions, setSessions } = useContext(AuthContext);
+  const { user, logout, sessions, sessionsLoading, fetchSessions, terminateSession, terminateAllOtherSessions, setSessions } = useContext(AuthContext);
   const [terminatingSession, setTerminatingSession] = useState(null);
   const [terminatingAllSessions, setTerminatingAllSessions] = useState(false);
   const [sessionError, setSessionError] = useState(null);
@@ -75,7 +90,7 @@ const PrivacyPanel = ({ onSuccess }) => {
     try {
       const result = await terminateSession(sessionId);
       if (result.success) {
-        setSessions(prev => prev.filter(s => s._id !== sessionId));
+        setSessions(prev => prev.filter(s => s.id !== sessionId));
         onSuccess('Session terminated. The device will be logged out.');
       } else showError(result.error || 'Error terminating session');
     } catch { showError('A network error occurred'); }
@@ -92,6 +107,11 @@ const PrivacyPanel = ({ onSuccess }) => {
       } else showError(result.error || 'Error terminating sessions');
     } catch { showError('A network error occurred'); }
     finally { setTerminatingAllSessions(false); }
+  };
+
+  const handleTerminateCurrentSession = async () => {
+    setTerminatingSession('current');
+    await logout();
   };
 
   return (
@@ -119,80 +139,29 @@ const PrivacyPanel = ({ onSuccess }) => {
           <button
             onClick={handlePrivacyToggle}
             disabled={privacyLoading}
-            className="relative inline-flex items-center h-6 rounded-full w-11 shrink-0 transition-colors duration-200 disabled:opacity-50"
-            style={{ backgroundColor: isPrivate ? 'var(--color-amber)' : 'var(--color-border)' }}
+            className={`relative inline-flex items-center h-6 rounded-full w-11 shrink-0 transition-colors duration-200 disabled:opacity-50 ${isPrivate ? 'bg-amber' : 'bg-border'}`}
             aria-label="Toggle private account"
           >
             <span
-              className="inline-block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-              style={{ transform: isPrivate ? 'translateX(26px)' : 'translateX(4px)' }}
+              className={`inline-block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${isPrivate ? 'translate-x-[26px]' : 'translate-x-[4px]'}`}
             />
           </button>
         </div>
       </div>
 
-      {/* 2FA & Login Notifications */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 2FA */}
-        <div className="p-5 bg-surface-alt border border-border rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 flex items-center justify-center rounded-md bg-amber-bg">
-              <svg className="w-4 h-4 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h3 className="font-sans font-semibold text-sm text-text-primary">Two-Factor Authentication</h3>
-          </div>
-          <p className="font-sans text-sm mb-4 text-text-muted">Add an extra layer of security to your account.</p>
-          <div className="flex items-center justify-between p-3 rounded-md mb-3 bg-card border border-border">
-            <div>
-              <p className="font-sans text-sm font-medium text-text-primary">Status</p>
-              <p className="font-sans text-xs" style={{ color: semantic.error.border }}>Not enabled</p>
-            </div>
-            <button className="px-4 py-1.5 font-sans text-sm font-semibold rounded-md bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150">
-              Enable
-            </button>
-          </div>
-          <p className="font-sans text-xs text-text-muted">Enter a verification code from your auth app on each login.</p>
-        </div>
-
-        {/* Login Notifications */}
-        <div className="p-5 bg-surface-alt border border-border rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 flex items-center justify-center rounded-md bg-amber-bg">
-              <svg className="w-4 h-4 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h3 className="font-sans font-semibold text-sm text-text-primary">Login Notifications</h3>
-          </div>
-          <p className="font-sans text-sm mb-4 text-text-muted">Get alerted when someone logs in from a new device.</p>
-          <div className="space-y-3">
-            {[
-              { label: 'Email Alerts',       desc: 'Email notifications for new logins', on: true },
-              { label: 'Push Notifications', desc: 'Push notifications on your devices',  on: false },
-            ].map(({ label, desc, on }) => (
-              <div key={label} className="flex items-center justify-between">
-                <div>
-                  <p className="font-sans text-sm font-medium text-text-primary">{label}</p>
-                  <p className="font-sans text-xs text-text-muted">{desc}</p>
-                </div>
-                <Toggle checked={on} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Session Management */}
       <div className="p-6 bg-card border border-border rounded-lg">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-display font-semibold text-xl text-text-primary">Active Sessions</h3>
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h3 className="font-display font-semibold text-xl text-text-primary">Your active sessions</h3>
+            <p className="font-sans text-xs text-text-muted mt-1">
+              Review devices signed in to your account. Locations are approximate and based on network information.
+            </p>
+          </div>
           <button
             onClick={handleTerminateAllSessions}
             disabled={terminatingAllSessions || !sessions || sessions.length <= 1}
-            className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-medium rounded-md transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ border: '1px solid #fecaca', color: semantic.error.text, backgroundColor: semantic.error.bg }}
+            className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-medium rounded-md border border-error-border text-error-text bg-error-bg transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {terminatingAllSessions
               ? <><div className="animate-spin rounded-full h-3 w-3 border border-t-transparent border-red-600" />Logging out…</>
@@ -202,7 +171,7 @@ const PrivacyPanel = ({ onSuccess }) => {
         </div>
 
         {sessionError && (
-          <div className="mb-4 p-3 rounded-md flex items-start gap-2" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
+          <div className="mb-4 p-3 rounded-md flex items-start gap-2 bg-error-bg border border-error-border text-error-text">
             <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <p className="font-sans text-sm">{sessionError}</p>
           </div>
@@ -215,7 +184,7 @@ const PrivacyPanel = ({ onSuccess }) => {
         ) : sessions && sessions.length > 0 ? (
           <div className="space-y-2">
             {sessions.map(session => (
-              <div key={session._id} className="flex items-start justify-between p-3 rounded-md bg-surface-alt border border-border">
+              <div key={session.id} className="flex items-start justify-between gap-4 p-4 rounded-md bg-surface-alt border border-border">
                 <div className="flex items-start gap-3">
                   <DeviceIcon type={session.deviceInfo.type} />
                   <div>
@@ -223,24 +192,51 @@ const PrivacyPanel = ({ onSuccess }) => {
                       {session.isCurrentSession ? 'Current session' : session.deviceInfo.deviceName}
                     </p>
                     <p className="font-sans text-xs mt-0.5 text-text-muted">
-                      {session.deviceInfo.operatingSystem} · {session.deviceInfo.browser} ·{' '}
-                      {session.isCurrentSession ? 'Active now' : `Last: ${formatLastActive(session.lastActive)}`}
+                      {session.deviceInfo.operatingSystem} · {session.deviceInfo.browser} · {formatSessionLocation(session)}
                     </p>
-                    <p className="font-sans text-xs mt-0.5 text-text-muted">{session.location} · {session.ipAddress}</p>
+                    <p className="font-sans text-xs mt-0.5 text-text-muted">
+                      {session.isCurrentSession ? 'Active now' : `Last active ${formatLastActive(session.lastActive)}`} · Signed in {formatDateTime(session.createdAt)}
+                    </p>
+                    {getLocationHelp(session) && (
+                      <p className="font-sans text-xs mt-0.5 text-text-muted">
+                        {getLocationHelp(session)}
+                      </p>
+                    )}
+                    <p className="font-sans text-xs mt-0.5 text-text-muted">
+                      IP address: {formatSessionIp(session)}
+                    </p>
+                    {session.geoLocation?.timezone && (
+                      <p className="font-sans text-xs mt-0.5 text-text-muted">
+                        Timezone: {session.geoLocation.timezone}{session.geoLocation.isp ? ` · Network: ${session.geoLocation.isp}` : ''}
+                      </p>
+                    )}
+                    {session.riskFlags?.length > 0 && (
+                      <p className="font-sans text-xs mt-1 text-error-text">
+                        Review recommended: {session.riskFlags.map(formatRiskFlag).join(', ')}
+                      </p>
+                    )}
                   </div>
                 </div>
                 {session.isCurrentSession ? (
-                  <span className="flex items-center gap-1 font-sans text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: semantic.success.bg, color: semantic.success.text }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Active
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="flex items-center gap-1 font-sans text-xs px-2 py-0.5 rounded-full bg-success-bg text-success-text">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500" />Current
+                    </span>
+                    <button
+                      onClick={handleTerminateCurrentSession}
+                      disabled={terminatingSession === 'current'}
+                      className="font-sans text-xs px-2.5 py-1 rounded-md border border-error-border text-error-text bg-error-bg disabled:opacity-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
                 ) : (
                   <button
-                    onClick={() => handleTerminateSession(session._id)}
-                    disabled={terminatingSession === session._id}
-                    className="font-sans text-xs px-2.5 py-1 rounded-md transition-colors duration-150 disabled:opacity-50"
-                    style={{ border: '1px solid #fecaca', color: semantic.error.text, backgroundColor: semantic.error.bg }}
+                    onClick={() => handleTerminateSession(session.id)}
+                    disabled={terminatingSession === session.id}
+                    className="font-sans text-xs px-2.5 py-1 rounded-md border border-error-border text-error-text bg-error-bg transition-colors duration-150 disabled:opacity-50"
                   >
-                    {terminatingSession === session._id
+                    {terminatingSession === session.id
                       ? <span className="flex items-center gap-1"><div className="animate-spin rounded-full h-3 w-3 border border-t-transparent border-red-600" />…</span>
                       : 'Logout'}
                   </button>

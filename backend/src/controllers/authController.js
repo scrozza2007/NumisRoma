@@ -10,9 +10,8 @@ const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const sessionController = require('./sessionController');
-const { generateTokenPair, refreshAccessToken, revokeRefreshToken, revokeAllRefreshTokens, hashToken } = require('../utils/tokenManager');
+const { generateTokenPair, refreshAccessToken, revokeRefreshToken, revokeAllRefreshTokens, hashToken, recordAuditEvent } = require('../utils/tokenManager');
 const { setAuthCookie, setRefreshCookie, clearAuthCookie, clearRefreshCookie } = require('../utils/authCookie');
 const { extractToken } = require('../middlewares/authMiddleware');
 const { sanitizeString } = require('../middlewares/enhancedValidation');
@@ -20,6 +19,7 @@ const logger = require('../utils/logger');
 const emailService = require('../utils/emailService');
 const { isDeliverableEmail } = require('../utils/emailValidator');
 const PasswordResetToken = require('../models/PasswordResetToken');
+const { resolveApproximateLocation } = require('../utils/sessionLocation');
 
 // Common weak passwords blacklist (lowercased). Extend as needed.
 const COMMON_PASSWORDS = new Set([
@@ -141,6 +141,48 @@ const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
 const OTP_MAX_SENDS_PER_HOUR = process.env.NODE_ENV === 'production' ? 5 : 20;
 const OTP_MAX_ATTEMPTS = process.env.NODE_ENV === 'production' ? 5 : 20;
+
+const issueBrowserSession = async (res, userId, req, loginMethod = 'password', rememberMe = false) => {
+  const { token: existingAccessToken } = extractToken(req);
+  if (existingAccessToken) {
+    const replacedSession = await Session.findOneAndUpdate(
+      { userId, token: hashToken(existingAccessToken), isActive: true },
+      { $set: { isActive: false, revokedAt: new Date(), revocationReason: 'reauthenticated' } }
+    );
+    if (replacedSession) {
+      await recordAuditEvent({
+        userId,
+        sessionId: replacedSession._id,
+        eventType: 'reauthenticated',
+        severity: 'info'
+      });
+    }
+  }
+  const requestMetadata = sessionController.getRequestSessionMetadata(req);
+  const geoLocation = await resolveApproximateLocation(requestMetadata.ipAddress);
+  const tokenPair = await generateTokenPair(userId, {
+    rememberMe,
+    sessionMetadata: {
+      ...requestMetadata,
+      geoLocation,
+      loginMethod
+    }
+  });
+  setAuthCookie(res, tokenPair.accessToken, { rememberMe });
+  setRefreshCookie(res, tokenPair.refreshToken, { rememberMe });
+  return tokenPair;
+};
+
+const sendLoginRiskAlert = (user, tokenPair) => {
+  if (!tokenPair.riskFlags?.length || !user.email) return;
+  emailService.sendSecurityAlertEmail({
+    to: user.email,
+    username: user.username,
+    device: tokenPair.deviceInfo?.deviceName || 'Unknown device',
+    location: tokenPair.location || 'Unknown location',
+    riskFlags: tokenPair.riskFlags
+  }).catch((error) => logger.error('Login security alert email failed (non-fatal)', { error: error.message }));
+};
 
 /**
  * Step 1 — Validate email + username, send OTP.
@@ -455,18 +497,13 @@ exports.verifyOtpAndRegister = async (req, res) => {
     // Clean up pending registration
     await PendingRegistration.deleteOne({ email: email.toLowerCase() });
 
-    const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-
     try {
-      await sessionController.createSession(user._id, token, req);
+      await issueBrowserSession(res, user._id, req);
     } catch (sessionError) {
       logger.error('Session creation failed after OTP verification', { error: sessionError.message, userId: user._id });
       await User.findByIdAndDelete(user._id);
       return res.status(500).json({ error: 'Registration failed', message: 'Unable to create session. Please try again.' });
     }
-
-    setAuthCookie(res, token);
 
     // Send welcome email — non-blocking; failure doesn't roll back the registration
     emailService.sendWelcomeEmail({ to: email, username: user.username }).catch(err => {
@@ -474,7 +511,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     });
 
     return res.status(201).json({
-      token,
+      authenticated: true,
       user: {
         id: user._id,
         username: user.username,
@@ -531,6 +568,14 @@ exports.registerUser = async (req, res) => {
       });
     }
 
+    const existingEmail = await User.findOne({ email: email.toLowerCase() }).select('_id').lean();
+    if (existingEmail) {
+      return res.status(400).json({
+        error: 'Registration failed',
+        message: 'Could not create account. Please check your details and try again.'
+      });
+    }
+
     // Create new user
     const user = new User({
       username,
@@ -556,15 +601,9 @@ exports.registerUser = async (req, res) => {
       throw err;
     }
 
-    // Issue a 7-day signed JWT for the simple (non-refresh) auth flow.
-    // Clients that want short-lived access + refresh rotation use
-    // POST /auth/login-refresh instead.
-    const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-
     // Session creation is critical for security - fail registration if it fails
     try {
-      await sessionController.createSession(user._id, token, req);
+      await issueBrowserSession(res, user._id, req);
     } catch (sessionError) {
       logger.error('Session creation failed during registration', { 
         error: sessionError.message,
@@ -580,13 +619,8 @@ exports.registerUser = async (req, res) => {
       });
     }
 
-    // Issue the httpOnly auth cookie for browser clients and also return the
-    // token in the response body for clients that authenticate via the
-    // Authorization header.
-    setAuthCookie(res, token);
-
     res.status(201).json({
-      token,
+      authenticated: true,
       user: {
         id: user._id,
         username: user.username,
@@ -615,7 +649,7 @@ exports.loginUser = async (req, res) => {
     });
   }
 
-  const { identifier, password } = req.body;
+  const { identifier, password, rememberMe = false } = req.body;
 
   const LOCKOUT_THRESHOLD = 10;
   const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -672,14 +706,10 @@ exports.loginUser = async (req, res) => {
       );
     }
 
-    // Issue a 7-day signed JWT for the simple (non-refresh) auth flow.
-    // See POST /auth/login-refresh for the access+refresh token variant.
-    const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-
     // Session creation is critical for security - fail login if it fails
     try {
-      await sessionController.createSession(user._id, token, req);
+      const tokenPair = await issueBrowserSession(res, user._id, req, 'password', Boolean(rememberMe));
+      sendLoginRiskAlert(user, tokenPair);
     } catch (sessionError) {
       logger.error('Session creation failed during login', { 
         error: sessionError.message,
@@ -692,12 +722,8 @@ exports.loginUser = async (req, res) => {
       });
     }
 
-    // Issue the httpOnly auth cookie for browser clients and also return the
-    // token in the response body for clients using the Authorization header.
-    setAuthCookie(res, token);
-
     res.json({
-      token,
+      authenticated: true,
       user: {
         id: user._id,
         username: user.username,
@@ -722,10 +748,13 @@ exports.logoutUser = async (req, res) => {
     const userId = req.user.userId;
 
     if (token) {
-      await Session.findOneAndUpdate(
+      const revokedSession = await Session.findOneAndUpdate(
         { userId, token: hashToken(token), isActive: true },
-        { $set: { isActive: false } }
+        { $set: { isActive: false, revokedAt: new Date(), revocationReason: 'logout' } }
       );
+      if (revokedSession) {
+        await recordAuditEvent({ userId, sessionId: revokedSession._id, eventType: 'logout', severity: 'info' });
+      }
     }
 
     // Always clear both cookies, regardless of how the client authenticated,
@@ -994,6 +1023,19 @@ exports.deleteAccount = async (req, res) => {
 
   const mongoose = require('mongoose');
   const session = await mongoose.startSession();
+  const sendDeletionConfirmation = (deletedUser) => {
+    if (!deletedUser?.email) return;
+
+    emailService.sendAccountDeletionEmail({
+      to: deletedUser.email,
+      username: deletedUser.username
+    }).catch(err => {
+      logger.error('Failed to send account deletion confirmation', {
+        userId,
+        error: err.message
+      });
+    });
+  };
 
   const performDeletion = async (mongoSession = null) => {
     const sessionOption = mongoSession ? { session: mongoSession } : {};
@@ -1087,8 +1129,11 @@ exports.deleteAccount = async (req, res) => {
       username: result.user.username
     });
 
+    sendDeletionConfirmation(result.user);
+
     // Clear the auth cookie so the browser state matches server state.
     clearAuthCookie(res);
+    clearRefreshCookie(res);
 
     res.json({ message: 'Account deleted successfully' });
   } catch (err) {
@@ -1115,7 +1160,9 @@ exports.deleteAccount = async (req, res) => {
           userId,
           username: result.user.username
         });
+        sendDeletionConfirmation(result.user);
         clearAuthCookie(res);
+        clearRefreshCookie(res);
         return res.json({ message: 'Account deleted successfully' });
       } catch (fallbackErr) {
         logger.error('Fallback account deletion error', {
@@ -1153,8 +1200,7 @@ exports.deleteAccount = async (req, res) => {
 exports.checkSession = async (req, res) => {
   try {
     return res.status(200).json({
-      active: true,
-      sessionId: req.user.sessionId
+      active: true
     });
   } catch (error) {
     logger.error('Session check error', { error: error.message });
@@ -1182,7 +1228,7 @@ exports.loginWithRefresh = async (req, res) => {
   }
 
   try {
-    const { identifier, password } = req.body;
+    const { identifier, password, rememberMe = false } = req.body;
 
     const user = await User.findOne({
       $or: [
@@ -1205,11 +1251,8 @@ exports.loginWithRefresh = async (req, res) => {
       return jsonError(res, 401, 'Invalid credentials');
     }
 
-    // Generate token pair
-    const tokenPair = await generateTokenPair(user._id, {
-      userAgent: req.get('User-Agent'),
-      ipAddress: req.ip
-    });
+    const tokenPair = await issueBrowserSession(res, user._id, req, 'password', Boolean(rememberMe));
+    sendLoginRiskAlert(user, tokenPair);
 
     logger.info('User logged in with refresh token', {
       userId: user._id,
@@ -1217,27 +1260,17 @@ exports.loginWithRefresh = async (req, res) => {
       ip: req.ip
     });
 
-    // Issue access token as httpOnly cookie and refresh token as a separate
-    // scoped httpOnly cookie — the browser will automatically send the refresh
-    // cookie to POST /api/auth/refresh without JS ever touching the token.
-    setAuthCookie(res, tokenPair.accessToken);
-    setRefreshCookie(res, tokenPair.refreshToken);
-
     res.json({
       message: 'Login successful',
       msg: 'Login successful',
+      authenticated: true,
       user: {
         id: user._id,
         username: user.username,
         email: user.email,
         fullName: user.fullName
       },
-      tokens: {
-        accessToken: tokenPair.accessToken,
-        refreshToken: tokenPair.refreshToken,
-        expiresIn: tokenPair.expiresIn
-      },
-      sessionId: tokenPair.sessionId
+      rememberMe: tokenPair.rememberMe
     });
   } catch (error) {
     logger.error('Login with refresh token failed', {
@@ -1261,9 +1294,12 @@ exports.refreshToken = async (req, res) => {
       return jsonError(res, 400, 'Refresh token required');
     }
 
+    const requestMetadata = sessionController.getRequestSessionMetadata(req);
     const newTokenPair = await refreshAccessToken(refreshToken, {
-      userAgent: req.get('User-Agent'),
-      ipAddress: req.ip
+      sessionMetadata: {
+        ...requestMetadata,
+        geoLocation: await resolveApproximateLocation(requestMetadata.ipAddress)
+      }
     });
 
     logger.info('Access token refreshed', {
@@ -1271,17 +1307,13 @@ exports.refreshToken = async (req, res) => {
       ip: req.ip
     });
 
-    setAuthCookie(res, newTokenPair.accessToken);
-    setRefreshCookie(res, newTokenPair.refreshToken);
+    setAuthCookie(res, newTokenPair.accessToken, { rememberMe: newTokenPair.rememberMe });
+    setRefreshCookie(res, newTokenPair.refreshToken, { rememberMe: newTokenPair.rememberMe });
 
     res.json({
       message: 'Token refreshed successfully',
       msg: 'Token refreshed successfully',
-      tokens: {
-        accessToken: newTokenPair.accessToken,
-        refreshToken: newTokenPair.refreshToken,
-        expiresIn: newTokenPair.expiresIn
-      }
+      authenticated: true
     });
   } catch (error) {
     logger.security.authFailure('Token refresh failed', {
@@ -1291,7 +1323,7 @@ exports.refreshToken = async (req, res) => {
     });
 
     return jsonError(res, 401, 'Invalid or expired refresh token', {
-      code: 'REFRESH_TOKEN_INVALID'
+      code: error.code || 'REFRESH_TOKEN_INVALID'
     });
   }
 };
@@ -1301,7 +1333,7 @@ exports.refreshToken = async (req, res) => {
  */
 exports.revokeRefreshToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (!refreshToken) {
       return jsonError(res, 400, 'Refresh token required');
@@ -1310,6 +1342,10 @@ exports.revokeRefreshToken = async (req, res) => {
     const revoked = await revokeRefreshToken(refreshToken);
 
     if (revoked) {
+      if (req.cookies?.refreshToken) {
+        clearAuthCookie(res);
+        clearRefreshCookie(res);
+      }
       logger.info('Refresh token revoked', {
         ip: req.ip,
         userAgent: req.get('User-Agent')
@@ -1333,6 +1369,8 @@ exports.revokeAllRefreshTokens = async (req, res) => {
   try {
     const userId = req.user.userId;
     const revokedCount = await revokeAllRefreshTokens(userId);
+    clearAuthCookie(res);
+    clearRefreshCookie(res);
 
     logger.info('All refresh tokens revoked for user', {
       userId,

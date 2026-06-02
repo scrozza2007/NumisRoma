@@ -40,6 +40,19 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_ENDPOINT=${AWS_ENDPOINT:-}
       - GOOGLE_VISION_API_KEY=${GOOGLE_VISION_API_KEY:-}
+      - MAXMIND_CITY_DB_PATH=${MAXMIND_CITY_DB_PATH:-/usr/src/app/geoip/GeoLite2-City.mmdb}
+      - MAXMIND_ASN_DB_PATH=${MAXMIND_ASN_DB_PATH:-/usr/src/app/geoip/GeoLite2-ASN.mmdb}
+      - MAXMIND_ISP_DB_PATH=${MAXMIND_ISP_DB_PATH:-}
+      - MAXMIND_ANONYMOUS_IP_DB_PATH=${MAXMIND_ANONYMOUS_IP_DB_PATH:-}
+      - ACCESS_TOKEN_EXPIRY=${ACCESS_TOKEN_EXPIRY:-15m}
+      - REFRESH_TOKEN_EXPIRY=${REFRESH_TOKEN_EXPIRY:-7d}
+      - ROTATE_REFRESH_TOKENS=${ROTATE_REFRESH_TOKENS:-true}
+      - SESSION_IDLE_TIMEOUT=${SESSION_IDLE_TIMEOUT:-30m}
+      - SESSION_ABSOLUTE_TIMEOUT=${SESSION_ABSOLUTE_TIMEOUT:-7d}
+      - SESSION_REMEMBER_ME_TIMEOUT=${SESSION_REMEMBER_ME_TIMEOUT:-30d}
+      - SESSION_AUDIT_RETENTION_DAYS=${SESSION_AUDIT_RETENTION_DAYS:-365}
+    volumes:
+      - ${MAXMIND_DATA_DIR:-./geoip}:/usr/src/app/geoip:ro
     depends_on:
       mongodb:
         condition: service_healthy
@@ -70,6 +83,19 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  geoipupdate:
+    image: maxmindinc/geoipupdate:latest
+    profiles:
+      - geoip
+    environment:
+      - GEOIPUPDATE_ACCOUNT_ID=${MAXMIND_ACCOUNT_ID:-}
+      - GEOIPUPDATE_LICENSE_KEY=${MAXMIND_LICENSE_KEY:-}
+      - GEOIPUPDATE_EDITION_IDS=${MAXMIND_EDITION_IDS:-GeoLite2-City GeoLite2-ASN}
+      - GEOIPUPDATE_FREQUENCY=${MAXMIND_UPDATE_FREQUENCY_HOURS:-24}
+    volumes:
+      - ${MAXMIND_DATA_DIR:-./geoip}:/usr/share/GeoIP
     restart: unless-stopped
 
 volumes:

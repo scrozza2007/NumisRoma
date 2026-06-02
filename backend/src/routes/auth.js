@@ -1,12 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const { registerUser, loginUser, logoutUser, changePassword, deleteAccount, changeUsername, updateProfile, checkSession, loginWithRefresh, refreshToken, revokeRefreshToken, revokeAllRefreshTokens, initiateRegistration, resendOtp, verifyOtpAndRegister, forgotPassword, resetPassword } = require('../controllers/authController');
 const User = require('../models/User');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { sanitizeInput } = require('../middlewares/enhancedValidation');
 const logger = require('../utils/logger');
+const { authLifecycleLimiter } = require('../middlewares/security');
 
 // IP-based limiter on the initiate endpoint only — prevents a single IP from
 // hammering the validation checks. Intentionally generous because it fires on
@@ -15,7 +16,7 @@ const logger = require('../utils/logger');
 const registrationAttemptLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: (req) => req.ip ? ipKeyGenerator(req.ip) : 'unknown',
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => res.status(429).json({
@@ -114,6 +115,7 @@ router.post(
 // Login route
 router.post(
   '/login',
+  authLifecycleLimiter,
   sanitizeInput,
   [
     body('identifier').notEmpty().withMessage('Identifier is required'),
@@ -274,7 +276,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 const forgotPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: (req) => req.ip ? ipKeyGenerator(req.ip) : 'unknown',
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => res.status(429).json({
@@ -303,7 +305,7 @@ router.post(
 );
 
 // Logout route
-router.post('/logout', authMiddleware, logoutUser);
+router.post('/logout', authLifecycleLimiter, authMiddleware, logoutUser);
 
 // Verify session status
 router.get('/session-check', authMiddleware, checkSession);
@@ -343,6 +345,7 @@ router.post('/verify-password', authMiddleware, async (req, res) => {
 // Enhanced authentication routes with refresh tokens
 router.post(
   '/login-refresh',
+  authLifecycleLimiter,
   [
     body('identifier').notEmpty().withMessage('Identifier is required'),
     body('password').notEmpty().withMessage('Password is required')
@@ -353,22 +356,18 @@ router.post(
 // Refresh access token
 router.post(
   '/refresh',
-  [
-    body('refreshToken').notEmpty().withMessage('Refresh token is required')
-  ],
+  authLifecycleLimiter,
   refreshToken
 );
 
 // Revoke specific refresh token (logout from specific session)
 router.post(
   '/revoke-refresh',
-  [
-    body('refreshToken').notEmpty().withMessage('Refresh token is required')
-  ],
+  authLifecycleLimiter,
   revokeRefreshToken
 );
 
 // Revoke all refresh tokens for user (logout from all sessions)
-router.post('/revoke-all-refresh', authMiddleware, revokeAllRefreshTokens);
+router.post('/revoke-all-refresh', authLifecycleLimiter, authMiddleware, revokeAllRefreshTokens);
 
 module.exports = router;

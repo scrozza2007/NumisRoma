@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import { X } from 'lucide-react';
 
 const FollowModal = ({ title, isOpen, onClose, users, loading, onNavigate }) => {
   if (!isOpen) return null;
@@ -9,20 +10,18 @@ const FollowModal = ({ title, isOpen, onClose, users, loading, onNavigate }) => 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[rgba(46,40,32,0.6)]"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md overflow-hidden bg-card border border-border rounded-lg" style={{ maxHeight: '80vh' }}>
+      <div className="w-full max-w-md max-h-[80vh] overflow-hidden bg-card border border-border rounded-lg">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="font-display font-semibold text-xl text-text-primary">{title}</h3>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full bg-surface-alt text-text-secondary hover:bg-border transition-colors duration-150"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(80vh - 72px)' }}>
+        <div className="max-h-[calc(80vh-72px)] overflow-y-auto">
           {loading ? (
             <div className="p-8 text-center">
               <div className="animate-spin rounded-full h-7 w-7 border-2 border-amber border-t-transparent mx-auto mb-2" />

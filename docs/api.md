@@ -1,6 +1,6 @@
 # API Reference
 
-All API endpoints are served from `http://localhost:4000` in development (or `https://$DOMAIN/api` in production via Caddy).
+All API endpoints are served from `http://localhost:4000` in development (or `https://api.$DOMAIN` in production via Caddy).
 
 **Base path:** `/api`
 
@@ -8,8 +8,8 @@ All API endpoints are served from `http://localhost:4000` in development (or `ht
 
 ## Authentication
 
-NumisRoma uses JWT access tokens stored in httpOnly cookies. Most mutating endpoints
-also require a CSRF token.
+NumisRoma uses short-lived JWT access tokens and rotating refresh tokens stored in
+httpOnly cookies. Most mutating endpoints also require a CSRF token.
 
 ### Obtaining a CSRF token
 
@@ -66,7 +66,7 @@ Content-Type: application/json
 { "email": "string", "otp": "string (6 digits)" }
 ```
 
-Validates the OTP hash (max 5 failed attempts), marks it used, creates the `User` document, issues a session + JWT cookie, and sends a welcome email (non-blocking). Returns `{ user }`.
+Validates the OTP hash (max 5 failed attempts), marks it used, creates the `User` document, issues access/refresh httpOnly cookies, records the session, and sends a welcome email (non-blocking). Returns `{ authenticated: true, user }`.
 
 ### Forgot password
 
@@ -106,11 +106,12 @@ Content-Type: application/json
 
 {
   "identifier": "username or email",
-  "password": "string"
+  "password": "string",
+  "rememberMe": "boolean (optional)"
 }
 ```
 
-Sets `accessToken` httpOnly cookie on success. Returns `{ token, user }`.
+Sets httpOnly access and refresh cookies on success. Refresh tokens are hashed at rest, rotated on use, and bound to the session record. Returns `{ authenticated: true, user }`.
 
 ### Login with refresh token
 
@@ -120,20 +121,23 @@ Content-Type: application/json
 
 {
   "identifier": "username or email",
-  "password": "string"
+  "password": "string",
+  "rememberMe": "boolean (optional)"
 }
 ```
 
-Returns both an access token (cookie) and a `refreshToken` string in the body.
+Compatibility endpoint for clients that already call `/login-refresh`; it now follows the same secure cookie behavior as `/login`. Returns `{ authenticated: true, user, rememberMe }`.
 
 ### Refresh access token
 
 ```http
 POST /api/auth/refresh
-Content-Type: application/json
-
-{ "refreshToken": "string" }
 ```
+
+Rotates the refresh token from the httpOnly `refreshToken` cookie, issues fresh
+access/refresh cookies, and invalidates the previous refresh token hash. If a
+previously-used refresh token is seen again, the session family is revoked.
+Returns `{ authenticated: true }`.
 
 ### Logout
 
@@ -141,7 +145,7 @@ Content-Type: application/json
 POST /api/auth/logout
 ```
 
-Clears the auth cookie.
+Revokes the current session when possible and clears access/refresh cookies.
 
 ### Revoke a specific refresh token
 
@@ -149,8 +153,11 @@ Clears the auth cookie.
 POST /api/auth/revoke-refresh
 Content-Type: application/json
 
-{ "refreshToken": "string" }
+{ "refreshToken": "string (optional when cookie is present)" }
 ```
+
+Revokes the refresh token and clears cookies when the request uses the refresh
+cookie.
 
 ### Revoke all refresh tokens
 
@@ -174,7 +181,7 @@ Returns the authenticated user object (password excluded).
 GET /api/auth/session-check
 ```
 
-Returns `{ valid: true, user: { ... } }` when the session is active.
+Returns `{ active: true }` when the session is active.
 
 ### Change password
 
@@ -714,6 +721,42 @@ Content-Type: application/json
 
 Switches the profile between public and private. Switching from private → public auto-accepts all pending follow requests.
 
+### Request account data export
+
+```http
+POST /api/users/me/data-export
+```
+
+Requires auth. Creates an asynchronous GDPR-style account data export request,
+builds a temporary ZIP archive, records a `data_export_requested` audit event,
+and emails the user a secure download link when the archive is ready.
+
+Requests are limited to once every 24 hours by default. Returns `202`:
+
+```json
+{
+  "message": "Your data export request has been received. We will email you when the archive is ready.",
+  "requestId": "uuid",
+  "status": "pending",
+  "expiresAt": "ISO date"
+}
+```
+
+The ZIP includes structured account data such as `profile.json`, `coins.json`,
+`collections.json`, `messages.json`, `comments.json`, `likes.json`,
+`followers.json`, `support_requests.json`, uploaded image files when available,
+and a `README.txt` explaining the archive.
+
+### Download account data export
+
+```http
+GET /api/users/me/data-export/:requestId/download?token=<signed-token>
+```
+
+Downloads the prepared ZIP. The token is single-use and time-limited. Expired,
+already-used, missing, or not-ready exports return `410`, `400`, `404`, or `409`
+respectively. Successful downloads record a `data_export_downloaded` audit event.
+
 ### Followers list
 
 ```http
@@ -923,6 +966,14 @@ GET /api/sessions
 Authorization: Bearer <token>
 ```
 
+Returns `{ sessions: [...] }`. Each session uses a non-sensitive public `id` and
+includes device name, browser, operating system, approximate location, IP
+address, created time, last active time, current-session marker, and risk flags.
+
+Session location is resolved only from local/self-hosted GeoIP database files.
+User IP addresses are never sent to hosted geolocation APIs. If the request IP
+is private/internal or no local record exists, the location is `Unknown location`.
+
 ### Terminate a specific session
 
 ```http
@@ -930,12 +981,18 @@ DELETE /api/sessions/:sessionId
 Authorization: Bearer <token>
 ```
 
+`:sessionId` is the public session identifier returned by `GET /api/sessions`,
+not a database `_id` and not a refresh token. The current session cannot be
+revoked through this endpoint; use logout for the current session.
+
 ### Terminate all other sessions
 
 ```http
 DELETE /api/sessions
 Authorization: Bearer <token>
 ```
+
+Revokes every active session except the one represented by the current request.
 
 ---
 

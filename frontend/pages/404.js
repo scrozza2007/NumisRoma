@@ -15,10 +15,7 @@ const Custom404 = () => {
 
       <div className="text-center max-w-md">
         <p className="font-mono text-sm font-medium mb-6 text-amber">404</p>
-        <h1
-          className="font-display font-semibold mb-4 text-text-primary"
-          style={{ fontSize: 'clamp(32px, 6vw, 52px)', lineHeight: 1.1 }}
-        >
+        <h1 className="font-display font-semibold mb-4 text-[clamp(32px,6vw,52px)] leading-[1.1] text-text-primary">
           Lost to History
         </h1>
         <p className="font-sans text-base mb-8 leading-relaxed text-text-secondary">

@@ -191,7 +191,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.results).toHaveLength(1);
-      expect(response.body.results[0].name).toContain('RIC VIII');
+      expect(response.body.results[0].title.en).toContain('RIC VIII');
     });
 
     test('GET /api/coins/random should return random coins', async () => {
@@ -221,21 +221,25 @@ describe('API Integration Tests', () => {
 
     test('POST /api/coins should create a new coin', async () => {
       const newCoin = {
-        name: 'Test Coin Creation',
+        _id: 'test_coin_creation',
+        title: { en: 'Test Coin Creation' },
+        reference: { system: 'TEST', series: 'test', number: 1, suffix: '' },
+        references: [{ system: 'TEST', series: 'test', number: 1, suffix: '' }],
+        coinage: { date: { from: 100, to: 101 } },
         authority: {
-          emperor: 'Test Emperor',
-          dynasty: 'Test Dynasty'
+          issuer: 'test_emperor',
+          dynasty: 'test_dynasty'
         },
-        description: {
-          material: 'Test Material',
-          denomination: 'Test Denomination'
+        classification: {
+          material: 'test_material',
+          denomination: 'test_denomination'
         },
-        obverse: {
-          legend: 'Test Obverse'
+        descriptions: {
+          obverse: { legend: 'Test Obverse', type: 'Test obverse type', portrait: 'Test Emperor' },
+          reverse: { legend: 'Test Reverse', type: 'Test reverse type' }
         },
-        reverse: {
-          legend: 'Test Reverse'
-        }
+        subjects: [],
+        images: []
       };
 
       const response = await request(app)
@@ -245,12 +249,12 @@ describe('API Integration Tests', () => {
         .expect(201);
 
       expect(response.body).toHaveProperty('_id');
-      expect(response.body.name).toBe(newCoin.name);
+      expect(response.body.title.en).toBe(newCoin.title.en);
 
       // Verify in database
       const savedCoin = await Coin.findById(response.body._id);
       expect(savedCoin).toBeTruthy();
-      expect(savedCoin.name).toBe(newCoin.name);
+      expect(savedCoin.title.en).toBe(newCoin.title.en);
     });
   });
 
@@ -421,7 +425,7 @@ describe('API Integration Tests', () => {
     test('should expose rate limit headers on coin search endpoint', async () => {
       const response = await request(app).get('/api/coins').expect(200);
       expect(response.headers).toHaveProperty('ratelimit-limit');
-      expect(parseInt(response.headers['ratelimit-limit'], 10)).toBe(10);
+      expect(parseInt(response.headers['ratelimit-limit'], 10)).toBe(30);
     });
   });
 
@@ -443,11 +447,19 @@ describe('API Integration Tests', () => {
       });
 
       const coin = await Coin.create({
-        name: 'DB Test Coin',
-        authority: { emperor: 'Test Emperor' },
-        description: { material: 'Test Material' },
-        obverse: { legend: 'Test Obverse' },
-        reverse: { legend: 'Test Reverse' }
+        _id: 'db_test_coin',
+        title: { en: 'DB Test Coin' },
+        reference: { system: 'TEST', series: 'test', number: 2, suffix: '' },
+        references: [],
+        coinage: { date: { from: 101, to: 102 } },
+        authority: { issuer: 'test_emperor' },
+        classification: { material: 'test_material', denomination: 'test_denomination' },
+        descriptions: {
+          obverse: { legend: 'Test Obverse', type: 'Test obverse type', portrait: 'Test Emperor' },
+          reverse: { legend: 'Test Reverse', type: 'Test reverse type' }
+        },
+        subjects: [],
+        images: []
       });
 
       // Create relationships
@@ -470,7 +482,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(coinsResponse.body.results).toHaveLength(1);
-      expect(coinsResponse.body.results[0].name).toBe('DB Test Coin');
+      expect(coinsResponse.body.results[0].title.en).toBe('DB Test Coin');
     });
 
     test('should handle database transactions correctly', async () => {

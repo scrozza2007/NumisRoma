@@ -7,6 +7,16 @@ const express = require('express');
 const { securityHeaders, generalLimiter, authLimiter, contactLimiter } = require('../../src/middlewares/security');
 
 describe('Security Middleware', () => {
+  const OLD_NODE_ENV = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    process.env.NODE_ENV = 'production';
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = OLD_NODE_ENV;
+  });
+
   describe('Security Headers', () => {
     let app;
 
@@ -274,7 +284,7 @@ describe('Security Middleware', () => {
 
       const limit = parseInt(response.headers['ratelimit-limit']);
       
-      expect(limit).toBe(50);
+      expect(limit).toBe(300);
     });
 
     test('should reset rate limits after window expires', async () => {

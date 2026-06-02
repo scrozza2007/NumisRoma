@@ -20,8 +20,10 @@ npx jest tests/unit/coinController.test.js   # run a single file
 |------|--------|
 | `authController.test.js` | register, login, logout, changePassword, changeUsername, updateProfile, checkSession |
 | `collectionController.test.js` | CRUD, public/private access control, addCoin, removeCoin, entry metadata |
-| `sessionController.test.js` | createSession, getActiveSessions, terminateSession, terminateAll, updateSessionActivity |
+| `sessionController.test.js` | createSession, getActiveSessions, public session IDs, trusted proxy IP handling, terminateSession, terminateAll, updateSessionActivity |
+| `sessionLocation.test.js` | local-only IP geolocation behavior, private IP handling, and no external provider calls |
 | `tokenManager.test.js` | hashToken, generateTokenPair, refreshAccessToken, revokeRefreshToken, revokeAllRefreshTokens |
+| `emailService.test.js` | transactional email templates including account deletion, security alerts, and data export readiness |
 | `infraMiddleware.test.js` | requestId, requestTimeout (including 503 path), metrics, errorHandler |
 | `coinController.test.js` | coin catalog endpoints |
 | `userController.test.js` | user profile endpoints |

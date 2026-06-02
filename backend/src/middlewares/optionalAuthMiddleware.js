@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const Session = require('../models/Session');
 const { extractToken } = require('./authMiddleware');
-const { hashToken } = require('../utils/tokenManager');
+const { hashToken, SESSION_CONFIG } = require('../utils/tokenManager');
 const logger = require('../utils/logger');
 
 /**
@@ -30,6 +30,14 @@ const optionalAuthMiddleware = async (req, res, next) => {
     // Throttled activity update. Use a conditional updateOne (race-safe) and
     // log failures rather than swallowing them silently.
     const now = new Date();
+    const sessionDeadline = session.absoluteExpiresAt || session.expiresAt;
+    if ((sessionDeadline && sessionDeadline <= now) || (session.idleExpiresAt && session.idleExpiresAt <= now)) {
+      await Session.updateOne(
+        { _id: session._id, isActive: true },
+        { $set: { isActive: false, revokedAt: now, revocationReason: 'expired' } }
+      );
+      return next();
+    }
     const lastUpdateThreshold = new Date(now.getTime() - 60000);
     if (session.lastActive < lastUpdateThreshold) {
       Session.updateOne(
@@ -38,7 +46,7 @@ const optionalAuthMiddleware = async (req, res, next) => {
           isActive: true,
           lastActive: { $lt: lastUpdateThreshold }
         },
-        { $set: { lastActive: now } }
+        { $set: { lastActive: now, idleExpiresAt: new Date(now.getTime() + SESSION_CONFIG.IDLE_TIMEOUT_MS) } }
       ).exec().catch(err =>
         logger.debug('Optional-auth session touch failed', {
           sessionId: session._id,

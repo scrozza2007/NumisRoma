@@ -7,7 +7,7 @@ const KofiPanel = ({ username }) => {
   }, [username]);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-md border border-border bg-surface shadow-sm" style={{ minHeight: 640, height: 'min(720px, 78vh)' }}>
+    <div className="relative w-full min-h-[640px] h-[min(720px,78vh)] overflow-hidden rounded-md border border-border bg-surface shadow-sm">
       <iframe
         title="Support NumisRoma on Ko-fi"
         src={src}

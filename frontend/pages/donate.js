@@ -26,10 +26,7 @@ const Donate = () => {
             <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
               Support NumisRoma
             </p>
-            <h1
-              className="font-display font-semibold text-text-primary mb-5"
-              style={{ fontSize: 'clamp(40px, 6vw, 72px)' }}
-            >
+            <h1 className="font-display font-semibold text-[clamp(40px,6vw,72px)] text-text-primary mb-5">
               Keep Roman coin research open.
             </h1>
             <p className="font-sans text-base sm:text-lg text-text-secondary max-w-2xl leading-relaxed">

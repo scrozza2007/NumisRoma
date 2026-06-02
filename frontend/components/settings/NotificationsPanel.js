@@ -7,12 +7,10 @@ const Toggle = ({ checked, onChange }) => (
   <button
     type="button"
     onClick={onChange}
-    className="relative inline-flex items-center h-5 rounded-full w-10 transition-colors ease-in-out duration-200 focus:outline-none"
-    style={{ backgroundColor: checked ? 'var(--color-amber)' : 'var(--color-border)' }}
+    className={`relative inline-flex items-center h-5 rounded-full w-10 transition-colors ease-in-out duration-200 focus:outline-none ${checked ? 'bg-amber' : 'bg-border'}`}
   >
     <span
-      className="inline-block w-3.5 h-3.5 transform transition ease-in-out duration-200 rounded-full bg-white"
-      style={{ transform: checked ? 'translateX(22px)' : 'translateX(3px)' }}
+      className={`inline-block w-3.5 h-3.5 transform transition ease-in-out duration-200 rounded-full bg-white ${checked ? 'translate-x-[22px]' : 'translate-x-[3px]'}`}
     />
   </button>
 );

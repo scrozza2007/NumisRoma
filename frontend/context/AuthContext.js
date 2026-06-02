@@ -12,7 +12,7 @@ import {
 
 export const AuthContext = createContext();
 
-const authFetch = async (url, options = {}, retry = false) => {
+const authFetch = async (url, options = {}, retry = {}) => {
   const method = (options.method || 'GET').toUpperCase();
   const csrfHeader = await getCsrfHeader(method);
 
@@ -25,12 +25,24 @@ const authFetch = async (url, options = {}, retry = false) => {
     }
   });
 
-  if (response.status === 403 && !retry) {
+  if (response.status === 403 && !retry.csrf) {
     const cloned = response.clone();
     const peek = await cloned.json().catch(() => ({}));
     if (peek?.code === 'CSRF_INVALID') {
       invalidateCsrfToken();
-      return authFetch(url, options, true);
+      return authFetch(url, options, { ...retry, csrf: true });
+    }
+  }
+
+  if (response.status === 401 && !retry.refresh && !url.endsWith('/api/auth/refresh')) {
+    const refreshResponse = await authFetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh`,
+      { method: 'POST' },
+      { ...retry, refresh: true }
+    );
+    if (refreshResponse.ok) {
+      invalidateCsrfToken();
+      return authFetch(url, options, { ...retry, refresh: true });
     }
   }
 
@@ -305,11 +317,8 @@ export const AuthProvider = ({ children }) => {
     } catch { /* non-fatal */ }
   };
 
-  const login = async (newToken, userData) => {
-    if (!newToken) return;
-
-    setToken(newToken); // memory only — never persisted to localStorage
-
+  const login = async (userData = null) => {
+    setToken(true); // truthy sentinel; credentials remain in httpOnly cookies
     if (userData) {
       // Ensure consistent user ID field (some endpoints return _id, others return id)
       const normalizedUserData = {

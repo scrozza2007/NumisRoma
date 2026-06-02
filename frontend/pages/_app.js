@@ -24,6 +24,7 @@ const PROTECTED_ROUTES = new Set([
 
 function MyApp({ Component, pageProps, router }) {
   const isProtected = PROTECTED_ROUTES.has(router.pathname);
+  const showKofiWidget = router.pathname !== '/collection-export';
 
   const content = isProtected
     ? <ProtectedRoute><Component {...pageProps} /></ProtectedRoute>
@@ -34,7 +35,7 @@ function MyApp({ Component, pageProps, router }) {
       <ErrorBoundary>
         <AuthProvider>
           {Component.getLayout(content)}
-          <KofiWidget />
+          {showKofiWidget && <KofiWidget />}
         </AuthProvider>
       </ErrorBoundary>
     );
@@ -46,7 +47,7 @@ function MyApp({ Component, pageProps, router }) {
         <Layout>
           {content}
         </Layout>
-        <KofiWidget />
+        {showKofiWidget && <KofiWidget />}
       </AuthProvider>
     </ErrorBoundary>
   );

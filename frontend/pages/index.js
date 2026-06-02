@@ -93,17 +93,14 @@ const Home = () => {
                     Roman Republican and Imperial Coinage
                   </p>
                 </div>
-                <h1
-                  className="font-display font-semibold leading-none mb-8 text-text-primary"
-                  style={{ fontSize: 'clamp(48px, 6vw, 80px)' }}
-                >
+                <h1 className="font-display font-semibold text-[clamp(48px,6vw,80px)] leading-none mb-8 text-text-primary">
                   Roman Coins.
                   <br />
                   Carefully Managed.
                   <br />
                   <span className="text-amber">Digitally Organized.</span>
                 </h1>
-                <p className="font-sans text-lg mb-10 max-w-md text-text-secondary" style={{ lineHeight: '1.7' }}>
+                <p className="font-sans text-lg leading-[1.7] mb-10 max-w-md text-text-secondary">
                   Catalog and study Roman Republican and Imperial coins with structured records for rulers, denominations, mints, dates, materials, references, provenance, and photographs.
                 </p>
 
@@ -162,9 +159,7 @@ const Home = () => {
                           className="object-contain p-5 mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
                           unoptimized
                         />
-                        <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                          style={{ background: 'linear-gradient(to top, rgba(46,40,32,0.85), transparent)' }}
-                        >
+                        <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 group-hover:opacity-100 bg-[linear-gradient(to_top,rgba(46,40,32,0.85),transparent)] transition-opacity duration-200">
                           <p className="font-sans text-xs font-medium truncate text-[#fdf8f0]">{fmt(coin.authority?.issuer)}</p>
                           <p className="font-sans text-xs truncate text-[#e8d8b0]">{coin.title?.en}</p>
                         </div>
@@ -199,7 +194,7 @@ const Home = () => {
             {loading ? (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="rounded-md animate-pulse bg-surface-alt" style={{ aspectRatio: '3/4' }} />
+                  <div key={i} className="aspect-[3/4] rounded-md animate-pulse bg-surface-alt" />
                 ))}
               </div>
             ) : (
@@ -245,10 +240,7 @@ const Home = () => {
 
         {/* ── Coins image section ───────────────────────────────────── */}
         <section className="relative overflow-hidden h-[300px] sm:h-[380px] md:h-[480px] bg-surface">
-          <div
-            className="absolute inset-0 z-10"
-            style={{ background: 'linear-gradient(to right, #fdf8f0 0%, #fdf8f0 43%, rgba(253,248,240,0.94) 51%, rgba(253,248,240,0.38) 68%, rgba(253,248,240,0.08) 83%)' }}
-          />
+          <div className="absolute inset-0 z-10 bg-[linear-gradient(to_right,#fdf8f0_0%,#fdf8f0_43%,rgba(253,248,240,0.94)_51%,rgba(253,248,240,0.38)_68%,rgba(253,248,240,0.08)_83%)]" />
           <div className="absolute inset-0 bg-surface-alt" aria-hidden="true">
             <div className="absolute hidden sm:block inset-y-0 right-[0%] w-[60%] md:right-[2%] md:w-[57%] lg:right-[max(calc((100vw-80rem)/2 + 10px),10px)] lg:w-[56%]">
               {backdropCoins.map((coin, index) => (
@@ -261,11 +253,8 @@ const Home = () => {
                     alt=""
                     fill
                     unoptimized
-                    className="object-contain mix-blend-multiply"
-                    style={{
-                      filter: 'sepia(0.06) saturate(0.9) contrast(1.04)',
-                      opacity: backdropSlots[index].opacity,
-                    }}
+                    className="object-contain mix-blend-multiply [filter:sepia(0.06)_saturate(0.9)_contrast(1.04)]"
+                    style={{ opacity: backdropSlots[index].opacity }}
                   />
                 </div>
               ))}
@@ -276,13 +265,10 @@ const Home = () => {
               <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
                 Republic — Empire
               </p>
-              <h2
-                className="font-display font-semibold mb-4 max-w-xl text-text-primary"
-                style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', lineHeight: '1.15' }}
-              >
+              <h2 className="font-display font-semibold text-[clamp(28px,3.5vw,48px)] leading-[1.15] mb-4 max-w-xl text-text-primary">
                 A digital home for Roman numismatics
               </h2>
-              <p className="font-sans text-base max-w-sm text-text-secondary" style={{ lineHeight: '1.7' }}>
+              <p className="font-sans text-base leading-[1.7] max-w-sm text-text-secondary">
                 Built for collectors, enthusiasts, and researchers who want ancient coins documented with clarity and depth.
               </p>
             </div>
@@ -328,10 +314,7 @@ const Home = () => {
               <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
                 Join NumisRoma
               </p>
-              <h2
-                className="font-display font-semibold mb-4 text-text-primary"
-                style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}
-              >
+              <h2 className="font-display font-semibold text-[clamp(28px,4vw,44px)] mb-4 text-text-primary">
                 Bring your Roman coin collection online.
               </h2>
               <p className="font-sans text-lg mb-10 mx-auto max-w-md text-text-secondary">

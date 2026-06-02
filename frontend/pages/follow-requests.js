@@ -4,7 +4,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
 
 const FollowRequestsPage = () => {
   const { user, isLoading: authLoading } = useContext(AuthContext);
@@ -75,12 +74,11 @@ const FollowRequestsPage = () => {
 
       {notification.show && (
         <div
-          className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-md animate-fade-in shadow-md"
-          style={{
-            backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg,
-            border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`,
-            color: notification.type === 'success' ? semantic.success.text : semantic.error.text,
-          }}
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-md border animate-fade-in shadow-md ${
+            notification.type === 'success'
+              ? 'bg-success-bg border-success-border text-success-text'
+              : 'bg-error-bg border-error-border text-error-text'
+          }`}
         >
           <span className="font-sans text-sm">{notification.message}</span>
         </div>

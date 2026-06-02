@@ -168,7 +168,7 @@ const userRateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
   // Lazy-require to avoid a circular dependency at module load: security.js
   // imports from cache.js which imports from logger, and enhancedValidation
   // is imported by some route files.
-  const rateLimit = require('express-rate-limit');
+  const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
   const { failOpen, buildRedisStore } = require('./security');
 
   return failOpen(rateLimit({
@@ -178,7 +178,7 @@ const userRateLimit = (maxRequests = 100, windowMs = 15 * 60 * 1000) => {
     legacyHeaders: false,
     // Authenticated -> user id; anonymous -> IP. Falls back to IP if user
     // is not yet populated (route ordering issue) so we never return undefined.
-    keyGenerator: (req) => req.user?.userId || req.ip,
+    keyGenerator: (req) => req.user?.userId || (req.ip ? ipKeyGenerator(req.ip) : 'unknown'),
     store: buildRedisStore('user-rate-limit'),
     handler: (req, res) => {
       logger.security.suspiciousActivity('Rate limit exceeded', {

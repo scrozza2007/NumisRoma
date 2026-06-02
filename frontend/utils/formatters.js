@@ -60,10 +60,14 @@ export const fmtPeriod = (date) => {
 
 /**
  * Reference object → formatted citation string.
+ * The catalog title contains attribution segments that are not represented in
+ * the structured reference fields, such as "Geta" in "RIC IV Geta 20b".
+ * Pass it for the primary reference so that information is not dropped.
  * { system: "RIC", series: "ric_ix", number: 12, suffix: "A" } → "RIC IX 12A"
  */
-export const fmtReference = (ref) => {
+export const fmtReference = (ref, catalogTitle) => {
   if (!ref) return null;
+  if (catalogTitle && String(catalogTitle).trim()) return String(catalogTitle).trim();
   const parts = [];
   if (ref.system)  parts.push(ref.system.toUpperCase());
   if (ref.series)  parts.push(fmtSeries(ref.series).replace(/^RIC\s*/i, '').trim());

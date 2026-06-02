@@ -2,7 +2,6 @@ import React, { useContext, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { AuthContext } from '../context/AuthContext';
-import { semantic } from '../utils/tokens';
 
 const ReasonDropdown = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -101,7 +100,7 @@ const DeleteAccount = () => {
           <p className="font-sans text-sm text-text-muted">This action is permanent and cannot be undone.</p>
         </div>
 
-        <div className="p-3.5 rounded-md mb-6 flex items-start gap-3" style={{ backgroundColor: semantic.error.bg, border: '1px solid #fecaca', color: semantic.error.text }}>
+        <div className="p-3.5 rounded-md mb-6 flex items-start gap-3 bg-error-bg border border-error-border text-error-text">
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span className="font-sans text-sm">All your collections, coins, and account data will be permanently deleted.</span>
         </div>
@@ -122,10 +121,10 @@ const DeleteAccount = () => {
                 <input
                   type="password" id="password" placeholder="Enter your current password"
                   value={password} onChange={e => setPassword(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none transition-colors duration-150 text-text-primary focus:border-amber ${error ? 'border border-[#fecaca]' : 'border border-border'}`}
+                  className={`w-full px-3.5 py-2.5 font-sans text-sm bg-card rounded-md outline-none transition-colors duration-150 text-text-primary focus:border-amber ${error ? 'border border-error-border' : 'border border-border'}`}
                 />
                 {error && (
-                  <p className="mt-1.5 font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
+                  <p className="mt-1.5 font-sans text-xs flex items-center gap-1 text-error-border">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     {error}
                   </p>
@@ -133,7 +132,7 @@ const DeleteAccount = () => {
               </div>
             )}
             {!user.hasPassword && error && (
-              <p className="font-sans text-xs flex items-center gap-1" style={{ color: semantic.error.border }}>
+              <p className="font-sans text-xs flex items-center gap-1 text-error-border">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 {error}
               </p>
@@ -142,7 +141,7 @@ const DeleteAccount = () => {
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox" checked={isConfirmed} onChange={e => setIsConfirmed(e.target.checked)} required
-                className="mt-0.5" style={{ accentColor: semantic.error.border }}
+                className="mt-0.5 accent-error-border"
               />
               <span className="font-sans text-sm text-text-primary">
                 Yes, I want to permanently delete my NumisRoma account.
@@ -158,8 +157,7 @@ const DeleteAccount = () => {
               </button>
               <button
                 type="submit" disabled={(user.hasPassword && !password) || !isConfirmed || isSubmitting}
-                className="flex-1 py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 rounded-md text-white transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: semantic.error.text }}
+                className="flex-1 py-2.5 font-sans text-sm font-semibold flex items-center justify-center gap-2 rounded-md text-white bg-error-text transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />Deleting…</>

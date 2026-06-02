@@ -3,8 +3,8 @@ import { AuthContext } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Image from 'next/image';
+import { LockKeyhole, Search, UsersRound } from 'lucide-react';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
 
 const Community = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,9 +112,7 @@ const Community = () => {
             <p className="font-sans text-sm font-semibold text-text-primary">@{profileUser.username}</p>
             {profileUser.isPrivate && (
               <p className="font-sans text-xs text-text-muted flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+                <LockKeyhole className="w-3 h-3" />
                 Private
               </p>
             )}
@@ -154,12 +152,11 @@ const Community = () => {
 
       {notification.show && (
         <div
-          className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-md animate-fade-in shadow-md"
-          style={{
-            backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg,
-            border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`,
-            color: notification.type === 'success' ? semantic.success.text : semantic.error.text,
-          }}
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-md border animate-fade-in shadow-md ${
+            notification.type === 'success'
+              ? 'bg-success-bg border-success-border text-success-text'
+              : 'bg-error-bg border-error-border text-error-text'
+          }`}
         >
           <span className="font-sans text-sm">{notification.message}</span>
         </div>
@@ -181,9 +178,7 @@ const Community = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 font-sans text-sm bg-card border border-border rounded-md outline-none focus:border-amber transition-colors duration-150 text-text-primary"
           />
-          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted" />
         </div>
 
         {loading ? (
@@ -204,9 +199,7 @@ const Community = () => {
             {!searchTerm && recommendedUsers.length === 0 && (
               <div className="text-center py-16">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-surface-alt">
-                  <svg className="w-6 h-6 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+                  <UsersRound className="w-6 h-6 text-text-muted" />
                 </div>
                 <p className="font-sans text-sm text-text-muted">No recommendations yet. Search for collectors above.</p>
               </div>

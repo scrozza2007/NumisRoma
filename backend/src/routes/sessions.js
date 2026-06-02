@@ -1,6 +1,6 @@
 const express = require('express');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { validateObjectId } = require('../middlewares/enhancedValidation');
+const { param, validationResult } = require('express-validator');
 const sessionController = require('../controllers/sessionController');
 
 const router = express.Router();
@@ -16,7 +16,15 @@ router.get('/', sessionController.getActiveSessions);
 // here rather than being matched as an empty param.
 router.delete('/', sessionController.terminateAllOtherSessions);
 
-// Terminate a specific session (ObjectId-validated).
-router.delete('/:sessionId', validateObjectId('sessionId'), sessionController.terminateSession);
+// Terminate a specific session by non-sensitive public identifier.
+router.delete(
+  '/:sessionId',
+  param('sessionId').isUUID().withMessage('Invalid session identifier'),
+  (req, res, next) => {
+    if (!validationResult(req).isEmpty()) return res.status(400).json({ error: 'Invalid session identifier' });
+    return next();
+  },
+  sessionController.terminateSession
+);
 
 module.exports = router;

@@ -1,11 +1,14 @@
 const passport = require('passport');
 const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const sessionController = require('./sessionController');
-const { setAuthCookie } = require('../utils/authCookie');
+const { generateTokenPair, hashToken, recordAuditEvent } = require('../utils/tokenManager');
+const { setAuthCookie, setRefreshCookie } = require('../utils/authCookie');
+const { extractToken } = require('../middlewares/authMiddleware');
+const Session = require('../models/Session');
 const logger = require('../utils/logger');
-const { sendWelcomeEmail } = require('../utils/emailService');
+const { sendWelcomeEmail, sendSecurityAlertEmail } = require('../utils/emailService');
+const { resolveApproximateLocation } = require('../utils/sessionLocation');
 
 // ---------------------------------------------------------------------------
 // Shared find-or-create helper
@@ -100,13 +103,41 @@ const initPassport = () => {
 const handleOAuthSuccess = async (req, res) => {
   try {
     const { user, isNew } = req.user;
+    const { token: existingAccessToken } = extractToken(req);
+    if (existingAccessToken) {
+      const replacedSession = await Session.findOneAndUpdate(
+        { userId: user._id, token: hashToken(existingAccessToken), isActive: true },
+        { $set: { isActive: false, revokedAt: new Date(), revocationReason: 'reauthenticated' } }
+      );
+      if (replacedSession) {
+        await recordAuditEvent({
+          userId: user._id,
+          sessionId: replacedSession._id,
+          eventType: 'reauthenticated',
+          severity: 'info'
+        });
+      }
+    }
 
-    const payload = { userId: user._id };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-
-    await sessionController.createSession(user._id, token, req);
-
-    setAuthCookie(res, token);
+    const requestMetadata = sessionController.getRequestSessionMetadata(req);
+    const tokenPair = await generateTokenPair(user._id, {
+      sessionMetadata: {
+        ...requestMetadata,
+        geoLocation: await resolveApproximateLocation(requestMetadata.ipAddress),
+        loginMethod: 'social'
+      }
+    });
+    setAuthCookie(res, tokenPair.accessToken);
+    setRefreshCookie(res, tokenPair.refreshToken);
+    if (tokenPair.riskFlags?.length && user.email && !user.email.includes('@oauth.numisroma')) {
+      sendSecurityAlertEmail({
+        to: user.email,
+        username: user.username,
+        device: tokenPair.deviceInfo?.deviceName || 'Unknown device',
+        location: tokenPair.location,
+        riskFlags: tokenPair.riskFlags
+      }).catch(err => logger.error('OAuth security alert email failed (non-fatal)', { error: err.message }));
+    }
 
     // Send welcome email for brand-new OAuth accounts — non-blocking
     if (isNew && user.email && !user.email.includes('@oauth.numisroma')) {
@@ -116,7 +147,7 @@ const handleOAuthSuccess = async (req, res) => {
     }
 
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim();
-    const params = new URLSearchParams({ token, isNew: isNew ? '1' : '0' });
+    const params = new URLSearchParams({ isNew: isNew ? '1' : '0' });
     res.redirect(`${frontendUrl}/auth/callback?${params}`);
   } catch (err) {
     logger.error('OAuth session creation failed', { error: err.message });

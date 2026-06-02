@@ -4,7 +4,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
 import { fmt, fmtPeriod } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
@@ -229,8 +228,11 @@ const CollectionDetailPage = () => {
       </Head>
 
       {notification.show && (
-        <div className="fixed top-6 right-6 z-50 p-3.5 rounded flex items-start gap-2 font-sans text-sm"
-          style={{ backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg, border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`, color: notification.type === 'success' ? semantic.success.text : semantic.error.text, maxWidth: 320 }}>
+        <div className={`fixed top-6 right-6 z-50 p-3.5 rounded flex items-start gap-2 font-sans text-sm border max-w-[320px] ${
+          notification.type === 'success'
+            ? 'bg-success-bg border-success-border text-success-text'
+            : 'bg-error-bg border-error-border text-error-text'
+        }`}>
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={notification.type === 'success' ? 'M5 13l4 4L19 7' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'} />
           </svg>
@@ -269,7 +271,7 @@ const CollectionDetailPage = () => {
             ) : <CoinImagePlaceholder />}
           </div>
           <div>
-            <h1 className="font-display font-semibold mb-3 text-text-primary" style={{ fontSize: 'clamp(28px,5vw,42px)', lineHeight: 1.15 }}>{collection.name}</h1>
+            <h1 className="font-display font-semibold mb-3 text-[clamp(28px,5vw,42px)] leading-[1.15] text-text-primary">{collection.name}</h1>
             <div className="flex flex-wrap items-center gap-3 font-sans text-sm text-text-secondary">
               {collection.user && (
                 <div className="flex items-center gap-2">
@@ -282,7 +284,7 @@ const CollectionDetailPage = () => {
               <span className="text-border-strong">·</span>
               <span>{stats.totalCoins ?? collection.coins?.length ?? 0} coins</span>
               <span className="text-border-strong">·</span>
-              <span style={{ color: collection.visibility === 'Public' ? semantic.success.text : undefined }} className={collection.visibility === 'Public' ? '' : 'text-text-muted'}>
+              <span className={collection.visibility === 'Public' ? 'text-success-text' : 'text-text-muted'}>
                 {fmt(collection.visibility || (collection.isPublic ? 'Public' : 'Private'))}
               </span>
             </div>
@@ -439,15 +441,14 @@ const CollectionDetailPage = () => {
                     }}
                     className="group flex flex-col overflow-hidden rounded-md bg-card border border-border hover:border-amber focus-visible:border-amber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber/25 transition-colors duration-200 cursor-pointer"
                   >
-                    <div className="aspect-square flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                    <div className="aspect-square flex items-center justify-center bg-surface">
                       {(() => {
                         const src = customImages[coinEntry._id]?.obverse;
                         return src ? (
                           <img
                             src={src}
                             alt={coinEntry.coin.title?.en || coinEntry.coin.name}
-                            className="w-full h-full object-contain p-3 transition-transform duration-200 group-hover:scale-105"
-                            style={{ mixBlendMode: 'multiply' }}
+                            className="w-full h-full object-contain p-3 mix-blend-multiply transition-transform duration-200 group-hover:scale-105"
                             loading="lazy"
                             onError={e => { e.currentTarget.style.display = 'none'; }}
                           />

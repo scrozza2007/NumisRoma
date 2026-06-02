@@ -4,8 +4,16 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const User = require('../../src/models/User');
 const Session = require('../../src/models/Session');
+
+jest.mock('../../src/utils/emailService', () => ({
+  sendWelcomeEmail: jest.fn().mockResolvedValue({ data: { id: 'welcome-email' } }),
+  sendAccountDeletionEmail: jest.fn().mockResolvedValue({ data: { id: 'deletion-email' } }),
+  sendSecurityAlertEmail: jest.fn().mockResolvedValue({ data: { id: 'security-email' } })
+}));
+
 const authController = require('../../src/controllers/authController');
 const { hashToken } = require('../../src/utils/tokenManager');
+const emailService = require('../../src/utils/emailService');
 
 // Minimal app factory — injects req.user when userId is provided
 const makeApp = (handlers, userId) => {
@@ -30,6 +38,10 @@ const makeUser = async (suffix = '') => {
   });
 };
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 // ── registerUser ──────────────────────────────────────────────────────────────
 describe('registerUser', () => {
   let app;
@@ -37,12 +49,15 @@ describe('registerUser', () => {
     app = makeApp([['post', '/register', authController.registerUser]]);
   });
 
-  test('registers a new user and returns token + user', async () => {
+  test('registers a new user and creates protected session cookies', async () => {
     const res = await request(app)
       .post('/register')
       .send({ username: 'newbie1', email: 'newbie1@test.com', password: 'StrongPass1!' })
       .expect(201);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body.authenticated).toBe(true);
+    expect(res.body).not.toHaveProperty('token');
+    expect(res.headers['set-cookie'].join(';')).toMatch(/token=.*HttpOnly/);
+    expect(res.headers['set-cookie'].join(';')).toMatch(/refreshToken=.*HttpOnly/);
     expect(res.body.user.username).toBe('newbie1');
   });
 
@@ -91,7 +106,9 @@ describe('loginUser', () => {
       .post('/login')
       .send({ identifier: user.email, password: 'TestPass1!' })
       .expect(200);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body.authenticated).toBe(true);
+    expect(res.body).not.toHaveProperty('token');
+    expect(res.headers['set-cookie'].join(';')).toMatch(/refreshToken=.*HttpOnly/);
   });
 
   test('logs in with username identifier', async () => {
@@ -100,7 +117,18 @@ describe('loginUser', () => {
       .post('/login')
       .send({ identifier: user.username, password: 'TestPass1!' })
       .expect(200);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body.authenticated).toBe(true);
+    expect(res.body).not.toHaveProperty('token');
+  });
+
+  test('persists remembered login preference using a longer-lived session', async () => {
+    const user = await makeUser('remember');
+    await request(app)
+      .post('/login')
+      .send({ identifier: user.email, password: 'TestPass1!', rememberMe: true })
+      .expect(200);
+    const session = await Session.findOne({ userId: user._id, isActive: true });
+    expect(session.rememberMe).toBe(true);
   });
 
   test('returns 400 for wrong password', async () => {
@@ -242,6 +270,40 @@ describe('updateProfile', () => {
   });
 });
 
+// ── deleteAccount ────────────────────────────────────────────────────────────
+describe('deleteAccount', () => {
+  test('deletes the account and sends a confirmation email', async () => {
+    const user = await makeUser('delete1');
+    const app = makeApp([['post', '/delete-account', authController.deleteAccount]], user._id);
+
+    const res = await request(app)
+      .post('/delete-account')
+      .send({ password: 'TestPass1!' })
+      .expect(200);
+
+    expect(res.body.message).toBe('Account deleted successfully');
+    expect(await User.findById(user._id)).toBeNull();
+    expect(emailService.sendAccountDeletionEmail).toHaveBeenCalledWith({
+      to: user.email,
+      username: user.username
+    });
+  });
+
+  test('keeps deletion successful if confirmation email delivery fails', async () => {
+    emailService.sendAccountDeletionEmail.mockRejectedValueOnce(new Error('Delivery unavailable'));
+    const user = await makeUser('delete2');
+    const app = makeApp([['post', '/delete-account', authController.deleteAccount]], user._id);
+
+    const res = await request(app)
+      .post('/delete-account')
+      .send({ password: 'TestPass1!' })
+      .expect(200);
+
+    expect(res.body.message).toBe('Account deleted successfully');
+    expect(await User.findById(user._id)).toBeNull();
+  });
+});
+
 // ── checkSession ──────────────────────────────────────────────────────────────
 describe('checkSession', () => {
   test('returns active session status', async () => {
@@ -249,5 +311,6 @@ describe('checkSession', () => {
     const app = makeApp([['get', '/session', authController.checkSession]], user._id);
     const res = await request(app).get('/session').expect(200);
     expect(res.body.active).toBe(true);
+    expect(res.body).not.toHaveProperty('sessionId');
   });
 });

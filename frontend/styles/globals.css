@@ -23,6 +23,17 @@
   --color-text-secondary: #5a5040;
   --color-text-muted:     #9a8e80;
 
+  /* Semantic feedback */
+  --color-success-bg:     #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-success-text:   #059669;
+  --color-error-bg:       #fef2f2;
+  --color-error-border:   #fecaca;
+  --color-error-text:     #b91c1c;
+  --color-warning-bg:     #f0e8d4;
+  --color-warning-border: #b8843a;
+  --color-warning-text:   #9a6e2e;
+
   /* Fonts */
   --font-display: 'Cormorant Garamond', Georgia, serif;
   --font-sans:    'Inter', system-ui, sans-serif;

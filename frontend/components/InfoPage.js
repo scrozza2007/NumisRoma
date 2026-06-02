@@ -14,10 +14,7 @@ const InfoPage = ({ title, eyebrow, description, children, cta }) => (
         <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
           {eyebrow}
         </p>
-        <h1
-          className="font-display font-semibold text-text-primary mb-5"
-          style={{ fontSize: 'clamp(40px, 6vw, 68px)' }}
-        >
+        <h1 className="font-display font-semibold text-[clamp(40px,6vw,68px)] text-text-primary mb-5">
           {title}
         </h1>
         <p className="font-sans text-base sm:text-lg text-text-secondary max-w-3xl leading-relaxed">

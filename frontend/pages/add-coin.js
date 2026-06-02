@@ -4,8 +4,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { AuthContext } from '../context/AuthContext';
 import { apiClient } from '../utils/apiClient';
-import { semantic } from '../utils/tokens';
-import { fmt, fmtPeriod } from '../utils/formatters';
+import { fmt, fmtPeriod, fmtReference } from '../utils/formatters';
 import CoinImagePlaceholder from '../components/CoinImagePlaceholder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -270,12 +269,11 @@ const AddCoinToCollectionPage = () => {
 
       {notification.show && (
         <div
-          className="fixed top-6 right-6 z-50 p-3.5 flex items-start gap-2 font-sans text-sm rounded-md max-w-xs"
-          style={{
-            backgroundColor: notification.type === 'success' ? semantic.success.bg : semantic.error.bg,
-            border: `1px solid ${notification.type === 'success' ? semantic.success.border : semantic.error.border}`,
-            color: notification.type === 'success' ? semantic.success.text : semantic.error.text,
-          }}
+          className={`fixed top-6 right-6 z-50 p-3.5 flex items-start gap-2 font-sans text-sm rounded-md border max-w-xs ${
+            notification.type === 'success'
+              ? 'bg-success-bg border-success-border text-success-text'
+              : 'bg-error-bg border-error-border text-error-text'
+          }`}
         >
           <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={notification.type === 'success' ? 'M5 13l4 4L19 7' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'} />
@@ -360,12 +358,11 @@ const AddCoinToCollectionPage = () => {
                         onClick={() => handleCoinSelect(safeCoin)}
                         className={`flex items-center gap-3 p-3 cursor-pointer transition-colors duration-100 border-b border-border ${isSelected ? 'bg-amber-bg border-l-[3px] border-l-amber' : 'hover:bg-surface-alt border-l-[3px] border-l-transparent'}`}
                       >
-                        <div className="w-14 h-14 shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                        <div className="w-14 h-14 shrink-0 rounded overflow-hidden flex items-center justify-center bg-surface">
                           <img
                             src={safeCoin._imgSrc || '/images/coin-placeholder.svg'}
                             alt={safeCoin._title}
-                            className="w-full h-full object-contain p-1"
-                            style={{ mixBlendMode: 'multiply' }}
+                            className="w-full h-full object-contain p-1 mix-blend-multiply"
                             onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
                           />
                         </div>
@@ -415,12 +412,11 @@ const AddCoinToCollectionPage = () => {
               <div className="p-5">
                 {/* Preview */}
                 <div className="flex items-center gap-3 p-3 mb-5 rounded bg-surface-alt border border-border">
-                  <div className="w-16 h-16 shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#faf4ea' }}>
+                  <div className="w-16 h-16 shrink-0 rounded overflow-hidden flex items-center justify-center bg-surface">
                     <img
                       src={selectedCoin._imgSrc || '/images/coin-placeholder.svg'}
                       alt={selectedCoin._title}
-                      className="w-full h-full object-contain p-1"
-                      style={{ mixBlendMode: 'multiply' }}
+                      className="w-full h-full object-contain p-1 mix-blend-multiply"
                       onError={e => { e.currentTarget.src = '/images/coin-placeholder.svg'; }}
                     />
                   </div>
@@ -446,7 +442,7 @@ const AddCoinToCollectionPage = () => {
                         ['Mint', selectedCoin.classification?.mint],
                         ['Denomination', selectedCoin.classification?.denomination],
                         ['Material', selectedCoin.classification?.material],
-                        ['Reference', selectedCoin.reference ? `${selectedCoin.reference.system || ''} ${selectedCoin.reference.series || ''} ${selectedCoin.reference.number || ''}${selectedCoin.reference.suffix || ''}`.trim() : '']
+                        ['Reference', fmtReference(selectedCoin.reference, selectedCoin.title?.en)]
                       ].map(([label, value]) => (
                         <div key={label}>
                           <p className="text-text-muted">{label}</p>
@@ -574,8 +570,7 @@ const AddCoinToCollectionPage = () => {
                     <p className="font-sans text-xs text-text-muted mb-3">Upload your own photos of this specific coin. Min 600×600px · JPEG, PNG, WebP · Max 15 MB.</p>
 
                     {imageError && (
-                      <div ref={imageErrorRef} className="flex items-start gap-2.5 p-3 mb-3 rounded-md text-sm font-sans"
-                        style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                      <div ref={imageErrorRef} className="flex items-start gap-2.5 p-3 mb-3 rounded-md text-sm font-sans bg-error-bg border border-error-border text-error-text">
                         <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -597,12 +592,9 @@ const AddCoinToCollectionPage = () => {
                         <div key={side}>
                           <p className="font-sans text-xs font-semibold mb-1.5 text-text-secondary">{label}</p>
                           <div
-                            className="relative text-center rounded-md transition-colors duration-150"
-                            style={{
-                              border: `2px dashed ${da ? '#b8843a' : '#e8e0d0'}`,
-                              backgroundColor: da ? '#f0e8d4' : '#faf4ea',
-                              minHeight: 110,
-                            }}
+                            className={`relative min-h-[110px] text-center rounded-md border-2 border-dashed transition-colors duration-150 ${
+                              da ? 'border-amber bg-amber-bg' : 'border-border bg-surface'
+                            }`}
                             onDragEnter={e => { e.preventDefault(); sda(true); }}
                             onDragLeave={e => { e.preventDefault(); sda(false); }}
                             onDragOver={e => e.preventDefault()}
@@ -618,7 +610,7 @@ const AddCoinToCollectionPage = () => {
                             />
                             {preview ? (
                               <div className="p-2">
-                                <img src={preview} alt={label} className="w-full h-24 object-contain rounded" style={{ mixBlendMode: 'multiply' }} />
+                                <img src={preview} alt={label} className="w-full h-24 object-contain rounded mix-blend-multiply" />
                                 <button
                                   type="button"
                                   onClick={e => { e.stopPropagation(); removeImage(side); }}
@@ -641,8 +633,7 @@ const AddCoinToCollectionPage = () => {
                   </div>
 
                   {formError && (
-                    <div ref={formErrorRef} className="flex items-start gap-2.5 p-3 rounded-md text-sm font-sans"
-                      style={{ backgroundColor: semantic.error.bg, border: `1px solid ${semantic.error.border}`, color: semantic.error.text }}>
+                    <div ref={formErrorRef} className="flex items-start gap-2.5 p-3 rounded-md text-sm font-sans bg-error-bg border border-error-border text-error-text">
                       <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>

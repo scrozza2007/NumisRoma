@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # ------------------------------------------------------------
 # Dependency install stage
 # ------------------------------------------------------------
@@ -8,8 +6,8 @@ FROM node:20-alpine AS deps
 WORKDIR /usr/src/app
 
 # Only copy lockfile-relevant files so this layer caches independently of src.
-COPY package.json ./
-RUN npm install --omit=dev && npm cache clean --force
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
 # ------------------------------------------------------------
 # Runtime stage

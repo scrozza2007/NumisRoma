@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+
 const User = require('../../src/models/User');
 const Session = require('../../src/models/Session');
 const sessionController = require('../../src/controllers/sessionController');
@@ -73,6 +74,23 @@ describe('createSession', () => {
     const session = await Session.findOne({ token: hashToken(token) });
     expect(session.deviceInfo.operatingSystem).toMatch(/Windows/);
   });
+
+  test('normalizes the client IP and does not trust a submitted location', async () => {
+    const user = await makeUser();
+    const token = makeToken(user._id);
+    const req = {
+      ip: '::ffff:203.0.113.17',
+      headers: { 'user-agent': 'Mozilla/5.0 Chrome/120.0' },
+      connection: {},
+      body: { location: 'Pretend City' },
+    };
+
+    await sessionController.createSession(user._id, token, req);
+
+    const session = await Session.findOne({ token: hashToken(token) });
+    expect(session.ipAddress).toBe('203.0.113.17');
+    expect(session.location).not.toBe('Pretend City');
+  });
 });
 
 // ── getActiveSessions ─────────────────────────────────────────────────────────
@@ -90,6 +108,12 @@ describe('getActiveSessions', () => {
 
     expect(Array.isArray(res.body.sessions)).toBe(true);
     expect(res.body.sessions.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.sessions[0].location).toBe('Unknown location');
+    expect(res.body.sessions[0]).not.toHaveProperty('token');
+    expect(res.body.sessions[0]).not.toHaveProperty('refreshToken');
+    expect(res.body.sessions[0].ipAddress).toBe('127.0.0.1');
+    expect(res.body.sessions[0]).toHaveProperty('id');
+    expect(res.body.sessions[0]).not.toHaveProperty('_id');
   });
 
   test('flags the current session with isCurrentSession=true', async () => {
@@ -106,6 +130,44 @@ describe('getActiveSessions', () => {
     const current = res.body.sessions.find(s => s.isCurrentSession);
     expect(current).toBeDefined();
   });
+
+  test('refreshes the current session IP using Express trusted proxy resolution', async () => {
+    const user = await makeUser();
+    const token = makeToken(user._id);
+    await sessionController.createSession(user._id, token, fakeReq(token));
+
+    const app = makeApp(user._id, token, ['get', '/sessions', sessionController.getActiveSessions]);
+    app.set('trust proxy', 1);
+    const res = await request(app)
+      .get('/sessions')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Forwarded-For', '198.51.100.42')
+      .expect(200);
+
+    const stored = await Session.findOne({ token: hashToken(token) });
+    expect(stored.ipAddress).toBe('198.51.100.42');
+  });
+
+  test('does not replace a stored public IP with a private Docker or LAN IP', async () => {
+    const user = await makeUser();
+    const token = makeToken(user._id);
+    const req = {
+      ip: '198.51.100.42',
+      headers: { 'user-agent': 'Mozilla/5.0 Chrome/120.0' },
+      connection: {},
+      body: {},
+    };
+    await sessionController.createSession(user._id, token, req);
+
+    const app = makeApp(user._id, token, ['get', '/sessions', sessionController.getActiveSessions]);
+    await request(app)
+      .get('/sessions')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const stored = await Session.findOne({ token: hashToken(token) });
+    expect(stored.ipAddress).toBe('198.51.100.42');
+  });
 });
 
 // ── terminateSession ──────────────────────────────────────────────────────────
@@ -121,7 +183,7 @@ describe('terminateSession', () => {
       ['delete', '/sessions/:sessionId', sessionController.terminateSession]
     );
     const res = await request(app)
-      .delete(`/sessions/${other._id}`)
+      .delete(`/sessions/${other.publicId}`)
       .set('Authorization', `Bearer ${tokenCurrent}`)
       .expect(200);
     expect(res.body.message).toMatch(/terminated/i);
@@ -135,7 +197,7 @@ describe('terminateSession', () => {
       ['delete', '/sessions/:sessionId', sessionController.terminateSession]
     );
     await request(app)
-      .delete(`/sessions/${new mongoose.Types.ObjectId()}`)
+      .delete(`/sessions/${require('crypto').randomUUID()}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(404);
   });
@@ -149,7 +211,7 @@ describe('terminateSession', () => {
       ['delete', '/sessions/:sessionId', sessionController.terminateSession]
     );
     await request(app)
-      .delete(`/sessions/${session._id}`)
+      .delete(`/sessions/${session.publicId}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(400);
   });

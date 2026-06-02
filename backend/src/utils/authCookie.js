@@ -17,14 +17,14 @@
 const AUTH_COOKIE_NAME = 'token';
 const REFRESH_COOKIE_NAME = 'refreshToken';
 
-// Auth cookie lifetime — 7 days. Used for both the simple 7-day JWT (POST /auth/login)
-// and the short-lived access token from POST /auth/login-refresh (the cookie maxAge
-// is intentionally longer than the JWT so the browser doesn't silently discard it;
-// the JWT's own `exp` claim enforces the real expiry server-side).
+// Auth cookie lifetime is deliberately longer than the short-lived access JWT:
+// an expired cookie still identifies the browser while its scoped refresh cookie
+// rotates a fresh access token. The JWT `exp` remains the authorization boundary.
 const AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Refresh token cookie lifetime — 7 days, matching the refresh JWT expiry.
 const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const REMEMBER_ME_COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 const getBaseCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
@@ -48,23 +48,23 @@ const getBaseCookieOptions = () => {
   return options;
 };
 
-const getAuthCookieOptions = () => ({
+const getAuthCookieOptions = (rememberMe = false) => ({
   ...getBaseCookieOptions(),
-  maxAge: AUTH_COOKIE_MAX_AGE_MS
+  maxAge: rememberMe ? REMEMBER_ME_COOKIE_MAX_AGE_MS : AUTH_COOKIE_MAX_AGE_MS
 });
 
-const getRefreshCookieOptions = () => ({
+const getRefreshCookieOptions = (rememberMe = false) => ({
   ...getBaseCookieOptions(),
-  maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+  maxAge: rememberMe ? REMEMBER_ME_COOKIE_MAX_AGE_MS : REFRESH_COOKIE_MAX_AGE_MS,
   path: '/api/auth' // scope refresh cookie to auth endpoints only
 });
 
-const setAuthCookie = (res, token) => {
-  res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+const setAuthCookie = (res, token, { rememberMe = false } = {}) => {
+  res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions(rememberMe));
 };
 
-const setRefreshCookie = (res, refreshToken) => {
-  res.cookie(REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions());
+const setRefreshCookie = (res, refreshToken, { rememberMe = false } = {}) => {
+  res.cookie(REFRESH_COOKIE_NAME, refreshToken, getRefreshCookieOptions(rememberMe));
 };
 
 const clearAuthCookie = (res) => {
@@ -84,6 +84,7 @@ module.exports = {
   REFRESH_COOKIE_NAME,
   AUTH_COOKIE_MAX_AGE_MS,
   REFRESH_COOKIE_MAX_AGE_MS,
+  REMEMBER_ME_COOKIE_MAX_AGE_MS,
   getAuthCookieOptions,
   getRefreshCookieOptions,
   setAuthCookie,

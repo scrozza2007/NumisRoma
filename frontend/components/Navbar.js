@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { AuthContext } from '../context/AuthContext';
 import Image from 'next/image';
+import { Bell, Bookmark, LogOut, Menu, MessageCircle, Settings, UserRound, X } from 'lucide-react';
 import { apiClient } from '../utils/apiClient';
 import BrandLockup from './BrandLockup';
 
@@ -237,11 +238,11 @@ const Navbar = () => {
 
   const isActive = (href) => router.pathname === href;
   const accountLinks = user ? [
-    { label: 'Profile', href: `/profile?id=${user._id}`, icon: 'M5.121 17.804A9.004 9.004 0 0112 15a9.004 9.004 0 016.879 2.804M15 11a3 3 0 11-6 0 3 3 0 016 0z' },
-    { label: 'Messages', href: '/messages', icon: 'M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.77 9.77 0 01-4-.83L3 20l1.35-3.6A7.18 7.18 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-    { label: 'Wishlist', href: '/wishlist', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-4-7 4V5z' },
-    { label: 'Notifications', href: '/notifications', badge: notifCount, icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-    { label: 'Settings', href: '/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+    { label: 'Profile', href: `/profile?id=${user._id}`, Icon: UserRound },
+    { label: 'Messages', href: '/messages', Icon: MessageCircle },
+    { label: 'Wishlist', href: '/wishlist', Icon: Bookmark },
+    { label: 'Notifications', href: '/notifications', badge: notifCount, Icon: Bell },
+    { label: 'Settings', href: '/settings', Icon: Settings },
   ] : [];
 
   return (
@@ -281,9 +282,7 @@ const Navbar = () => {
                   aria-label="Notifications"
                   className="relative w-9 h-9 flex items-center justify-center rounded-full text-text-secondary hover:text-text-primary hover:bg-surface-alt transition-colors duration-150"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
+                  <Bell className="w-5 h-5" />
                   <Badge count={notifCount} />
                 </button>
 
@@ -417,13 +416,9 @@ const Navbar = () => {
             className="md:hidden flex items-center justify-center w-9 h-9 rounded text-text-secondary hover:text-text-primary transition-colors duration-150"
           >
             {isMobileMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <Menu className="w-5 h-5" />
             )}
           </button>
         </div>
@@ -467,14 +462,12 @@ const Navbar = () => {
               aria-label="Close account menu"
               className="w-9 h-9 flex items-center justify-center rounded text-text-muted hover:text-text-primary hover:bg-surface-alt transition-colors duration-150"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-5 h-5" />
             </button>
           </div>
 
           <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-1">
-            {accountLinks.map(({ label, href, badge, icon }) => (
+            {accountLinks.map(({ label, href, badge, Icon }) => (
               <Link
                 key={label}
                 href={href}
@@ -486,9 +479,7 @@ const Navbar = () => {
                 }`}
               >
                 <span className="flex items-center gap-3 min-w-0">
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={icon} />
-                  </svg>
+                  <Icon className="w-4 h-4 shrink-0" />
                   <span className="truncate">{label}</span>
                 </span>
                 {badge > 0 && (
@@ -505,9 +496,7 @@ const Navbar = () => {
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-md font-sans text-sm text-red-700 hover:bg-red-50 transition-colors duration-150"
             >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-              </svg>
+              <LogOut className="w-4 h-4 shrink-0" />
               Sign out
             </button>
           </div>
@@ -538,9 +527,7 @@ const Navbar = () => {
             aria-label="Close menu"
             className="w-8 h-8 flex items-center justify-center rounded text-text-muted hover:text-text-primary transition-colors duration-150"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" />
           </button>
         </div>
 

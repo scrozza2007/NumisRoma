@@ -128,13 +128,13 @@ const PeriodRangeSlider = ({
             />
           </div>
           <div
-            className="absolute w-4 h-4 rounded-full cursor-grab z-10 bg-amber"
-            style={{ border: '2px solid var(--color-canvas)', boxShadow: '0 1px 4px rgba(46,40,32,0.20)', left: `calc(${startPercentage}% - 8px)`, top: '2px' }}
+            className="absolute top-0.5 w-4 h-4 rounded-full cursor-grab z-10 bg-amber border-2 border-canvas shadow-[0_1px_4px_rgba(46,40,32,0.20)]"
+            style={{ left: `calc(${startPercentage}% - 8px)` }}
             onMouseDown={createDragHandler(true)}
           />
           <div
-            className="absolute w-4 h-4 rounded-full cursor-grab z-10 bg-amber"
-            style={{ border: '2px solid var(--color-canvas)', boxShadow: '0 1px 4px rgba(46,40,32,0.20)', left: `calc(${endPercentage}% - 8px)`, top: '2px' }}
+            className="absolute top-0.5 w-4 h-4 rounded-full cursor-grab z-10 bg-amber border-2 border-canvas shadow-[0_1px_4px_rgba(46,40,32,0.20)]"
+            style={{ left: `calc(${endPercentage}% - 8px)` }}
             onMouseDown={createDragHandler(false)}
           />
         </div>
