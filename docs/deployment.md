@@ -31,7 +31,11 @@ Fill in all required values. Production-specific variables:
 | `JWT_SECRET` | ≥ 64-char random string |
 | `REFRESH_TOKEN_SECRET` | ≥ 64-char random string, different from `JWT_SECRET` |
 | `CSRF_SECRET` | ≥ 64-char random string, different from both above |
-| `SUPPORT_EMAIL` | Inbox that receives contact form submissions; defaults to `support@numisroma.com` |
+| `RESEND_FROM_EMAIL` | Verified Resend sender, e.g. `NumisRoma <noreply@numisroma.com>` |
+| `RESEND_REPLY_TO_EMAIL` | Reply-To for transactional emails; defaults to `SUPPORT_EMAIL` |
+| `EMAIL_LOGO_URL` | Absolute URL for the email header logo; defaults to `https://$DOMAIN/brand/numisroma-social-monogram-borderless.png` through `FRONTEND_URL` |
+| `EMAIL_DMARC_CONFIRMED` | Set to `true` after publishing and verifying a `_dmarc` TXT record for the sending domain |
+| `SUPPORT_EMAIL` | Inbox that receives contact form submissions; defaults to `support@numisroma.com`; prefer the same root domain as `RESEND_FROM_EMAIL` |
 | `NEXT_PUBLIC_KOFI_URL` | Ko-fi page linked from the donation experience |
 | `NEXT_PUBLIC_KOFI_USERNAME` | Ko-fi page name used by the embedded and floating widgets |
 | `MAXMIND_ACCOUNT_ID` | Optional MaxMind account ID for local/self-hosted session IP geolocation |
@@ -42,6 +46,16 @@ Fill in all required values. Production-specific variables:
 Generate secrets with:
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+For Resend deliverability, keep production email links on the same root domain as
+the verified sender. With `NumisRoma <noreply@numisroma.com>`, use
+`FRONTEND_URL=https://numisroma.com`, `SUPPORT_EMAIL=support@numisroma.com`,
+and `EMAIL_LOGO_URL=https://numisroma.com/brand/numisroma-social-monogram-borderless.png`.
+Add a DMARC record before setting `EMAIL_DMARC_CONFIRMED=true`, for example:
+
+```txt
+_dmarc.numisroma.com TXT "v=DMARC1; p=none; rua=mailto:dmarc@numisroma.com; adkim=s; aspf=s"
 ```
 
 Optional image storage (Cloudflare R2 or AWS S3 — falls back to local disk):

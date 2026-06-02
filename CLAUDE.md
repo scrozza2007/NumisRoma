@@ -71,6 +71,9 @@ Optional variables:
 - `TRUST_PROXY` — set to `1` behind a single LB/proxy; required in production for correct `req.ip` and rate-limit key derivation
 - `RESEND_API_KEY` — required for all transactional emails (OTP, welcome, password reset); errors in production, warns in dev
 - `RESEND_FROM_EMAIL` — sender address/name; must be a verified Resend domain (default: `NumisRoma <noreply@numisroma.com>`)
+- `RESEND_REPLY_TO_EMAIL` — reply-to for transactional emails; defaults to `SUPPORT_EMAIL`
+- `EMAIL_LOGO_URL` — absolute URL for the email header logo; defaults to `${FRONTEND_URL}/brand/numisroma-social-monogram-borderless.png`
+- `EMAIL_DMARC_CONFIRMED` — set to `true` after publishing a valid `_dmarc` TXT record for the sending domain
 - `ABSTRACT_EMAIL_API_KEY` — Abstract API Email Reputation key for mailbox validation before sending OTPs; fails open when unset
 
 Generate secrets: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`

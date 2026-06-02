@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Project and policy pages** — public mission, research, contributors, terms, and privacy pages now describe NumisRoma's focus and policies.
 - **Ko-fi support experience** — `/donate` includes an embedded Ko-fi panel with an external fallback, and a floating Ko-fi support button is available site-wide.
 - **Contact support delivery** — contact submissions are delivered to the configurable `SUPPORT_EMAIL` inbox with the visitor address set as reply-to.
+- **Email deliverability hardening** — transactional emails keep the `noreply@numisroma.com` sender, add a configurable reply-to, include the hosted NumisRoma logo, and document first-party link/logo alignment plus DMARC confirmation.
 
 ### Changed
 - **Navigation and homepage content** — public navigation and homepage messaging now point to the mission, research, legal, contact, and donation experiences.

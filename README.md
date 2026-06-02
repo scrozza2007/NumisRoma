@@ -165,8 +165,11 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `AWS_S3_BUCKET` | optional | S3 / Cloudflare R2 image storage; falls back to local disk |
 | `AWS_ENDPOINT` | optional | R2 only: `https://ACCOUNT_ID.r2.cloudflarestorage.com` |
 | `RESEND_API_KEY` | required | Transactional email (OTP, welcome, password reset) via Resend |
-| `RESEND_FROM_EMAIL` | optional | Sender address; must be a verified Resend domain |
-| `SUPPORT_EMAIL` | optional | Inbox that receives contact form submissions; defaults to `support@numisroma.com` |
+| `RESEND_FROM_EMAIL` | optional | Sender address; must be a verified Resend domain; defaults to `NumisRoma <noreply@numisroma.com>` |
+| `RESEND_REPLY_TO_EMAIL` | optional | Reply-To for transactional emails; defaults to `SUPPORT_EMAIL` |
+| `EMAIL_LOGO_URL` | optional | Absolute URL for the email header logo; defaults to `${FRONTEND_URL}/brand/numisroma-social-monogram-borderless.png` |
+| `EMAIL_DMARC_CONFIRMED` | prod recommended | Set to `true` after adding a valid `_dmarc` TXT record for the sending domain |
+| `SUPPORT_EMAIL` | optional | Inbox that receives contact form submissions; defaults to `support@numisroma.com`; prefer the same root domain as `RESEND_FROM_EMAIL` |
 | `NEXT_PUBLIC_KOFI_URL` | optional | Ko-fi donation page used by `/donate`; defaults to `https://ko-fi.com/numisroma` |
 | `NEXT_PUBLIC_KOFI_USERNAME` | optional | Ko-fi page name used by the embedded panel and floating widget; defaults to `numisroma` |
 | `ABSTRACT_EMAIL_API_KEY` | optional | Mailbox deliverability check before sending OTPs; fails open when unset |
@@ -177,6 +180,12 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `MAXMIND_ASN_DB_PATH` | optional | Local/self-hosted GeoIP ASN database for session network names and risk checks. |
 | `SENTRY_DSN` | optional | Error tracking via Sentry |
 | `ADMIN_API_KEY` | optional | ≥ 32-char key to access cache-flush admin endpoints |
+
+For Resend deliverability, keep `FRONTEND_URL`, `SUPPORT_EMAIL`, `EMAIL_LOGO_URL`, and any email links on the same root domain as `RESEND_FROM_EMAIL` where possible. The email logo defaults to a first-party hosted PNG. A starter DMARC TXT record is:
+
+```txt
+_dmarc.numisroma.com TXT "v=DMARC1; p=none; rua=mailto:dmarc@numisroma.com; adkim=s; aspf=s"
+```
 
 See `backend/.env.example` and `.env.example` for the full list.
 

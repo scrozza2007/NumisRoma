@@ -13,6 +13,35 @@ const logger = require('../utils/logger');
 
 const MIN_SECRET_LENGTH = 32;
 
+const firstCsvValue = (value) => String(value || '')
+  .split(',')
+  .map(v => v.trim())
+  .filter(Boolean)[0] || '';
+
+const extractEmailAddress = (value = '') => {
+  const match = String(value).match(/<([^>]+)>/);
+  return (match ? match[1] : value).trim();
+};
+
+const emailDomain = (value = '') => {
+  const [, domain = ''] = extractEmailAddress(value).split('@');
+  return domain.toLowerCase();
+};
+
+const rootDomain = (hostname = '') => {
+  const labels = String(hostname).toLowerCase().split('.').filter(Boolean);
+  if (labels.length <= 2) return labels.join('.');
+  return labels.slice(-2).join('.');
+};
+
+const urlHostname = (value = '') => {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
 /**
  * Validate a secret by length, complexity heuristics, and obvious
  * placeholder values. Returns an array of human-readable problems.
@@ -107,6 +136,29 @@ const validateEnv = () => {
     }
   } else if (!process.env.RESEND_API_KEY.startsWith('re_')) {
     warnings.push('RESEND_API_KEY does not look like a valid Resend key (expected prefix: re_)');
+  }
+
+  const resendFrom = process.env.RESEND_FROM_EMAIL || 'NumisRoma <noreply@numisroma.com>';
+  const senderDomain = emailDomain(resendFrom);
+  const frontendHost = urlHostname(firstCsvValue(process.env.FRONTEND_URL));
+  const supportDomain = emailDomain(process.env.SUPPORT_EMAIL || `support@${senderDomain || 'numisroma.com'}`);
+
+  if (isProd) {
+    if (!senderDomain) {
+      errors.push('RESEND_FROM_EMAIL must include an email address on your verified sending domain');
+    }
+
+    if (senderDomain && frontendHost && rootDomain(frontendHost) !== rootDomain(senderDomain)) {
+      warnings.push('FRONTEND_URL root domain differs from RESEND_FROM_EMAIL; email links should align with the sending domain');
+    }
+
+    if (senderDomain && supportDomain && rootDomain(supportDomain) !== rootDomain(senderDomain)) {
+      warnings.push('SUPPORT_EMAIL root domain differs from RESEND_FROM_EMAIL; prefer a mailbox on the same domain');
+    }
+
+    if (!process.env.EMAIL_DMARC_CONFIRMED) {
+      warnings.push('EMAIL_DMARC_CONFIRMED is unset; confirm a valid _dmarc TXT record exists for the sending domain');
+    }
   }
 
   // Google Vision API key — required for coin image AI validation.

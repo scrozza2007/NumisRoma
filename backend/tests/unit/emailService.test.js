@@ -27,6 +27,8 @@ describe('emailService account deletion confirmation', () => {
     });
 
     expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({
+      from: 'NumisRoma <noreply@numisroma.com>',
+      replyTo: 'support@numisroma.com',
       to: 'deleted@example.com',
       subject: 'Your NumisRoma account has been deleted',
       html: expect.stringContaining('Your account has been deleted'),
@@ -36,6 +38,8 @@ describe('emailService account deletion confirmation', () => {
     const [{ html }] = mockSend.mock.calls[0];
     expect(html).toContain('Lucia &lt;collector&gt;');
     expect(html).toContain('NumisRoma');
+    expect(html).toContain('/brand/numisroma-social-monogram-borderless.png');
+    expect(html).not.toContain('fonts.googleapis.com');
     expect(html).not.toContain('Lucia <collector>');
   });
 });

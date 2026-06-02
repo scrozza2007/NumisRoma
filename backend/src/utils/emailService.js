@@ -3,6 +3,30 @@ const logger = require('./logger');
 
 let resend;
 
+const firstCsvValue = (value, fallback) => String(value || fallback)
+  .split(',')
+  .map(v => v.trim())
+  .filter(Boolean)[0];
+
+const stripTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
+
+const extractEmailAddress = (value = '') => {
+  const match = String(value).match(/<([^>]+)>/);
+  return (match ? match[1] : value).trim();
+};
+
+const emailDomain = (value = '') => {
+  const address = extractEmailAddress(value);
+  const [, domain = ''] = address.split('@');
+  return domain.toLowerCase();
+};
+
+const rootDomain = (hostname = '') => {
+  const labels = String(hostname).toLowerCase().split('.').filter(Boolean);
+  if (labels.length <= 2) return labels.join('.');
+  return labels.slice(-2).join('.');
+};
+
 const getClient = () => {
   if (!resend) {
     if (!process.env.RESEND_API_KEY) {
@@ -14,8 +38,50 @@ const getClient = () => {
 };
 
 const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL || 'NumisRoma <noreply@numisroma.com>';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@numisroma.com';
+const FRONTEND_URL = stripTrailingSlash(firstCsvValue(process.env.FRONTEND_URL, 'http://localhost:3000'));
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || `support@${emailDomain(FROM_ADDRESS) || 'numisroma.com'}`;
+const REPLY_TO_ADDRESS = process.env.RESEND_REPLY_TO_EMAIL || SUPPORT_EMAIL;
+const EMAIL_LOGO_URL = process.env.EMAIL_LOGO_URL || `${FRONTEND_URL}/brand/numisroma-social-monogram-borderless.png`;
+
+const warnIfLinkDomainDiffers = (url) => {
+  try {
+    const linkHost = new URL(url).hostname;
+    const senderDomain = emailDomain(FROM_ADDRESS);
+    if (
+      senderDomain &&
+      linkHost !== 'localhost' &&
+      rootDomain(linkHost) !== rootDomain(senderDomain)
+    ) {
+      logger.warn('Email link domain differs from sender domain', {
+        senderDomain,
+        linkHost,
+        url
+      });
+    }
+  } catch {
+    logger.warn('Email link is not an absolute URL', { url });
+  }
+};
+
+const sendEmail = async (payload) => {
+  [payload.html, payload.text].filter(Boolean).forEach(content => {
+    const links = String(content).match(/https?:\/\/[^\s"'<>]+/g) || [];
+    links.forEach(warnIfLinkDomainDiffers);
+  });
+
+  return getClient().emails.send({
+    replyTo: REPLY_TO_ADDRESS,
+    ...payload
+  });
+};
+
+const handleResendError = (result, label, to) => {
+  if (!result.error) return;
+  logger.error(`Resend rejected ${label} email`, { to, resendError: result.error });
+  const err = new Error(result.error.message || 'Resend API error');
+  err.resendError = result.error;
+  throw err;
+};
 
 const escapeHtml = (value = '') => String(value)
   .replace(/&/g, '&amp;')
@@ -48,8 +114,6 @@ const baseTemplate = (title, bodyHtml, footerNote = 'If you did not attempt to c
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: ${C.canvas};
@@ -64,6 +128,17 @@ const baseTemplate = (title, bodyHtml, footerNote = 'If you did not attempt to c
 
     /* Header bar */
     .header    { background: ${C.canvas}; border-bottom: 1px solid ${C.border}; padding: 24px 36px; }
+    .brand-row { display: table; }
+    .logo-cell { display: table-cell; vertical-align: middle; padding-right: 14px; }
+    .text-cell { display: table-cell; vertical-align: middle; }
+    .logo-image {
+      display: block;
+      width: 48px;
+      height: 48px;
+      border: 0;
+      outline: none;
+      text-decoration: none;
+    }
     .logo-text {
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-size: 26px;
@@ -150,6 +225,7 @@ const baseTemplate = (title, bodyHtml, footerNote = 'If you did not attempt to c
     /* Responsive */
     @media (max-width: 600px) {
       .header, .body { padding-left: 24px; padding-right: 24px; }
+      .logo-image { width: 42px; height: 42px; }
       .otp-code { font-size: 36px; letter-spacing: 8px; }
       h1 { font-size: 24px; }
     }
@@ -160,8 +236,15 @@ const baseTemplate = (title, bodyHtml, footerNote = 'If you did not attempt to c
     <div class="card">
 
       <div class="header">
-        <div class="logo-text">NumisRoma</div>
-        <div class="logo-sub">Ancient Roman Coin Collection</div>
+        <div class="brand-row">
+          <div class="logo-cell">
+            <img src="${EMAIL_LOGO_URL}" width="48" height="48" alt="NumisRoma" class="logo-image" />
+          </div>
+          <div class="text-cell">
+            <div class="logo-text">NumisRoma</div>
+            <div class="logo-sub">Ancient Roman Coin Collection</div>
+          </div>
+        </div>
       </div>
 
       <div class="body">
@@ -174,7 +257,7 @@ const baseTemplate = (title, bodyHtml, footerNote = 'If you did not attempt to c
     <div class="footer">
       &copy; ${new Date().getFullYear()} NumisRoma &nbsp;&middot;&nbsp;
       <a href="${FRONTEND_URL}">Visit website</a> &nbsp;&middot;&nbsp;
-      <a href="mailto:support@numisroma.com">Contact support</a>
+      <a href="mailto:${SUPPORT_EMAIL}">Contact support</a>
     </div>
   </div>
 </body>
@@ -219,7 +302,7 @@ const welcomeEmailHtml = (username) =>
       <a href="${FRONTEND_URL}/browse" class="cta">Start exploring →</a>
     </div>
 
-    <p>Questions or feedback? We're always happy to hear from you at <a href="mailto:support@numisroma.com">support@numisroma.com</a>.</p>
+    <p>Questions or feedback? We're always happy to hear from you at <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
     `,
     'You\'re receiving this because you just created a NumisRoma account.'
   );
@@ -330,8 +413,7 @@ const contactNotificationHtml = ({ name, email, subject, message, contactId }) =
 // ─── Send helpers ────────────────────────────────────────────────────────────
 
 exports.sendOtpEmail = async ({ to, otp, expiryMinutes = 10 }) => {
-  const client = getClient();
-  const result = await client.emails.send({
+  const result = await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: 'Your NumisRoma verification code',
@@ -339,28 +421,21 @@ exports.sendOtpEmail = async ({ to, otp, expiryMinutes = 10 }) => {
     text: `Your NumisRoma verification code is: ${otp}\n\nThis code expires in ${expiryMinutes} minutes and can only be used once.\n\nIf you did not request this, ignore this email.`
   });
 
-  // Resend returns { data: { id }, error } — a non-null error means delivery failed
-  if (result.error) {
-    logger.error('Resend rejected OTP email', { to, resendError: result.error });
-    const err = new Error(result.error.message || 'Resend API error');
-    err.resendError = result.error;
-    throw err;
-  }
-
+  handleResendError(result, 'OTP', to);
   logger.info('OTP email sent', { to, messageId: result.data?.id });
   return result;
 };
 
 exports.sendWelcomeEmail = async ({ to, username }) => {
   try {
-    const client = getClient();
-    const result = await client.emails.send({
+    const result = await sendEmail({
       from: FROM_ADDRESS,
       to,
       subject: `Welcome to NumisRoma, ${username}!`,
       html: welcomeEmailHtml(username),
-      text: `Welcome to NumisRoma, ${username}!\n\nYour account is ready. Start exploring at ${FRONTEND_URL}/browse\n\nNeed help? Contact us at support@numisroma.com`
+      text: `Welcome to NumisRoma, ${username}!\n\nYour account is ready. Start exploring at ${FRONTEND_URL}/browse\n\nNeed help? Contact us at ${SUPPORT_EMAIL}`
     });
+    handleResendError(result, 'welcome', to);
     logger.info('Welcome email sent', { to, messageId: result.data?.id });
     return result;
   } catch (err) {
@@ -371,14 +446,14 @@ exports.sendWelcomeEmail = async ({ to, username }) => {
 
 exports.sendPasswordResetEmail = async ({ to, resetUrl, expiryMinutes = 15 }) => {
   try {
-    const client = getClient();
-    const result = await client.emails.send({
+    const result = await sendEmail({
       from: FROM_ADDRESS,
       to,
       subject: 'Reset your NumisRoma password',
       html: passwordResetEmailHtml(resetUrl, expiryMinutes),
       text: `Reset your NumisRoma password\n\nClick the link below to set a new password. It expires in ${expiryMinutes} minutes.\n\n${resetUrl}\n\nIf you didn't request this, ignore this email.`
     });
+    handleResendError(result, 'password reset', to);
     logger.info('Password reset email sent', { to, messageId: result.data?.id });
     return result;
   } catch (err) {
@@ -389,8 +464,7 @@ exports.sendPasswordResetEmail = async ({ to, resetUrl, expiryMinutes = 15 }) =>
 
 exports.sendAccountDeletionEmail = async ({ to, username }) => {
   try {
-    const client = getClient();
-    const result = await client.emails.send({
+    const result = await sendEmail({
       from: FROM_ADDRESS,
       to,
       subject: 'Your NumisRoma account has been deleted',
@@ -398,13 +472,7 @@ exports.sendAccountDeletionEmail = async ({ to, username }) => {
       text: `Hello ${username},\n\nYour NumisRoma account has been permanently deleted as requested. Your profile and collection data are no longer available through NumisRoma.\n\nIf you did not request this deletion or believe it happened in error, contact us at ${SUPPORT_EMAIL}.`
     });
 
-    if (result.error) {
-      logger.error('Resend rejected account deletion email', { to, resendError: result.error });
-      const err = new Error(result.error.message || 'Resend API error');
-      err.resendError = result.error;
-      throw err;
-    }
-
+    handleResendError(result, 'account deletion', to);
     logger.info('Account deletion email sent', { to, messageId: result.data?.id });
     return result;
   } catch (err) {
@@ -414,16 +482,15 @@ exports.sendAccountDeletionEmail = async ({ to, username }) => {
 };
 
 exports.sendSecurityAlertEmail = async ({ to, username, device, location, riskFlags }) => {
-  const client = getClient();
   const reasons = riskFlags.map(flag => flag.replace(/_/g, ' ')).join(', ');
-  const result = await client.emails.send({
+  const result = await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: 'Security alert: new sign-in to NumisRoma',
     html: securityAlertEmailHtml({ username, device, location, riskFlags }),
     text: `Hello ${username},\n\nWe noticed a sign-in to your NumisRoma account.\nDevice: ${device}\nApproximate location: ${location}\nReason: ${reasons}\n\nIP-based locations are approximate. Review active sessions at ${FRONTEND_URL}/settings and revoke any session you do not recognize.`
   });
-  if (result.error) throw new Error(result.error.message || 'Resend API error');
+  handleResendError(result, 'security alert', to);
   logger.info('Security alert email sent', { to, messageId: result.data?.id });
   return result;
 };
@@ -455,8 +522,7 @@ const formatDate = (date) => {
 };
 
 exports.sendDataExportReadyEmail = async ({ to, username, downloadUrl, expiresAt, fileSize }) => {
-  const client = getClient();
-  const result = await client.emails.send({
+  const result = await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: 'Your NumisRoma data download is ready',
@@ -473,21 +539,14 @@ exports.sendDataExportReadyEmail = async ({ to, username, downloadUrl, expiresAt
     ].join('\n')
   });
 
-  if (result.error) {
-    logger.error('Resend rejected data export ready email', { to, resendError: result.error });
-    const err = new Error(result.error.message || 'Resend API error');
-    err.resendError = result.error;
-    throw err;
-  }
-
+  handleResendError(result, 'data export ready', to);
   logger.info('Data export ready email sent', { to, messageId: result.data?.id });
   return result;
 };
 
 exports.sendContactNotificationEmail = async ({ name, email, subject, message, contactId }) => {
   try {
-    const client = getClient();
-    const result = await client.emails.send({
+    const result = await sendEmail({
       from: FROM_ADDRESS,
       to: SUPPORT_EMAIL,
       replyTo: email,
@@ -505,16 +564,7 @@ exports.sendContactNotificationEmail = async ({ name, email, subject, message, c
       ].join('\n')
     });
 
-    if (result.error) {
-      logger.error('Resend rejected contact notification email', {
-        to: SUPPORT_EMAIL,
-        resendError: result.error
-      });
-      const err = new Error(result.error.message || 'Resend API error');
-      err.resendError = result.error;
-      throw err;
-    }
-
+    handleResendError(result, 'contact notification', SUPPORT_EMAIL);
     logger.info('Contact notification email sent', {
       to: SUPPORT_EMAIL,
       messageId: result.data?.id,
