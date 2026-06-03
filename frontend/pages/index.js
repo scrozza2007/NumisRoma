@@ -18,10 +18,13 @@ const obverseBackdropImage = (coin) =>
   coin?.images?.find((image) => image.layout === 'split' && image.files?.obverse)?.files.obverse || null;
 
 const backdropSlots = [
-  { position: 'w-[53%] right-[1%] top-[18%]', opacity: 0.8 },
-  { position: 'w-[43%] right-[36%] top-[4%]', opacity: 0.56 },
-  { position: 'w-[46%] right-[34%] bottom-[0%]', opacity: 0.62 },
+  { position: 'w-[53%] right-[1%] top-[18%]', zIndex: 'z-30' },
+  { position: 'w-[43%] right-[36%] top-[4%]', zIndex: 'z-10' },
+  { position: 'w-[46%] right-[34%] bottom-[0%]', zIndex: 'z-20' },
 ];
+
+const backgroundRemovedCoinImage = (src) =>
+  src ? `/api/remove-coin-background?src=${encodeURIComponent(src)}` : '';
 
 const Home = () => {
   const { user } = useContext(AuthContext);
@@ -242,25 +245,23 @@ const Home = () => {
         <section className="relative overflow-hidden h-[300px] sm:h-[380px] md:h-[480px] bg-surface">
           <div className="absolute inset-0 z-10 bg-[linear-gradient(to_right,#fdf8f0_0%,#fdf8f0_43%,rgba(253,248,240,0.94)_51%,rgba(253,248,240,0.38)_68%,rgba(253,248,240,0.08)_83%)]" />
           <div className="absolute inset-0 bg-surface-alt" aria-hidden="true">
-            <div className="absolute hidden sm:block inset-y-0 right-[0%] w-[60%] md:right-[2%] md:w-[57%] lg:right-[max(calc((100vw-80rem)/2 + 10px),10px)] lg:w-[56%]">
+            <div className="absolute hidden sm:block z-20 inset-y-0 right-[0%] w-[60%] md:right-[2%] md:w-[57%] lg:right-[max(calc((100vw-80rem)/2 + 10px),10px)] lg:w-[56%]">
               {backdropCoins.map((coin, index) => (
                 <div
                   key={coin._id}
-                  className={`absolute aspect-square ${backdropSlots[index].position}`}
+                  className={`absolute aspect-square isolate ${backdropSlots[index].zIndex} ${backdropSlots[index].position}`}
                 >
-                  <Image
-                    src={obverseBackdropImage(coin)}
+                  <img
+                    src={backgroundRemovedCoinImage(obverseBackdropImage(coin))}
                     alt=""
-                    fill
-                    unoptimized
-                    className="object-contain mix-blend-multiply [filter:sepia(0.06)_saturate(0.9)_contrast(1.04)]"
-                    style={{ opacity: backdropSlots[index].opacity }}
+                    className="absolute inset-0 h-full w-full object-contain [filter:sepia(0.06)_saturate(0.9)_contrast(1.04)]"
+                    draggable="false"
                   />
                 </div>
               ))}
             </div>
           </div>
-          <div className="absolute inset-0 flex items-center z-20">
+          <div className="absolute inset-0 flex items-center z-30">
             <div className="w-full max-w-7xl mx-auto px-4 sm:px-6">
               <p className="font-sans text-xs font-medium tracking-widest uppercase mb-4 text-amber">
                 Republic — Empire
