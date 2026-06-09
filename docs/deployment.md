@@ -109,7 +109,7 @@ This brings up:
 |---------|------|
 | `frontend` | Next.js (internal only, no host port) |
 | `backend` | Express API (internal only, no host port) |
-| `mongodb` | MongoDB 8.0 with persistent volume, port not exposed to host |
+| `mongodb` | MongoDB 7.0 with persistent volume, port not exposed to host |
 | `redis` | Redis 7 with persistent volume |
 | `caddy` | Reverse proxy, ports 80 and 443 |
 | `mongo-backup` | Daily 02:00 UTC `mongodump` cron |

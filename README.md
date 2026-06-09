@@ -256,7 +256,7 @@ See `backend/.env.example` and `.env.example` for the full list.
 |-----------|------------|
 | **Frontend** | Next.js 16 (Pages Router), Tailwind CSS v4 |
 | **Backend** | Node.js 18+, Express.js |
-| **Database** | MongoDB 8.0, Mongoose |
+| **Database** | MongoDB 7.0, Mongoose |
 | **Cache** | Redis (optional, in-memory fallback) |
 | **Auth** | JWT (httpOnly cookies), refresh token rotation |
 | **Image processing** | Multer + Sharp (WebP output, resize, EXIF strip) |
@@ -287,9 +287,9 @@ See `backend/.env.example` and `.env.example` for the full list.
 - Auto-skipped for non-browser clients (no auth cookie)
 
 ✅ **Rate Limiting**
-- General: 300 req / 15 min
+- General: 3,000 req / 15 min
 - Auth routes: 20 req / 15 min
-- Search: 30 req / min
+- Search: 120 req / min
 - Contact: 5 req / hr
 - Redis-backed with automatic in-memory fallback
 

@@ -200,4 +200,49 @@ describe('Collection Controller', () => {
       expect(res.body.coins).toHaveLength(0);
     });
   });
+
+  // ── updateCoinInCollection ─────────────────────────────────────────────────
+  describe('updateCoinInCollection', () => {
+    test('owner can update a coin entry in their collection', async () => {
+      const coin = await Coin.create({ ...coinFixtures.validCoinRIC8, _id: 'collection_update_coin' });
+      const col = await Collection.create({
+        user: user._id,
+        name: 'Editable',
+        isPublic: true,
+        coins: [{ coin: coin._id, notes: 'Before' }],
+      });
+      const entryId = col.coins[0]._id;
+      const a = app1(user._id, 'put', '/collections/:collectionId/coins/:coinId', collectionController.updateCoinInCollection);
+
+      const res = await request(a)
+        .put(`/collections/${col._id}/coins/${entryId}`)
+        .send({ notes: 'After' })
+        .expect(200);
+
+      const entry = res.body.coins.find(c => String(c._id) === String(entryId));
+      expect(entry.notes).toBe('After');
+    });
+
+    test('non-owner cannot update a public collection coin entry', async () => {
+      const other = await makeUser();
+      const coin = await Coin.create({ ...coinFixtures.validCoin, _id: 'collection_update_not_mine_coin' });
+      const col = await Collection.create({
+        user: other._id,
+        name: 'NotMine',
+        isPublic: true,
+        visibility: 'Public',
+        coins: [{ coin: coin._id, notes: 'Original' }],
+      });
+      const entryId = col.coins[0]._id;
+      const a = app1(user._id, 'put', '/collections/:collectionId/coins/:coinId', collectionController.updateCoinInCollection);
+
+      await request(a)
+        .put(`/collections/${col._id}/coins/${entryId}`)
+        .send({ notes: 'Hacked' })
+        .expect(404);
+
+      const unchanged = await Collection.findById(col._id).lean();
+      expect(unchanged.coins[0].notes).toBe('Original');
+    });
+  });
 });

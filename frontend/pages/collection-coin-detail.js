@@ -33,6 +33,12 @@ const emptyEditDetails = {
 
 const nonNegativeFields = new Set(['weight', 'diameter', 'thickness', 'purchasePrice', 'estimatedValue']);
 
+const getUserId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  return value._id || value.id || null;
+};
+
 const CollectionCoinDetail = () => {
   const router = useRouter();
   const { user, isLoading: authLoading } = useContext(AuthContext);
@@ -160,6 +166,10 @@ const CollectionCoinDetail = () => {
   }, [router.query.id, collectionId, entryId]);
 
   const handleEditCoin = () => {
+    if (!isOwner) {
+      setNotification({ show: true, type: 'error', message: 'Only the collection owner can edit this coin.' });
+      return;
+    }
     const entry = getCurrentEntry();
     setEditDetails({
       ...emptyEditDetails,
@@ -196,7 +206,7 @@ const CollectionCoinDetail = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!coin || !coin._id) return;
+    if (!coin || !coin._id || !isOwner) return;
     const targetId = entryId || coin._id;
     setEditLoading(true);
     try {
@@ -209,19 +219,23 @@ const CollectionCoinDetail = () => {
       setShowEditModal(false);
       await fetchCollectionData();
       await fetchCustomImages();
-      setNotification({ type: 'success', message: 'Data updated successfully' });
+      setNotification({ show: true, type: 'success', message: 'Data updated successfully' });
       router.replace({
         pathname: router.pathname,
         query: { id, collectionId, entryId }
       }, undefined, { shallow: true });
     } catch (err) {
-      setNotification({ type: 'error', message: err.message || 'Error while updating' });
+      setNotification({ show: true, type: 'error', message: err.message || 'Error while updating' });
     } finally {
       setEditLoading(false);
     }
   };
 
   const handleDeleteCoin = async () => {
+    if (!isOwner) {
+      setNotification({ show: true, message: 'Only the collection owner can remove this coin.', type: 'error' });
+      return;
+    }
     setDeleteLoading(true);
     try {
       await apiClient.delete(`/api/collections/${collectionId}/coins/${entryId || id}`);
@@ -255,7 +269,7 @@ const CollectionCoinDetail = () => {
   };
 
   const handleImageUpload = async () => {
-    if (!selectedObverseImage && !selectedReverseImage) return;
+    if (!isOwner || (!selectedObverseImage && !selectedReverseImage)) return;
     setImageUploadLoading(true);
     setImageModalError(null);
     try {
@@ -278,6 +292,10 @@ const CollectionCoinDetail = () => {
   };
 
   const handleImageReset = async () => {
+    if (!isOwner) {
+      setNotification({ show: true, message: 'Only the collection owner can edit images.', type: 'error' });
+      return;
+    }
     setImageResetLoading(true);
     try {
       await apiClient.delete(`/api/coins/entry/${entryId}/images`);
@@ -297,6 +315,11 @@ const CollectionCoinDetail = () => {
   const specimens = coin ? buildSpecimens([], customImages) : [];
   const active = specimens[activeIdx] || null;
   const collectionEntry = getCurrentEntry();
+  const isOwner = Boolean(
+    user &&
+    collectionData?.user &&
+    String(getUserId(user)) === String(getUserId(collectionData.user))
+  );
 
   const hasValidData = (data) => data && data !== '' && data !== 'N/A' && data !== 'n/a' && data !== null && data !== undefined;
 
@@ -391,26 +414,30 @@ const CollectionCoinDetail = () => {
               </svg>
               View in Catalog
             </Link>
-            <button
-              onClick={handleEditCoin}
-              className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-amber transition-colors duration-150"
-              title="Edit coin details"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Edit
-            </button>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-red-200 rounded bg-red-50 text-red-700 hover:bg-red-100 transition-colors duration-150"
-              title="Remove from collection"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Remove
-            </button>
+            {isOwner && (
+              <>
+                <button
+                  onClick={handleEditCoin}
+                  className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-border rounded bg-card text-text-secondary hover:border-amber transition-colors duration-150"
+                  title="Edit coin details"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 font-sans text-sm border border-red-200 rounded bg-red-50 text-red-700 hover:bg-red-100 transition-colors duration-150"
+                  title="Remove from collection"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Remove
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -536,15 +563,17 @@ const CollectionCoinDetail = () => {
                     );
                   })()}
                 </div>
-                <button
-                  onClick={() => setShowImageEditModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150 shrink-0"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                  Edit Images
-                </button>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowImageEditModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150 shrink-0"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Edit Images
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -554,12 +583,14 @@ const CollectionCoinDetail = () => {
         {specimens.length === 0 && (
           <div className="bg-card border border-border rounded-md mb-6 min-h-[200px] p-8 flex flex-col items-center justify-center gap-3">
             <CoinImagePlaceholder className="w-44 h-44 rounded" />
-            <button
-              onClick={() => setShowImageEditModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
-            >
-              Upload Your Own
-            </button>
+            {isOwner && (
+              <button
+                onClick={() => setShowImageEditModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 font-sans text-sm font-semibold rounded bg-amber text-[#fdf8f0] hover:bg-amber-hover transition-colors duration-150"
+              >
+                Upload Your Own
+              </button>
+            )}
           </div>
         )}
 

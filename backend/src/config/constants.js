@@ -7,7 +7,7 @@
 const RATE_LIMITS = {
   GENERAL: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 300
+    max: 3000
   },
   AUTH: {
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -15,7 +15,7 @@ const RATE_LIMITS = {
   },
   SEARCH: {
     windowMs: 1 * 60 * 1000, // 1 minute
-    max: 30
+    max: 120
   },
   CONTACT: {
     windowMs: 60 * 60 * 1000, // 1 hour
@@ -25,7 +25,7 @@ const RATE_LIMITS = {
   // Exempt from the general limiter; uses its own generous window.
   E2EE: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 50
+    max: 300
   }
 };
 

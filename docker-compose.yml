@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   mongodb:
-    image: mongo:8.0
+    image: mongo:7.0
     ports:
       - "27018:27017"
     command: ["mongod", "--auth", "--bind_ip_all"]

@@ -113,6 +113,13 @@ const failOpen = (limiter) => (req, res, next) => {
   }
 };
 
+const isOperationalOrStaticRequest = (req) =>
+  req.method === 'OPTIONS' ||
+  req.originalUrl === '/health' ||
+  req.originalUrl.startsWith('/health/') ||
+  req.originalUrl === '/metrics' ||
+  req.originalUrl.startsWith('/uploads/');
+
 // General rate limiting — skipped entirely in development, and for E2EE routes
 // (which have their own dedicated limiter).
 const generalLimiter = failOpen(rateLimit({
@@ -126,6 +133,7 @@ const generalLimiter = failOpen(rateLimit({
   legacyHeaders: false,
   skip: (req) =>
     process.env.NODE_ENV !== 'production' ||
+    isOperationalOrStaticRequest(req) ||
     req.originalUrl.includes('/api/e2ee') ||
     req.originalUrl.includes('/api/v1/e2ee'),
   store: buildRedisStore('general')
@@ -150,7 +158,7 @@ const authLimiter = failOpen(rateLimit({
 // logout endpoints must not be usable as high-rate replay/oracle endpoints.
 const authLifecycleLimiter = failOpen(rateLimit({
   windowMs: RATE_LIMITS.AUTH.windowMs,
-  max: 40,
+  max: 120,
   message: {
     error: 'Too many session operations, please try again later.',
     retryAfter: '15 minutes'

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const Collection = require('../models/Collection');
 const { createCoin, getCoins, getCoinById, getRandomCoins, updateCoinImages, resetCoinImages, getCustomImages, getFilterOptions, getDateRanges } = require('../controllers/coinController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const adminMiddleware = require('../middlewares/adminMiddleware');
@@ -14,10 +15,32 @@ const { CACHE_HEADERS } = require('../config/constants');
 const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
 
+const requireOwnedCollectionEntry = async (req, res, next) => {
+  try {
+    const collection = await Collection.findOne({
+      user: req.user.userId,
+      'coins._id': req.params.entryId
+    }).select('_id');
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Coin entry not found' });
+    }
+
+    return next();
+  } catch (error) {
+    logger.error('Error authorizing coin entry access', {
+      entryId: req.params.entryId,
+      userId: req.user?.userId,
+      error: error.message
+    });
+    return res.status(500).json({ error: 'Failed to authorize coin entry access' });
+  }
+};
+
 // Rate limiter for expensive filter options query (Redis-backed, fail-open)
 const filterOptionsLimiter = failOpen(rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute per IP
+  max: 120,
   message: {
     error: 'Too many filter requests',
     message: 'Please try again in a moment'
@@ -48,7 +71,7 @@ router.get('/:id', validateObjectId('id', { allowString: true }), optionalAuthMi
 router.post('/', authMiddleware, adminMiddleware, createCoin);
 
 // Protected routes — keyed by collection entry ID (unique per specimen)
-router.get('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, getCustomImages);
+router.get('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, requireOwnedCollectionEntry, getCustomImages);
 const serveCoinImage = (side) => async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.user.userId)) {
@@ -96,10 +119,10 @@ const serveCoinImage = (side) => async (req, res) => {
   }
 };
 
-router.get('/entry/:entryId/images/obverse', validateObjectId('entryId'), authMiddleware, serveCoinImage('obverse'));
-router.get('/entry/:entryId/images/reverse', validateObjectId('entryId'), authMiddleware, serveCoinImage('reverse'));
-router.post('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, uploadFields, processCoinImage, updateCoinImages);
-router.delete('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, resetCoinImages);
+router.get('/entry/:entryId/images/obverse', validateObjectId('entryId'), authMiddleware, requireOwnedCollectionEntry, serveCoinImage('obverse'));
+router.get('/entry/:entryId/images/reverse', validateObjectId('entryId'), authMiddleware, requireOwnedCollectionEntry, serveCoinImage('reverse'));
+router.post('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, requireOwnedCollectionEntry, uploadFields, processCoinImage, updateCoinImages);
+router.delete('/entry/:entryId/images', validateObjectId('entryId'), authMiddleware, requireOwnedCollectionEntry, resetCoinImages);
 
 // Validate coin images without persisting — used by the add-coin flow to check
 // images before the collection entry is created, so a bad image never leaves

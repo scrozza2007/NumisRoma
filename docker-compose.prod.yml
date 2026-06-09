@@ -46,7 +46,7 @@ services:
     ports: !reset []
 
   mongo-backup:
-    image: mongo:8.0
+    image: mongo:7.0
     restart: unless-stopped
     volumes:
       - ${BACKUP_DIR:?BACKUP_DIR is required}:/backups

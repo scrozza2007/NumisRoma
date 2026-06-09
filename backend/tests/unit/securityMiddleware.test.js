@@ -5,6 +5,7 @@
 const request = require('supertest');
 const express = require('express');
 const { securityHeaders, generalLimiter, authLimiter, contactLimiter } = require('../../src/middlewares/security');
+const { RATE_LIMITS } = require('../../src/config/constants');
 
 describe('Security Middleware', () => {
   const OLD_NODE_ENV = process.env.NODE_ENV;
@@ -284,7 +285,7 @@ describe('Security Middleware', () => {
 
       const limit = parseInt(response.headers['ratelimit-limit']);
       
-      expect(limit).toBe(300);
+      expect(limit).toBe(RATE_LIMITS.GENERAL.max);
     });
 
     test('should reset rate limits after window expires', async () => {

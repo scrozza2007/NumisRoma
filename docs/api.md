@@ -1090,8 +1090,8 @@ Validation errors (400) include an `errors` array with per-field details.
 
 | Scope | Limit |
 |-------|-------|
-| General | 300 req / 15 min per IP |
+| General | 3,000 req / 15 min per IP |
 | Auth routes | 20 req / 15 min per IP |
 | Contact form | 5 req / hour per IP |
-| Search (`GET /api/coins`) | 30 req / min per IP |
-| Filter options | 10 req / min per IP |
+| Search (`GET /api/coins`) | 120 req / min per IP |
+| Filter options | 120 req / min per IP |
